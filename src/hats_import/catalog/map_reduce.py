@@ -4,6 +4,7 @@ import pickle
 
 import hats.pixel_math.healpix_shim as hp
 import numpy as np
+import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 from hats import pixel_math
@@ -50,7 +51,7 @@ def _iterate_input_file(
 
     for chunk_number, data in enumerate(file_reader.read(input_file, read_columns=read_columns)):
         if use_healpix_29:
-            if data.index.name == SPATIAL_INDEX_COLUMN:
+            if isinstance(data, pd.DataFrame) and data.index.name == SPATIAL_INDEX_COLUMN:
                 mapped_pixels = spatial_index_to_healpix(data.index, target_order=highest_order)
             else:
                 mapped_pixels = spatial_index_to_healpix(
@@ -58,13 +59,22 @@ def _iterate_input_file(
                 )
         else:
             # Set up the pixel data
-            mapped_pixels = hp.ang2pix(
-                2**highest_order,
-                data[ra_column].to_numpy(copy=False, dtype=float),
-                data[dec_column].to_numpy(copy=False, dtype=float),
-                lonlat=True,
-                nest=True,
-            )
+            if isinstance(data, pd.DataFrame):
+                mapped_pixels = hp.ang2pix(
+                    2**highest_order,
+                    data[ra_column].to_numpy(copy=False, dtype=float),
+                    data[dec_column].to_numpy(copy=False, dtype=float),
+                    lonlat=True,
+                    nest=True,
+                )
+            else:
+                mapped_pixels = hp.ang2pix(
+                    2**highest_order,
+                    data[ra_column].to_numpy(),
+                    data[dec_column].to_numpy(),
+                    lonlat=True,
+                    nest=True,
+                )
         yield chunk_number, data, mapped_pixels
 
 
@@ -168,17 +178,20 @@ def split_pixels(
             unique_pixels, unique_inverse = np.unique(aligned_pixels, return_inverse=True)
 
             for unique_index, [order, pixel, _] in enumerate(unique_pixels):
-                filtered_data = data.iloc[unique_inverse == unique_index]
-
                 pixel_dir = get_pixel_cache_directory(cache_shard_path, HealpixPixel(order, pixel))
                 file_io.make_directory(pixel_dir, exist_ok=True)
                 output_file = file_io.append_paths_to_pointer(
                     pixel_dir, f"shard_{splitting_key}_{chunk_number}.parquet"
                 )
-                if _has_named_index(filtered_data):
-                    filtered_data.to_parquet(output_file.path, index=True, filesystem=output_file.fs)
+                if isinstance(data, pd.DataFrame):
+                    filtered_data = data.iloc[unique_inverse == unique_index]
+                    if _has_named_index(filtered_data):
+                        filtered_data = filtered_data.reset_index()
+                    filtered_data = pa.Table.from_pandas(filtered_data, preserve_index=False)
                 else:
-                    filtered_data.to_parquet(output_file.path, index=False, filesystem=output_file.fs)
+                    filtered_data = data.filter(unique_inverse == unique_index)
+
+                pq.write_table(filtered_data, output_file.path, filesystem=output_file.fs)
                 del filtered_data
 
         ResumePlan.splitting_key_done(tmp_path=resume_path, splitting_key=splitting_key)
@@ -258,15 +271,10 @@ def reduce_pixel_shards(
         if use_schema_file:
             schema = file_io.read_parquet_metadata(use_schema_file).schema.to_arrow_schema()
 
-        tables = []
+        healpix_pixel = HealpixPixel(destination_pixel_order, destination_pixel_number)
         pixel_dir = get_pixel_cache_directory(cache_shard_path, healpix_pixel)
 
-        if schema:
-            tables.append(pq.read_table(pixel_dir, schema=schema))
-        else:
-            tables.append(pq.read_table(pixel_dir))
-
-        merged_table = pa.concat_tables(tables)
+        merged_table = pq.read_table(pixel_dir, schema=schema)
 
         rows_written = len(merged_table)
 
@@ -277,38 +285,36 @@ def reduce_pixel_shards(
                 f" Expected {destination_pixel_size}, wrote {rows_written}"
             )
 
-        dataframe = merged_table.to_pandas()
         if sort_columns:
-            dataframe = dataframe.sort_values(sort_columns.split(","), kind="stable")
+            split_columns = sort_columns.split(",")
+            if len(split_columns) > 1:
+                merged_table = merged_table.sort_by([(col_name, "ascending") for col_name in split_columns])
+            else:
+                merged_table = merged_table.sort_by(sort_columns)
         if add_healpix_29:
-            ## If we had a meaningful index before, preserve it as a column.
-            if _has_named_index(dataframe):
-                dataframe = dataframe.reset_index()
-
-            dataframe[SPATIAL_INDEX_COLUMN] = pixel_math.compute_spatial_index(
-                dataframe[ra_column].values,
-                dataframe[dec_column].values,
-            )
-            dataframe = dataframe.set_index(SPATIAL_INDEX_COLUMN).sort_index(kind="stable")
-
-            # Adjust the schema to make sure that the _healpix_29 will
-            # be saved as a uint64
+            merged_table = merged_table.add_column(
+                0,
+                SPATIAL_INDEX_COLUMN,
+                [
+                    pixel_math.compute_spatial_index(
+                        merged_table[ra_column].to_numpy(),
+                        merged_table[dec_column].to_numpy(),
+                    )
+                ],
+            ).sort_by(SPATIAL_INDEX_COLUMN)
         elif use_healpix_29:
-            if dataframe.index.name != SPATIAL_INDEX_COLUMN:
-                dataframe = dataframe.set_index(SPATIAL_INDEX_COLUMN)
-            dataframe = dataframe.sort_index(kind="stable")
+            merged_table = merged_table.sort_by(SPATIAL_INDEX_COLUMN)
 
-        dataframe["Norder"] = np.full(rows_written, fill_value=healpix_pixel.order, dtype=np.uint8)
-        dataframe["Dir"] = np.full(rows_written, fill_value=healpix_pixel.dir, dtype=np.uint64)
-        dataframe["Npix"] = np.full(rows_written, fill_value=healpix_pixel.pixel, dtype=np.uint64)
+        merged_table = (
+            merged_table.append_column(
+                "Norder", [np.full(rows_written, fill_value=healpix_pixel.order, dtype=np.uint8)]
+            )
+            .append_column("Dir", [np.full(rows_written, fill_value=healpix_pixel.dir, dtype=np.uint64)])
+            .append_column("Npix", [np.full(rows_written, fill_value=healpix_pixel.pixel, dtype=np.uint64)])
+        )
 
-        if schema:
-            schema = _modify_arrow_schema(schema, add_healpix_29)
-            dataframe.to_parquet(destination_file.path, schema=schema, filesystem=destination_file.fs)
-        else:
-            dataframe.to_parquet(destination_file.path, filesystem=destination_file.fs)
-
-        del dataframe, merged_table, tables
+        pq.write_table(merged_table, destination_file.path, filesystem=destination_file.fs)
+        del merged_table
 
         if delete_input_files:
             pixel_dir = get_pixel_cache_directory(cache_shard_path, healpix_pixel)
@@ -322,18 +328,3 @@ def reduce_pixel_shards(
             exception,
         )
         raise exception
-
-
-def _modify_arrow_schema(schema, add_healpix_29):
-    if add_healpix_29:
-        pandas_index_column = schema.get_field_index("__index_level_0__")
-        if pandas_index_column != -1:
-            schema = schema.remove(pandas_index_column)
-        schema = schema.insert(0, pa.field(SPATIAL_INDEX_COLUMN, pa.int64()))
-    schema = (
-        schema.append(pa.field("Norder", pa.uint8()))
-        .append(pa.field("Dir", pa.uint64()))
-        .append(pa.field("Npix", pa.uint64()))
-    )
-
-    return schema

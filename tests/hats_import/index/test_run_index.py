@@ -92,9 +92,9 @@ def test_run_index_on_source(
 
     basic_index_parquet_schema = pa.schema(
         [
-            pa.field("_healpix_29", pa.int64()),
             pa.field("mag", pa.float64()),
             pa.field("band", pa.large_string()),
+            pa.field("_healpix_29", pa.int64()),
             pa.field("Norder", pa.uint8()),
             pa.field("Dir", pa.uint64()),
             pa.field("Npix", pa.uint64()),

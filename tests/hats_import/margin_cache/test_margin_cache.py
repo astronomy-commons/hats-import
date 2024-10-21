@@ -48,6 +48,7 @@ def test_margin_cache_gen(small_sky_source_catalog, tmp_path, dask_client):
     npt.assert_array_equal(
         data.columns,
         [
+            "_healpix_29",
             "source_id",
             "source_ra",
             "source_dec",
@@ -65,7 +66,6 @@ def test_margin_cache_gen(small_sky_source_catalog, tmp_path, dask_client):
             "margin_Npix",
         ],
     )
-    assert data.index.name == "_healpix_29"
 
     catalog = HealpixDataset.read_hats(args.catalog_path)
     assert catalog.on_disk

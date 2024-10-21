@@ -17,10 +17,11 @@ import pyarrow.parquet as pq
 import pytest
 from hats.catalog.catalog import Catalog
 from hats.pixel_math.spatial_index import spatial_index_to_healpix
+from pyarrow import csv
 
 import hats_import.catalog.run_import as runner
 from hats_import.catalog.arguments import ImportArguments
-from hats_import.catalog.file_readers import CsvReader, get_file_reader
+from hats_import.catalog.file_readers import CsvReader, ParquetPyarrowReader, get_file_reader
 
 
 @pytest.mark.dask
@@ -101,6 +102,7 @@ def test_import_mixed_schema_csv(
     # Check that the schema is correct for leaf parquet and _metadata files
     expected_parquet_schema = pa.schema(
         [
+            pa.field("_healpix_29", pa.int64()),
             pa.field("id", pa.int64()),
             pa.field("ra", pa.float64()),
             pa.field("dec", pa.float64()),
@@ -111,7 +113,6 @@ def test_import_mixed_schema_csv(
             pa.field("Norder", pa.uint8()),
             pa.field("Dir", pa.uint64()),
             pa.field("Npix", pa.uint64()),
-            pa.field("_healpix_29", pa.int64()),
         ]
     )
     schema = pq.read_metadata(output_file).schema.to_arrow_schema()
@@ -130,9 +131,8 @@ def test_import_preserve_index(
 ):
     """Test basic execution, with input with pandas metadata.
     - the input file is a parquet file with some pandas metadata.
-        this verifies that the parquet file at the end also has pandas
-        metadata, and the user's preferred id is retained as the index,
-        when requested.
+        this verifies that the parquet file at the end also still has the
+        contents of that column.
     """
 
     expected_indexes = [
@@ -171,12 +171,10 @@ def test_import_preserve_index(
     # Check that the catalog parquet file exists
     output_file = os.path.join(args.catalog_path, "dataset", "Norder=0", "Dir=0", "Npix=11.parquet")
 
-    assert_parquet_file_index(output_file, expected_indexes)
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
-    assert data_frame.index.name == "obs_id"
     npt.assert_array_equal(
         data_frame.columns,
-        ["obj_id", "band", "ra", "dec", "mag", "Norder", "Dir", "Npix"],
+        ["obs_id", "obj_id", "band", "ra", "dec", "mag", "Norder", "Dir", "Npix"],
     )
 
     ## DO generate a hats spatial index. Verify that the original index is preserved in a column.
@@ -198,10 +196,9 @@ def test_import_preserve_index(
     output_file = os.path.join(args.catalog_path, "dataset", "Norder=0", "Dir=0", "Npix=11.parquet")
 
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
-    assert data_frame.index.name == "_healpix_29"
     npt.assert_array_equal(
         data_frame.columns,
-        ["obs_id", "obj_id", "band", "ra", "dec", "mag", "Norder", "Dir", "Npix"],
+        ["_healpix_29", "obs_id", "obj_id", "band", "ra", "dec", "mag", "Norder", "Dir", "Npix"],
     )
     assert_parquet_file_ids(output_file, "obs_id", expected_indexes)
 
@@ -488,6 +485,167 @@ def test_import_starr_file(
     assert_parquet_file_ids(output_file, "id", expected_ids)
 
 
+class PyarrowCsvReader(CsvReader):
+    """Use pyarrow for CSV reading, and force some pyarrow dtypes.
+    Return a pyarrow table instead of pd.DataFrame."""
+
+    def read(self, input_file, read_columns=None):
+        table = csv.read_csv(input_file)
+        extras = pa.array([[True, False, True]] * len(table), type=pa.list_(pa.bool_(), 3))
+        table = table.append_column("extras", extras)
+        yield table
+
+
+@pytest.mark.dask
+def test_import_pyarrow_types(
+    dask_client,
+    small_sky_single_file,
+    assert_parquet_file_ids,
+    tmp_path,
+):
+    """Test basic execution.
+    - tests that we can run pipeline with a totally unknown file type, so long
+      as a valid InputReader implementation is provided.
+    """
+
+    args = ImportArguments(
+        output_artifact_name="pyarrow_dtype",
+        input_file_list=[small_sky_single_file],
+        file_reader=PyarrowCsvReader(),
+        output_path=tmp_path,
+        dask_tmp=tmp_path,
+        highest_healpix_order=2,
+        pixel_threshold=3_000,
+        progress_bar=False,
+    )
+
+    runner.run(args, dask_client)
+
+    # Check that the catalog metadata file exists
+    catalog = Catalog.read_hats(args.catalog_path)
+    assert catalog.on_disk
+    assert catalog.catalog_path == args.catalog_path
+    assert catalog.catalog_info.total_rows == 131
+    assert len(catalog.get_healpix_pixels()) == 1
+
+    # Check that the catalog parquet file exists and contains correct object IDs
+    output_file = args.catalog_path / "dataset" / "Norder=0" / "Dir=0" / "Npix=11.parquet"
+
+    expected_ids = [*range(700, 831)]
+    assert_parquet_file_ids(output_file, "id", expected_ids)
+
+    expected_parquet_schema = pa.schema(
+        [
+            pa.field("_healpix_29", pa.int64()),
+            pa.field("id", pa.int64()),
+            pa.field("ra", pa.float64()),
+            pa.field("dec", pa.float64()),
+            pa.field("ra_error", pa.int64()),
+            pa.field("dec_error", pa.int64()),
+            pa.field("extras", pa.list_(pa.bool_(), 3)),  # The 3 is the length for `fixed_size_list`
+            pa.field("Norder", pa.uint8()),
+            pa.field("Dir", pa.uint64()),
+            pa.field("Npix", pa.uint64()),
+        ]
+    )
+    schema = pq.read_metadata(output_file).schema.to_arrow_schema()
+    assert schema.equals(expected_parquet_schema, check_metadata=False)
+    schema = pq.read_metadata(args.catalog_path / "dataset" / "_metadata").schema.to_arrow_schema()
+    assert schema.equals(expected_parquet_schema, check_metadata=False)
+
+
+class SimplePyarrowCsvReader(CsvReader):
+    """Use pyarrow for CSV reading, and force some pyarrow dtypes.
+    Return a pyarrow table instead of pd.DataFrame."""
+
+    def read(self, input_file, read_columns=None):
+        yield csv.read_csv(input_file)
+
+
+@pytest.mark.dask
+def test_import_healpix_29_pyarrow_table_csv(
+    dask_client,
+    small_sky_single_file,
+    assert_parquet_file_ids,
+    tmp_path,
+):
+    """Should be identical to the above test, but uses the ParquetPyarrowReader."""
+    args = ImportArguments(
+        output_artifact_name="small_sky_pyarrow",
+        input_file_list=[small_sky_single_file],
+        file_reader=SimplePyarrowCsvReader(),
+        output_path=tmp_path,
+        dask_tmp=tmp_path,
+        highest_healpix_order=2,
+        pixel_threshold=3_000,
+        progress_bar=False,
+    )
+
+    runner.run(args, dask_client)
+
+    # Check that the catalog metadata file exists
+    catalog = Catalog.read_hats(args.catalog_path)
+    assert catalog.on_disk
+    assert catalog.catalog_path == args.catalog_path
+    assert catalog.catalog_info.total_rows == 131
+    assert len(catalog.get_healpix_pixels()) == 1
+
+    # Check that the catalog parquet file exists and contains correct object IDs
+    output_file = args.catalog_path / "dataset" / "Norder=0" / "Dir=0" / "Npix=11.parquet"
+
+    expected_ids = [*range(700, 831)]
+    assert_parquet_file_ids(output_file, "id", expected_ids)
+    data_frame = pd.read_parquet(output_file, engine="pyarrow")
+    assert data_frame.index.name is None
+    npt.assert_array_equal(
+        data_frame.columns,
+        ["_healpix_29", "id", "ra", "dec", "ra_error", "dec_error", "Norder", "Dir", "Npix"],
+    )
+
+
+@pytest.mark.dask
+def test_import_healpix_29_pyarrow_table_parquet(
+    dask_client,
+    formats_dir,
+    assert_parquet_file_ids,
+    tmp_path,
+):
+    """Should be identical to the above test, but uses the ParquetPyarrowReader."""
+    input_file = formats_dir / "healpix_29_index.parquet"
+    args = ImportArguments(
+        output_artifact_name="using_healpix_index",
+        input_file_list=[input_file],
+        file_reader=ParquetPyarrowReader(),
+        output_path=tmp_path,
+        dask_tmp=tmp_path,
+        use_healpix_29=True,
+        highest_healpix_order=2,
+        pixel_threshold=3_000,
+        progress_bar=False,
+    )
+
+    runner.run(args, dask_client)
+
+    # Check that the catalog metadata file exists
+    catalog = Catalog.read_hats(args.catalog_path)
+    assert catalog.on_disk
+    assert catalog.catalog_path == args.catalog_path
+    assert catalog.catalog_info.total_rows == 131
+    assert len(catalog.get_healpix_pixels()) == 1
+
+    # Check that the catalog parquet file exists and contains correct object IDs
+    output_file = args.catalog_path / "dataset" / "Norder=0" / "Dir=0" / "Npix=11.parquet"
+
+    expected_ids = [*range(700, 831)]
+    assert_parquet_file_ids(output_file, "id", expected_ids)
+    data_frame = pd.read_parquet(output_file, engine="pyarrow")
+
+    npt.assert_array_equal(
+        data_frame.columns,
+        ["id", "_healpix_29", "Norder", "Dir", "Npix"],
+    )
+
+
 @pytest.mark.dask
 def test_import_healpix_29(
     dask_client,
@@ -535,10 +693,9 @@ def test_import_healpix_29(
     expected_ids = [*range(700, 831)]
     assert_parquet_file_ids(output_file, "id", expected_ids)
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
-    assert data_frame.index.name == "_healpix_29"
     npt.assert_array_equal(
         data_frame.columns,
-        ["id", "Norder", "Dir", "Npix"],
+        ["_healpix_29", "id", "Norder", "Dir", "Npix"],
     )
 
 
@@ -578,10 +735,9 @@ def test_import_healpix_29_no_pandas(
     expected_ids = [*range(700, 831)]
     assert_parquet_file_ids(output_file, "id", expected_ids)
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
-    assert data_frame.index.name == "_healpix_29"
     npt.assert_array_equal(
         data_frame.columns,
-        ["id", "magnitude", "nobs", "Norder", "Dir", "Npix"],
+        ["id", "_healpix_29", "magnitude", "nobs", "Norder", "Dir", "Npix"],
     )
 
 
@@ -627,8 +783,7 @@ def test_import_gaia_minimum(
     data_frame = pd.read_parquet(output_file)
 
     # Make sure that the spatial index values match the pixel for the partition (0,5)
-    assert data_frame.index.name == "_healpix_29"
-    spatial_index_pixels = spatial_index_to_healpix(data_frame.index.values, 0)
+    spatial_index_pixels = spatial_index_to_healpix(data_frame["_healpix_29"].values, 0)
     npt.assert_array_equal(spatial_index_pixels, [5, 5, 5])
 
     column_names = data_frame.columns
@@ -676,6 +831,7 @@ def test_gaia_ecsv(
     # Check that the schema is correct for leaf parquet and _metadata files
     expected_parquet_schema = pa.schema(
         [
+            pa.field("_healpix_29", pa.int64()),
             pa.field("solution_id", pa.int64()),
             pa.field("source_id", pa.int64()),
             pa.field("ra", pa.float64()),
@@ -729,7 +885,6 @@ def test_gaia_ecsv(
             pa.field("Norder", pa.uint8()),
             pa.field("Dir", pa.uint64()),
             pa.field("Npix", pa.uint64()),
-            pa.field("_healpix_29", pa.int64()),
         ]
     )
 

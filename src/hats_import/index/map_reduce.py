@@ -17,8 +17,9 @@ def read_leaf_file(input_file, include_columns, include_healpix_29, drop_duplica
         schema=schema,
     )
 
-    data = data.reset_index()
-    if not include_healpix_29:
+    if data.index.name == SPATIAL_INDEX_COLUMN:
+        data = data.reset_index()
+    if not include_healpix_29 and SPATIAL_INDEX_COLUMN in data.columns:
         data = data.drop(columns=[SPATIAL_INDEX_COLUMN])
 
     if drop_duplicates:
@@ -32,6 +33,8 @@ def create_index(args, client):
     include_columns = [args.indexing_column]
     if args.extra_columns:
         include_columns.extend(args.extra_columns)
+    if args.include_healpix_29:
+        include_columns.append(SPATIAL_INDEX_COLUMN)
     if args.include_order_pixel:
         include_columns.extend(["Norder", "Dir", "Npix"])
 

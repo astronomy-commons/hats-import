@@ -205,7 +205,7 @@ def test_create_index_extra_columns(
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
     npt.assert_array_equal(
         data_frame.columns,
-        ["_healpix_29", "source_ra", "Norder", "Dir", "Npix"],
+        ["source_ra", "_healpix_29", "Norder", "Dir", "Npix"],
     )
     assert data_frame.index.name == "object_id"
     assert len(data_frame) == 17161

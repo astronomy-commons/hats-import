@@ -278,6 +278,7 @@ def test_dask_runner(
     # Check that the schema is correct for leaf parquet and _metadata files
     expected_parquet_schema = pa.schema(
         [
+            pa.field("_healpix_29", pa.int64()),
             pa.field("id", pa.int64()),
             pa.field("ra", pa.float32()),
             pa.field("dec", pa.float32()),
@@ -286,7 +287,6 @@ def test_dask_runner(
             pa.field("Norder", pa.uint8()),
             pa.field("Dir", pa.uint64()),
             pa.field("Npix", pa.uint64()),
-            pa.field("_healpix_29", pa.int64()),
         ]
     )
     schema = pq.read_metadata(output_file).schema.to_arrow_schema()
@@ -298,6 +298,7 @@ def test_dask_runner(
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
     expected_dtypes = pd.Series(
         {
+            "_healpix_29": np.int64,
             "id": np.int64,
             "ra": np.float32,
             "dec": np.float32,
