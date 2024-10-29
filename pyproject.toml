@@ -17,7 +17,7 @@ dynamic = ["version"]
 dependencies = [
     "dask[complete]>=2024.3.0", # Includes dask expressions.
     "deprecated",
-    "hats >=0.4",
+    "hats >=0.4.2",
     "numpy",
     "pandas",
     "pyarrow",
@@ -39,7 +39,7 @@ dev = [
     "pytest-timeout",
     "ray", # Used for dask-on-ray testing.
 ]
-extra = [
+full = [
     "fsspec[full]", # complete file system specs.
     "ipykernel", # Support for Jupyter notebooks
     "ipywidgets", # useful for tqdm in notebooks.

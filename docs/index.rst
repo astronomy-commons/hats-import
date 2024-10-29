@@ -14,6 +14,18 @@ need to install or upgrade versions of dependencies to work with hats-import.
     pip install hats-import
 
 .. tip::
+    Installing optional dependencies
+
+    There are some extra dependencies that can make running hats-import in a jupyter
+    environment easier, or connecting to a variety of remote file systems.
+
+    These can be installed with the ``full`` extra.
+
+    .. code-block:: console
+
+        >> pip install hats-import[full]
+
+.. tip::
     Installing on Mac
 
     ``healpy`` is a very necessary dependency for hats libraries at this time, but
@@ -25,6 +37,8 @@ need to install or upgrade versions of dependencies to work with hats-import.
 
         >> conda config --append channels conda-forge
         >> conda install healpy
+
+
 
 Setting up a pipeline
 -------------------------------------------------------------------------------
