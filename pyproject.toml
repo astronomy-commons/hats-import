@@ -18,12 +18,9 @@ dependencies = [
     "dask[complete]>=2024.3.0", # Includes dask expressions.
     "deprecated",
     "hats >=0.4",
-    "ipykernel", # Support for Jupyter notebooks
     "numpy",
     "pandas",
     "pyarrow",
-    "pyyaml",
-    "scipy",
     "tqdm",
     "universal_pathlib",
 ]
@@ -41,7 +38,11 @@ dev = [
     "pytest-cov",
     "pytest-timeout",
     "ray", # Used for dask-on-ray testing.
-    "types-PyYAML", # type stubs for pyyaml
+]
+extra = [
+    "fsspec[full]", # complete file system specs.
+    "ipykernel", # Support for Jupyter notebooks
+    "ipywidgets", # useful for tqdm in notebooks.
 ]
 
 [build-system]
