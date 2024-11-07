@@ -290,9 +290,9 @@ def test_dask_runner(
         ]
     )
     schema = pq.read_metadata(output_file).schema.to_arrow_schema()
-    assert schema.equals(expected_parquet_schema, check_metadata=False)
+    assert schema.equals(expected_parquet_schema)
     schema = pq.read_metadata(args.catalog_path / "dataset" / "_metadata").schema.to_arrow_schema()
-    assert schema.equals(expected_parquet_schema, check_metadata=False)
+    assert schema.equals(expected_parquet_schema)
 
     # Check that, when re-loaded as a pandas dataframe, the appropriate numeric types are used.
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
