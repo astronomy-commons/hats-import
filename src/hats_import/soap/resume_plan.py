@@ -6,9 +6,8 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
 import hats.pixel_math.healpix_shim as hp
-from hats import pixel_math
 import numpy as np
-from hats import read_hats
+from hats import pixel_math, read_hats
 from hats.catalog import Catalog
 from hats.io import file_io
 from hats.pixel_math.healpix_pixel import HealpixPixel
