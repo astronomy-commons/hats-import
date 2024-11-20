@@ -116,9 +116,9 @@ def test_import_mixed_schema_csv(
         ]
     )
     schema = pq.read_metadata(output_file).schema.to_arrow_schema()
-    assert schema.equals(expected_parquet_schema, check_metadata=False)
+    assert schema.equals(expected_parquet_schema)
     schema = pq.read_metadata(args.catalog_path / "dataset" / "_metadata").schema.to_arrow_schema()
-    assert schema.equals(expected_parquet_schema, check_metadata=False)
+    assert schema.equals(expected_parquet_schema)
 
 
 @pytest.mark.dask
@@ -549,9 +549,9 @@ def test_import_pyarrow_types(
         ]
     )
     schema = pq.read_metadata(output_file).schema.to_arrow_schema()
-    assert schema.equals(expected_parquet_schema, check_metadata=False)
+    assert schema.equals(expected_parquet_schema)
     schema = pq.read_metadata(args.catalog_path / "dataset" / "_metadata").schema.to_arrow_schema()
-    assert schema.equals(expected_parquet_schema, check_metadata=False)
+    assert schema.equals(expected_parquet_schema)
 
 
 class SimplePyarrowCsvReader(CsvReader):
@@ -896,13 +896,13 @@ def test_gaia_ecsv(
     expected_parquet_schema = pq.read_metadata(schema_path).schema.to_arrow_schema()
 
     schema = pq.read_metadata(output_file).schema.to_arrow_schema()
-    assert schema.equals(expected_parquet_schema, check_metadata=False)
+    assert schema.equals(expected_parquet_schema)
     schema = pq.read_metadata(args.catalog_path / "dataset" / "_metadata").schema.to_arrow_schema()
-    assert schema.equals(expected_parquet_schema, check_metadata=False)
+    assert schema.equals(expected_parquet_schema)
     schema = pq.read_metadata(args.catalog_path / "dataset" / "_common_metadata").schema.to_arrow_schema()
-    assert schema.equals(expected_parquet_schema, check_metadata=False)
+    assert schema.equals(expected_parquet_schema)
     schema = pds.dataset(args.catalog_path, format="parquet").schema
-    assert schema.equals(expected_parquet_schema, check_metadata=False)
+    assert schema.equals(expected_parquet_schema)
 
 
 @pytest.mark.dask

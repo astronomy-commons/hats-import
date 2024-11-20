@@ -110,7 +110,7 @@ def test_object_to_source_with_leaves(
             pa.field("join_Npix", pa.uint64()),
         ]
     )
-    assert parquet_file.metadata.schema.to_arrow_schema().equals(exepcted_schema, check_metadata=False)
+    assert parquet_file.metadata.schema.to_arrow_schema().equals(exepcted_schema)
 
 
 @pytest.mark.dask
@@ -161,4 +161,4 @@ def test_object_to_source_with_leaves_drop_duplicates(
             pa.field("join_Npix", pa.uint64()),
         ]
     )
-    assert parquet_file.metadata.schema.to_arrow_schema().equals(exepcted_schema, check_metadata=False)
+    assert parquet_file.metadata.schema.to_arrow_schema().equals(exepcted_schema)

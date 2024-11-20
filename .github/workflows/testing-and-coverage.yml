@@ -32,9 +32,6 @@ jobs:
     - name: Run unit tests with pytest
       run: |
         python -m pytest tests --cov=hats_import --cov-report=xml
-    - name: Run dask-on-ray tests with pytest
-      run: |
-        python -m pytest tests --use_ray
     - name: Upload coverage report to codecov
       uses: codecov/codecov-action@v4
       with:

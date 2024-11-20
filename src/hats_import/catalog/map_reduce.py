@@ -187,7 +187,9 @@ def split_pixels(
                     filtered_data = data.iloc[unique_inverse == unique_index]
                     if _has_named_index(filtered_data):
                         filtered_data = filtered_data.reset_index()
-                    filtered_data = pa.Table.from_pandas(filtered_data, preserve_index=False)
+                    filtered_data = pa.Table.from_pandas(
+                        filtered_data, preserve_index=False
+                    ).replace_schema_metadata()
                 else:
                     filtered_data = data.filter(unique_inverse == unique_index)
 

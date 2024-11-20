@@ -49,6 +49,7 @@ container class that you will need to instantiate and populate with relevant arg
 See dataset-specific notes on arguments:
 
 * :doc:`catalogs/arguments` (most common)
+* :doc:`guide/hipscat_conversion`
 * :doc:`guide/margin_cache`
 * :doc:`guide/index_table`
 
@@ -79,6 +80,7 @@ threading issues with dask:
    :caption: Catalogs
 
    catalogs/arguments
+   guide/hipscat_conversion
    catalogs/temp_files
    catalogs/public/index
 
