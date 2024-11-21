@@ -169,5 +169,6 @@ def _write_nested_fits_map(input_dir, output_dir):
                 map_fits_image = hp.read_map(_tmp_file.name)
             else:
                 map_fits_image = map_fits_image[0]
+    map_fits_image = map_fits_image.astype(np.int32)
 
     file_io.write_fits_image(map_fits_image, output_dir / "point_map.fits")
