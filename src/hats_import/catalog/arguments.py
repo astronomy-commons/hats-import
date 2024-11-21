@@ -105,8 +105,8 @@ class ImportArguments(RuntimeArguments):
                 raise ValueError("pixel_threshold should be between 100 and 1,000,000,000")
             self.mapping_healpix_order = self.highest_healpix_order
 
-        if self.catalog_type not in ("source", "object"):
-            raise ValueError("catalog_type should be one of `source` or `object`")
+        if self.catalog_type not in ("source", "object", "map"):
+            raise ValueError("catalog_type should be one of `source`, `object`, or `map`")
 
         if self.file_reader is None:
             raise ValueError("file_reader is required")

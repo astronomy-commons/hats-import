@@ -42,6 +42,7 @@ full = [
     "fsspec[full]", # complete file system specs.
     "ipykernel", # Support for Jupyter notebooks
     "ipywidgets", # useful for tqdm in notebooks.
+    "healpy", # used only in hipscat conversion
 ]
 
 [build-system]

@@ -4,7 +4,7 @@ import json
 import tempfile
 from typing import no_type_check
 
-import hats.pixel_math.healpix_shim as hp
+import healpy as hp
 import numpy as np
 import pyarrow.parquet as pq
 from dask.distributed import as_completed, get_worker
@@ -169,11 +169,6 @@ def _write_nested_fits_map(input_dir, output_dir):
                 map_fits_image = hp.read_map(_tmp_file.name)
             else:
                 map_fits_image = map_fits_image[0]
+    map_fits_image = map_fits_image.astype(np.int32)
 
-    output_file = output_dir / "point_map.fits"
-    with tempfile.NamedTemporaryFile() as _tmp_file:
-        with output_file.open("wb") as _map_file:
-            hp.write_map(
-                _tmp_file.name, map_fits_image, overwrite=True, dtype=np.int32, nest=True, coord="CEL"
-            )
-            _map_file.write(_tmp_file.read())
+    file_io.write_fits_image(map_fits_image, output_dir / "point_map.fits")

@@ -67,9 +67,7 @@ class MarginCacheArguments(RuntimeArguments):
                 "margin_order must be of a higher order than the highest order catalog partition pixel."
             )
 
-        margin_pixel_nside = hp.order2nside(self.margin_order)
-        margin_pixel_avgsize = hp.nside2resol(margin_pixel_nside, arcmin=True)
-        margin_pixel_mindist = hp.avgsize2mindist(margin_pixel_avgsize)
+        margin_pixel_mindist = hp.order2mindist(self.margin_order)
         if margin_pixel_mindist * 60.0 < self.margin_threshold:
             raise ValueError("margin pixels must be larger than margin_threshold")
 
