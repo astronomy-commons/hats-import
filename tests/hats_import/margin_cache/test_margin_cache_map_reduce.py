@@ -211,7 +211,7 @@ def test_reduce_margin_shards(tmp_path):
     hats_indexes = pixel_math.compute_spatial_index(ras, dec)
     margin_order = np.full(360, 0)
     margin_dir = np.full(360, 0)
-    margin_pixels = hp.ang2pix(2**3, ras, dec, lonlat=True, nest=True)
+    margin_pixels = hp.radec2pix(3, ras, dec)
 
     test_df = pd.DataFrame(
         data=zip(hats_indexes, ras, dec, norder, ndir, npix, margin_order, margin_dir, margin_pixels),

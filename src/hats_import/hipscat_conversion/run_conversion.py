@@ -4,6 +4,7 @@ import json
 import tempfile
 from typing import no_type_check
 
+import hats.pixel_math.healpix_shim as healpix
 import healpy as hp
 import numpy as np
 import pyarrow.parquet as pq
@@ -128,12 +129,10 @@ def _convert_partition_file(pixel, args, schema, ra_column, dec_column):
                 0,
                 "_healpix_29",
                 [
-                    hp.ang2pix(
-                        2**29,
+                    healpix.radec2pix(
+                        29,
                         table[ra_column].to_numpy(),
                         table[dec_column].to_numpy(),
-                        nest=True,
-                        lonlat=True,
                     )
                 ],
             )
