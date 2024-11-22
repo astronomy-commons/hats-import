@@ -43,12 +43,10 @@ def map_pixel_shards(
             f"margin_pixel >= {margin_pixel_range_start} and margin_pixel < {margin_pixel_range_end}"
         )
 
-        margin_pixel_list = hp.ang2pix(
-            2**margin_order,
+        margin_pixel_list = hp.radec2pix(
+            margin_order,
             data[ra_column].values,
             data[dec_column].values,
-            lonlat=True,
-            nest=True,
         )
         margin_pixel_filter = pd.DataFrame(
             {"margin_pixel": margin_pixel_list, "filter_value": np.arange(0, len(margin_pixel_list))}
