@@ -5,7 +5,6 @@ import tempfile
 from typing import no_type_check
 
 import hats.pixel_math.healpix_shim as healpix
-import healpy as hp
 import numpy as np
 import pyarrow.parquet as pq
 from dask.distributed import as_completed, get_worker
@@ -155,6 +154,8 @@ def _convert_partition_file(pixel, args, schema, ra_column, dec_column):
 
 
 def _write_nested_fits_map(input_dir, output_dir):
+    import healpy as hp
+
     input_file = input_dir / "point_map.fits"
     if not input_file.exists():
         return
