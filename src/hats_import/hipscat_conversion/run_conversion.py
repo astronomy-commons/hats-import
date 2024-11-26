@@ -38,10 +38,12 @@ def run(args: ConversionArguments, client):
     if catalog_type not in (
         CatalogType.OBJECT,
         CatalogType.SOURCE,
-        CatalogType.MARGIN,
         CatalogType.ASSOCIATION,
     ):
-        raise ValueError("Conversion only implemented for object, source, margin, and association tables")
+        raise ValueError(
+            "Conversion only implemented for object, source, and association tables. "
+            "Other tables should be re-generated."
+        )
 
     catalog_info.pop("epoch", None)
     catalog_info = catalog_info | args.extra_property_dict()
