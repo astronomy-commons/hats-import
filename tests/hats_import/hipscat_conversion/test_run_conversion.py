@@ -24,15 +24,16 @@ def test_bad_args():
         runner.run(args, None)
 
 
+# pylint: disable=unused-import
 try:
     import healpy as hp
 
-    have_healpy = True
+    HAVE_HEALPY = True
 except ImportError:
-    have_healpy = False
+    HAVE_HEALPY = False
 
 
-@pytest.mark.skipif(not have_healpy, reason="healpy is not installed")
+@pytest.mark.skipif(not HAVE_HEALPY, reason="healpy is not installed")
 @pytest.mark.dask
 def test_run_conversion_object(
     test_data_dir,
@@ -97,7 +98,7 @@ def test_run_conversion_object(
     assert data.index.name is None
 
 
-@pytest.mark.skipif(not have_healpy, reason="healpy is not installed")
+@pytest.mark.skipif(not HAVE_HEALPY, reason="healpy is not installed")
 @pytest.mark.dask
 def test_run_conversion_source(
     test_data_dir,
