@@ -17,7 +17,7 @@ dynamic = ["version"]
 dependencies = [
     "dask[complete]>=2024.3.0", # Includes dask expressions.
     "deprecated",
-    "hats >=0.4.2",
+    "hats >=0.4.3",
     "numpy",
     "pandas",
     "pyarrow",
