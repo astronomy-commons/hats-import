@@ -72,7 +72,7 @@ def test_margin_import_gaia_minimum(
 
     data = pd.read_parquet(test_file)
 
-    assert len(data) == 1
+    assert len(data) == 4
 
 
 @pytest.mark.dask(timeout=180)
@@ -117,7 +117,7 @@ def test_margin_import_mixed_schema_csv(
     catalog = read_hats(args.catalog_path)
     assert catalog.on_disk
     assert catalog.catalog_path == args.catalog_path
-    assert len(catalog.get_healpix_pixels()) == 5
+    assert len(catalog.get_healpix_pixels()) == 19
 
     norder = 2
     npix = 187

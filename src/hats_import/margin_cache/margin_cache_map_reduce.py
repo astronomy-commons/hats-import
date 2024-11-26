@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.dataset as ds
-from hats import pixel_math
 from hats.io import file_io, paths
 from hats.pixel_math.healpix_pixel import HealpixPixel
 
@@ -11,7 +10,7 @@ from hats_import.margin_cache.margin_cache_resume_plan import MarginCachePlan
 from hats_import.pipeline_resume_plan import get_pixel_cache_directory, print_task_failure
 
 
-# pylint: disable=too-many-arguments
+# pylint: disable=too-many-arguments, unused-argument
 def map_pixel_shards(
     partition_file,
     mapping_key,
@@ -26,6 +25,9 @@ def map_pixel_shards(
 ):
     """Creates margin cache shards from a source partition file."""
     try:
+        if fine_filtering:
+            raise NotImplementedError("Fine filtering temporarily removed.")
+
         schema = file_io.read_parquet_metadata(original_catalog_metadata).schema.to_arrow_schema()
         data = file_io.read_parquet_file_to_pandas(partition_file, schema=schema)
         source_pixel = HealpixPixel(data["Norder"].iloc[0], data["Npix"].iloc[0])
@@ -41,12 +43,10 @@ def map_pixel_shards(
             f"margin_pixel >= {margin_pixel_range_start} and margin_pixel < {margin_pixel_range_end}"
         )
 
-        margin_pixel_list = hp.ang2pix(
-            2**margin_order,
+        margin_pixel_list = hp.radec2pix(
+            margin_order,
             data[ra_column].values,
             data[dec_column].values,
-            lonlat=True,
-            nest=True,
         )
         margin_pixel_filter = pd.DataFrame(
             {"margin_pixel": margin_pixel_list, "filter_value": np.arange(0, len(margin_pixel_list))}
@@ -78,6 +78,7 @@ def map_pixel_shards(
         raise exception
 
 
+# pylint: disable=too-many-arguments, unused-argument
 def _to_pixel_shard(
     filtered_data,
     pixel,
@@ -89,18 +90,7 @@ def _to_pixel_shard(
     fine_filtering,
 ):
     """Do boundary checking for the cached partition and then output remaining data."""
-    if fine_filtering:
-        margin_check = pixel_math.check_margin_bounds(
-            filtered_data[ra_column].values,
-            filtered_data[dec_column].values,
-            pixel.order,
-            pixel.pixel,
-            margin_threshold,
-        )
-
-        margin_data = filtered_data.iloc[margin_check]
-    else:
-        margin_data = filtered_data
+    margin_data = filtered_data
 
     num_rows = len(margin_data)
     if num_rows:

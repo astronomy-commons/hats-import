@@ -53,7 +53,7 @@ def test_to_pixel_shard_equator(tmp_path, basic_data_shard_df):
 
     assert os.path.exists(path)
 
-    validate_result_dataframe(path, 2)
+    validate_result_dataframe(path, 360)
 
 
 @pytest.mark.timeout(5)
@@ -79,7 +79,7 @@ def test_to_pixel_shard_polar(tmp_path, polar_data_shard_df):
 def test_map_pixel_shards_error(tmp_path, capsys):
     """Test error behavior on reduce stage. e.g. by not creating the original
     catalog parquet files."""
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(NotImplementedError):
         margin_cache_map_reduce.map_pixel_shards(
             paths.pixel_catalog_file(tmp_path, HealpixPixel(1, 0)),
             mapping_key="1_21",
@@ -94,9 +94,10 @@ def test_map_pixel_shards_error(tmp_path, capsys):
         )
 
     captured = capsys.readouterr()
-    assert "Parquet file does not exist" in captured.out
+    assert "Fine filtering temporarily removed" in captured.out
 
 
+@pytest.mark.skip()
 @pytest.mark.timeout(30)
 def test_map_pixel_shards_fine(tmp_path, test_data_dir, small_sky_source_catalog):
     """Test basic mapping behavior, with fine filtering enabled."""
@@ -210,7 +211,7 @@ def test_reduce_margin_shards(tmp_path):
     hats_indexes = pixel_math.compute_spatial_index(ras, dec)
     margin_order = np.full(360, 0)
     margin_dir = np.full(360, 0)
-    margin_pixels = hp.ang2pix(2**3, ras, dec, lonlat=True, nest=True)
+    margin_pixels = hp.radec2pix(3, ras, dec)
 
     test_df = pd.DataFrame(
         data=zip(hats_indexes, ras, dec, norder, ndir, npix, margin_order, margin_dir, margin_pixels),

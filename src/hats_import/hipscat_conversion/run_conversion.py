@@ -4,7 +4,7 @@ import json
 import tempfile
 from typing import no_type_check
 
-import hats.pixel_math.healpix_shim as hp
+import hats.pixel_math.healpix_shim as healpix
 import numpy as np
 import pyarrow.parquet as pq
 from dask.distributed import as_completed, get_worker
@@ -128,12 +128,10 @@ def _convert_partition_file(pixel, args, schema, ra_column, dec_column):
                 0,
                 "_healpix_29",
                 [
-                    hp.ang2pix(
-                        2**29,
+                    healpix.radec2pix(
+                        29,
                         table[ra_column].to_numpy(),
                         table[dec_column].to_numpy(),
-                        nest=True,
-                        lonlat=True,
                     )
                 ],
             )
@@ -155,7 +153,11 @@ def _convert_partition_file(pixel, args, schema, ra_column, dec_column):
         raise exception
 
 
+# pylint: disable=import-outside-toplevel
 def _write_nested_fits_map(input_dir, output_dir):
+    # Healpy is an optional dependency, used only for reads of legacy fits files.
+    import healpy as hp
+
     input_file = input_dir / "point_map.fits"
     if not input_file.exists():
         return
@@ -169,11 +171,6 @@ def _write_nested_fits_map(input_dir, output_dir):
                 map_fits_image = hp.read_map(_tmp_file.name)
             else:
                 map_fits_image = map_fits_image[0]
+    map_fits_image = map_fits_image.astype(np.int32)
 
-    output_file = output_dir / "point_map.fits"
-    with tempfile.NamedTemporaryFile() as _tmp_file:
-        with output_file.open("wb") as _map_file:
-            hp.write_map(
-                _tmp_file.name, map_fits_image, overwrite=True, dtype=np.int32, nest=True, coord="CEL"
-            )
-            _map_file.write(_tmp_file.read())
+    file_io.write_fits_image(map_fits_image, output_dir / "point_map.fits")

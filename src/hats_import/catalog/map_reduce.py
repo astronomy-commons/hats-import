@@ -60,20 +60,16 @@ def _iterate_input_file(
         else:
             # Set up the pixel data
             if isinstance(data, pd.DataFrame):
-                mapped_pixels = hp.ang2pix(
-                    2**highest_order,
+                mapped_pixels = hp.radec2pix(
+                    highest_order,
                     data[ra_column].to_numpy(copy=False, dtype=float),
                     data[dec_column].to_numpy(copy=False, dtype=float),
-                    lonlat=True,
-                    nest=True,
                 )
             else:
-                mapped_pixels = hp.ang2pix(
-                    2**highest_order,
+                mapped_pixels = hp.radec2pix(
+                    highest_order,
                     data[ra_column].to_numpy(),
                     data[dec_column].to_numpy(),
-                    lonlat=True,
-                    nest=True,
                 )
         yield chunk_number, data, mapped_pixels
 
@@ -299,8 +295,8 @@ def reduce_pixel_shards(
                 SPATIAL_INDEX_COLUMN,
                 [
                     pixel_math.compute_spatial_index(
-                        merged_table[ra_column].to_numpy(),
-                        merged_table[dec_column].to_numpy(),
+                        merged_table[ra_column].to_numpy().astype(np.float64),
+                        merged_table[dec_column].to_numpy().astype(np.float64),
                     )
                 ],
             ).sort_by(SPATIAL_INDEX_COLUMN)

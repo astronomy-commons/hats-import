@@ -35,7 +35,7 @@ def test_margin_cache_gen(small_sky_source_catalog, tmp_path, dask_client):
 
     data = pd.read_parquet(test_file)
 
-    assert len(data) == 13
+    assert len(data) == 88
 
     assert all(data[paths.PARTITION_ORDER] == norder)
     assert all(data[paths.PARTITION_PIXEL] == npix)

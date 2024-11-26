@@ -436,12 +436,10 @@ def test_reduce_with_sorting_complex(assert_parquet_file_ids, tmp_path):
     file2_data.to_parquet(shard_dir / "file_2_shard_1.parquet")
 
     combined_data = pd.concat([file1_data, file2_data])
-    combined_data["norder19_healpix"] = hp.ang2pix(
-        2**19,
+    combined_data["norder19_healpix"] = hp.radec2pix(
+        19,
         combined_data["ra"].values,
         combined_data["dec"].values,
-        lonlat=True,
-        nest=True,
     )
     ## Use this to prune generated columns like Norder, Npix, and _healpix_29
     comparison_columns = ["source_id", "object_id", "time", "ra", "dec"]
