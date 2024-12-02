@@ -11,7 +11,7 @@ enforce_style:
 - isort
 failure_notification:
 - slack
-include_benchmarks: true
+include_benchmarks: false
 include_docs: true
 include_notebooks: true
 mypy_type_checking: basic
