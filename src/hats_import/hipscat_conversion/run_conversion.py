@@ -158,7 +158,7 @@ def _convert_partition_file(pixel, args, schema, ra_column, dec_column):
 # pylint: disable=import-outside-toplevel
 def _write_nested_fits_map(input_dir, output_dir):
     # Healpy is an optional dependency, used only for reads of legacy fits files.
-    import healpy as hp
+    import healpy as hp  # pylint: disable=import-error
 
     input_file = input_dir / "point_map.fits"
     if not input_file.exists():
