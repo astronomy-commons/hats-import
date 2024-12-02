@@ -28,7 +28,7 @@ class MarginCacheArguments(RuntimeArguments):
     order of healpix partitioning in the source catalog. if `margin_order` is left
     default or set to -1, then the `margin_order` will be set dynamically to the
     highest partition order plus 1."""
-    fine_filtering: bool = True
+    fine_filtering: bool = False
     """should we perform the precise boundary checking? if false, some results may be
     greater than `margin_threshold` away from the border (but within `margin_order`)."""
 
@@ -54,6 +54,9 @@ class MarginCacheArguments(RuntimeArguments):
             if len(self.catalog.get_healpix_pixels()) == 0:
                 raise ValueError("debug_filter_pixel_list has created empty catalog")
 
+        if self.fine_filtering:
+            raise NotImplementedError("Fine filtering temporarily removed.")
+
         highest_order = int(self.catalog.partition_info.get_highest_order())
 
         if self.margin_order < 0:
@@ -64,9 +67,7 @@ class MarginCacheArguments(RuntimeArguments):
                 "margin_order must be of a higher order than the highest order catalog partition pixel."
             )
 
-        margin_pixel_nside = hp.order2nside(self.margin_order)
-        margin_pixel_avgsize = hp.nside2resol(margin_pixel_nside, arcmin=True)
-        margin_pixel_mindist = hp.avgsize2mindist(margin_pixel_avgsize)
+        margin_pixel_mindist = hp.order2mindist(self.margin_order)
         if margin_pixel_mindist * 60.0 < self.margin_threshold:
             raise ValueError("margin pixels must be larger than margin_threshold")
 

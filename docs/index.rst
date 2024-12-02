@@ -28,7 +28,8 @@ need to install or upgrade versions of dependencies to work with hats-import.
 .. tip::
     Installing on Mac
 
-    ``healpy`` is a very necessary dependency for hats libraries at this time, but
+    ``healpy`` is an optional dependency for hats-import (included in the ``full`` extra)
+    to support converting from older HiPSCat catalogs, but
     native prebuilt binaries for healpy on Apple Silicon Macs 
     `do not yet exist <https://healpy.readthedocs.io/en/latest/install.html#binary-installation-with-pip-recommended-for-most-other-python-users>`_, 
     so it's recommended to install via conda before proceeding to hats-import.
@@ -49,6 +50,7 @@ container class that you will need to instantiate and populate with relevant arg
 See dataset-specific notes on arguments:
 
 * :doc:`catalogs/arguments` (most common)
+* :doc:`guide/hipscat_conversion`
 * :doc:`guide/margin_cache`
 * :doc:`guide/index_table`
 
@@ -79,6 +81,7 @@ threading issues with dask:
    :caption: Catalogs
 
    catalogs/arguments
+   guide/hipscat_conversion
    catalogs/temp_files
    catalogs/public/index
 

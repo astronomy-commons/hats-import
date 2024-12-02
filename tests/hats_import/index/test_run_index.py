@@ -57,13 +57,13 @@ def test_run_index(
 
     outfile = args.catalog_path / "dataset" / "index" / "part.0.parquet"
     schema = pq.read_metadata(outfile).schema.to_arrow_schema()
-    assert schema.equals(basic_index_parquet_schema, check_metadata=False)
+    assert schema.equals(basic_index_parquet_schema)
 
     schema = pq.read_metadata(args.catalog_path / "dataset" / "_metadata").schema.to_arrow_schema()
-    assert schema.equals(basic_index_parquet_schema, check_metadata=False)
+    assert schema.equals(basic_index_parquet_schema)
 
     schema = pq.read_metadata(args.catalog_path / "dataset" / "_common_metadata").schema.to_arrow_schema()
-    assert schema.equals(basic_index_parquet_schema, check_metadata=False)
+    assert schema.equals(basic_index_parquet_schema)
 
 
 @pytest.mark.dask
@@ -104,13 +104,13 @@ def test_run_index_on_source(
 
     outfile = args.catalog_path / "dataset" / "index" / "part.0.parquet"
     schema = pq.read_metadata(outfile).schema.to_arrow_schema()
-    assert schema.equals(basic_index_parquet_schema, check_metadata=False)
+    assert schema.equals(basic_index_parquet_schema)
 
     schema = pq.read_metadata(args.catalog_path / "dataset" / "_metadata").schema.to_arrow_schema()
-    assert schema.equals(basic_index_parquet_schema, check_metadata=False)
+    assert schema.equals(basic_index_parquet_schema)
 
     schema = pq.read_metadata(args.catalog_path / "dataset" / "_common_metadata").schema.to_arrow_schema()
-    assert schema.equals(basic_index_parquet_schema, check_metadata=False)
+    assert schema.equals(basic_index_parquet_schema)
 
 
 @pytest.mark.dask
@@ -148,7 +148,7 @@ def test_run_index_on_source_object_id(
 
     outfile = args.catalog_path / "dataset" / "index" / "part.0.parquet"
     schema = pq.read_metadata(outfile).schema.to_arrow_schema()
-    assert schema.equals(basic_index_parquet_schema, check_metadata=False)
+    assert schema.equals(basic_index_parquet_schema)
 
     id_range = np.arange(700, 831)
     ## Some of the objects have sources that span two source partitions.
@@ -158,7 +158,7 @@ def test_run_index_on_source_object_id(
     assert_parquet_file_index(outfile, doubled_up)
 
     schema = pq.read_metadata(args.catalog_path / "dataset" / "_metadata").schema.to_arrow_schema()
-    assert schema.equals(basic_index_parquet_schema, check_metadata=False)
+    assert schema.equals(basic_index_parquet_schema)
 
     schema = pq.read_metadata(args.catalog_path / "dataset" / "_common_metadata").schema.to_arrow_schema()
-    assert schema.equals(basic_index_parquet_schema, check_metadata=False)
+    assert schema.equals(basic_index_parquet_schema)

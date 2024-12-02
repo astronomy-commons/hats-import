@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple
 
 import hats.pixel_math.healpix_shim as hp
 import numpy as np
-from hats import read_hats
+from hats import pixel_math, read_hats
 from hats.catalog import Catalog
 from hats.io import file_io
 from hats.pixel_math.healpix_pixel import HealpixPixel
@@ -193,8 +193,7 @@ def source_to_object_map(object_catalog, source_catalog):
 
     for source, objects in source_to_object.items():
         # get all neighboring pixels
-        nside = hp.order2nside(source.order)
-        neighbors = hp.get_all_neighbours(nside, source.pixel, nest=True)
+        neighbors = pixel_math.get_margin(source.order, source.pixel, 0)
 
         ## get rid of -1s and normalize to max order
         explosion_factor = 4 ** (max_order - source.order)
