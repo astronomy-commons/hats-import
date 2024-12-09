@@ -11,7 +11,8 @@ need to install or upgrade versions of dependencies to work with hats-import.
 
 .. code-block:: console
 
-    pip install hats-import
+   >> conda create env -n <env_name> python=3.11
+   >> conda activate <env_name>
 
 .. tip::
     Installing optional dependencies
