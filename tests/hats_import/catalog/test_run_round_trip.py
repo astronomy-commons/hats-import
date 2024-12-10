@@ -79,6 +79,7 @@ def test_import_mixed_schema_csv(
         input_file_list=[
             Path(mixed_schema_csv_dir) / "input_01.csv",
             Path(mixed_schema_csv_dir) / "input_02.csv",
+            Path(mixed_schema_csv_dir) / "input_03.csv",
         ],
         output_path=tmp_path,
         dask_tmp=tmp_path,
@@ -921,6 +922,7 @@ def test_import_indexed_csv(
         input_file_list=[
             indexed_files_dir / "csv_list_double_1_of_2.txt",
             indexed_files_dir / "csv_list_double_2_of_2.txt",
+            indexed_files_dir / "csv_list_empty.txt",
         ],
         output_path=tmp_path,
         file_reader="indexed_csv",
