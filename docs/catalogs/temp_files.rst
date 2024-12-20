@@ -107,12 +107,7 @@ Mapping stage
 
 In this stage, we're reading each input file and building a map of how many objects are in 
 each high order pixel. For each input file, once finished, we will write a binary file with 
-the numpy array representing the number of objects in each pixel. 
-
-.. tip::
-    For ``highest_healpix_order=10``, this binary file is 96M. If you know your data will be 
-    partitioned at a lower order (e.g. order 7), using the lower order in the arguments 
-    can improve runtime and disk usage of the pipeline.
+a sparse array representing the number of objects in each pixel. 
 
 Binning stage
 ...............................................................................

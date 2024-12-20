@@ -112,11 +112,6 @@ You must specify where you want your HATS table to be written, using
 ``output_path``. This path should be the base directory for your catalogs, as 
 the full path for the HATS table will take the form of ``output_path/output_artifact_name``.
 
-If there is already catalog data in the indicated directory, you can 
-force new data to be written in the directory with the ``overwrite`` flag. It's
-preferable to delete any existing contents, however, as this may cause 
-unexpected side effects.
-
 If you're writing to cloud storage, or otherwise have some filesystem credential
 dict, initialize ``output_path`` using ``universal_pathlib``'s utilities.
 
@@ -134,4 +129,4 @@ What next?
 
 You can validate that your new HATS catalog meets both the HATS/LSDB expectations,
 as well as your own expectations of the data contents. You can follow along with the
-`Manual catalog verification <https://docs.lsdb.io/en/stable/tutorials/manual_verification.html>`_.
+`Manual catalog verification <https://docs.lsdb.io/en/stable/tutorials/pre_executed/manual_verification.html>`_.

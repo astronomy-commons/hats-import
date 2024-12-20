@@ -86,7 +86,7 @@ When instantiating a pipeline, you can use the ``resume`` flag to indicate that
 we can resume from an earlier execution of the pipeline. By default, if any resume
 files are found, we will restore the pipeline's previous progress.
 
-If you want to start the pipeline from scratch you can simply set `resume=False`.
+If you want to start the pipeline from scratch you can simply set ``resume=False``.
 Alternatively, go to the temp directory you've specified and remove any intermediate
 files created by the previous runs of the ``hats-import`` pipeline. You should also
 remove the output directory if it has any content. The resume argument performs these
@@ -179,7 +179,7 @@ Benefits:
 2. If the files are very small, batching them in this way allows the import 
    process to *combine* several small files into a single chunk for processing.
    This will result in fewer intermediate files during the ``splitting`` stage.
-3. If you have a parquet files over a slow networked file system, we support
+3. If you have parquet files over a slow networked file system, we support
    pyarrow's readahead protocol through indexed readers.
 
 Warnings:
@@ -290,11 +290,6 @@ You must specify a name for the catalog, using ``output_artifact_name``.
 You must specify where you want your catalog data to be written, using
 ``output_path``. This path should be the base directory for your catalogs, as 
 the full path for the catalog will take the form of ``output_path/output_artifact_name``.
-
-If there is already catalog data in the indicated directory, you can force a 
-new catalog to be written in the directory with the ``overwrite`` flag. It's
-preferable to delete any existing contents, however, as this may cause 
-unexpected side effects.
 
 If you're writing to cloud storage, or otherwise have some filesystem credential
 dict, initialize ``output_path`` using ``universal_pathlib``'s utilities.
