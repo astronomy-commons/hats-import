@@ -157,30 +157,17 @@ list along to your ``ImportArguments``!
     indexing_column="target_id"
 
     ## you might not need to change anything after that.
-    total_metadata = file_io.read_parquet_metadata(os.path.join(input_catalog_path, "_metadata"))
+    catalog = hats.read_hats(input_catalog_path)
+    all_stats = catalog.aggregate_column_statistics()
 
-    # This block just finds the indexing column within the _metadata file
-    first_row_group = total_metadata.row_group(0)
-    index_column_idx = -1
-    for i in range(0, first_row_group.num_columns):
-        column = first_row_group.column(i)
-        if column.path_in_schema == indexing_column:
-            index_column_idx = i
-
-    # Now loop through all of the partitions in the input data and find the 
-    # overall bounds of the indexing_column.
-    num_row_groups = total_metadata.num_row_groups
-    global_min = total_metadata.row_group(0).column(index_column_idx).statistics.min
-    global_max = total_metadata.row_group(0).column(index_column_idx).statistics.max
-
-    for index in range(1, num_row_groups):
-        global_min = min(global_min, total_metadata.row_group(index).column(index_column_idx).statistics.min)
-        global_max = max(global_max, total_metadata.row_group(index).column(index_column_idx).statistics.max)
+    global_min = all_stats.at[indexing_column, "min_value"]
+    global_max = all_stats.at[indexing_column, "max_value"]
+    num_partitions = len(catalog.get_healpix_pixels())
 
     print("global min", global_min)
     print("global max", global_max)
 
-    increment = int((global_max-global_min)/num_row_groups)
+    increment = int((global_max-global_min)/num_partitions)
 
     divisions = np.append(np.arange(start = global_min, stop = global_max, step = increment), global_max)
     divisions = divisions.tolist()
@@ -222,11 +209,6 @@ based on gaia that indexes over the ``designation`` field.
 You must specify where you want your index table to be written, using
 ``output_path``. This path should be the base directory for your catalogs, as 
 the full path for the index will take the form of ``output_path/output_artifact_name``.
-
-If there is already catalog or index data in the indicated directory, you can 
-force new data to be written in the directory with the ``overwrite`` flag. It's
-preferable to delete any existing contents, however, as this may cause 
-unexpected side effects.
 
 If you're writing to cloud storage, or otherwise have some filesystem credential
 dict, initialize ``output_path`` using ``universal_pathlib``'s utilities.

@@ -135,11 +135,6 @@ You must specify where you want your margin data to be written, using
 ``output_path``. This path should be the base directory for your catalogs, as 
 the full path for the margin will take the form of ``output_path/output_artifact_name``.
 
-If there is already catalog or margin data in the indicated directory, you can 
-force new data to be written in the directory with the ``overwrite`` flag. It's
-preferable to delete any existing contents, however, as this may cause 
-unexpected side effects.
-
 If you're writing to cloud storage, or otherwise have some filesystem credential
 dict, initialize ``output_path`` using ``universal_pathlib``'s utilities.
 

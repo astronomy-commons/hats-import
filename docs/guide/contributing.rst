@@ -1,11 +1,42 @@
 Contributing to hats-import
 ===============================================================================
 
+HATS, hats-import, and LSDB are primarily written and maintained by LINCC Frameworks, but we
+would love to turn it over to the open-source scientific community!! We want to 
+make sure that any discourse is open and inclusive, and we ask that everyone
+involved read and adhere to the 
+`LINCC Frameworks Code of Conduct <https://lsstdiscoveryalliance.org/programs/lincc-frameworks/code-conduct/>`_
+
+Installation from Source
+------------------------
+
+To install the latest development version of hats-import you will want to build it from source. 
+First, with your virtual environment activated, type in your terminal:
+
+.. code-block:: bash
+
+    git clone https://github.com/astronomy-commons/hats-import
+    cd hats-import/
+
+To install the package and dependencies you can run the ``setup_dev`` script which installs all 
+the requirements to setup a development environment.
+
+.. code-block:: bash
+
+    chmod +x .setup_dev.sh
+    ./.setup_dev.sh
+
+Finally, to check that your package has been correctly installed, run the package unit tests:
+
+.. code-block:: bash
+
+    python -m pytest
+
 Find (or make) a new GitHub issue
 -------------------------------------------------------------------------------
 
-Add yourself as the assignee on an existing issue so that we know who's working 
-on what. (If you're not actively working on an issue, unassign yourself).
+Add yourself as the assignee on an existing issue so that we know who's working
+on what. If you're not actively working on an issue, unassign yourself.
 
 If there isn't an issue for the work you want to do, please create one and include
 a description.
@@ -13,51 +44,26 @@ a description.
 You can reach the team with bug reports, feature requests, and general inquiries
 by creating a new GitHub issue.
 
-.. tip::
-   Want to help?
+Note that you may need to make changes in multiple repos to fully implement new
+features or bug fixes! See related projects:
 
-   Do you want to help out, but you're not sure how? :doc:`/guide/contact`
+* HATS (`on GitHub <https://github.com/astronomy-commons/hats>`_ 
+  and `on ReadTheDocs <https://hats.readthedocs.io/en/stable/>`_)
+* LSDB (`on GitHub <https://github.com/astronomy-commons/lsdb>`_
+  and `on ReadTheDocs <https://docs.lsdb.io>`_)
 
-Create a branch
+Fork the repository
 -------------------------------------------------------------------------------
 
-It is preferable that you create a new branch with a name like 
-``issue/##/<short-description>``. GitHub makes it pretty easy to associate 
-branches and tickets, but it's nice when it's in the name.
+Contributing to hats-import requires you to `fork <https://github.com/astronomy-commons/hats-import/fork>`_ 
+the GitHub repository. The next steps assume the creation of branches and PRs are performed from your fork.
 
-Setting up a development environment
--------------------------------------------------------------------------------
-
-Before installing any dependencies or writing code, it's a great idea to create a
-virtual environment. LINCC-Frameworks engineers primarily use `conda` to manage virtual
-environments. If you have conda installed locally, you can run the following to
-create and activate a new environment.
-
-.. code-block:: console
-
-   >> conda create env -n <env_name> python=3.10
-   >> conda activate <env_name>
-
-
-Once you have created a new environment, you can install this project for local
-development using the following command:
-
-.. code-block:: console
-
-   >> source .setup_dev.sh
-
-
-Notes:
-
-1) The single quotes around ``'[dev]'`` may not be required for your operating system.
-2) ``pre-commit install`` will initialize pre-commit for this local repository, so
-   that a set of tests will be run prior to completing a local commit. For more
-   information, see the Python Project Template documentation on
-   `pre-commit <https://lincc-ppt.readthedocs.io/en/stable/practices/precommit.html>`_.
-3) Installing ``pandoc`` allows you to verify that automatic rendering of Jupyter notebooks
-   into documentation for ReadTheDocs works as expected. For more information, see
-   the Python Project Template documentation on
-   `Sphinx and Python Notebooks <https://lincc-ppt.readthedocs.io/en/stable/practices/sphinx.html#python-notebooks>`_.
+.. note::
+        
+    If you are (or expect to be) a frequent contributor, you should consider requesting
+    access to the `hats-friends <https://github.com/orgs/astronomy-commons/teams/hats-friends>`_
+    working group. Members of this GitHub group should be able to create branches and PRs directly
+    on LSDB, hats and hats-import, without the need of a fork.
 
 Testing
 -------------------------------------------------------------------------------
@@ -72,43 +78,52 @@ paths. These are defined in ``conftest.py`` files. They're powerful and flexible
 Please add or update unit tests for all changes made to the codebase. You can run
 unit tests locally simply with:
 
-.. code-block:: console
+.. code-block:: bash
 
-    >> pytest
+    pytest
 
 If you're making changes to the sphinx documentation (anything under ``docs``),
 you can build the documentation locally with a command like:
 
-.. code-block:: console
+.. code-block:: bash
 
-    >> cd docs
-    >> make html
+    cd docs
+    make html
+
+We also have a handful of automated linters and checks using ``pre-commit``. You
+can run against all staged changes with the command:
+
+.. code-block:: bash
+
+    pre-commit
+
+Create a branch
+-------------------------------------------------------------------------------
+
+It is preferable that you create a new branch with a name like
+``issue/##/<short-description>``. GitHub makes it pretty easy to associate
+branches and tickets, but it's nice when it's in the name.
 
 Create your PR
 -------------------------------------------------------------------------------
 
-Please use PR best practices, and get someone to review your code.
+You will be required to get your code approved before merging into main.
+If you're not sure who to send it to, you can use the round-robin assignment
+to the ``astronomy-commons/lincc-frameworks`` group.
 
-The LINCC Frameworks guidelines and philosophy on code reviews can be found on 
-`our wiki <https://github.com/lincc-frameworks/docs/wiki/Design-and-Code-Review-Policy>`_.
-
-We have a suite of continuous integration tests that run on PR creation. Please
-follow the recommendations of the linter.
+We have a suite of continuous integration checks that run on PR creation. Please
+follow the code quality recommendations of the linter and formatter, and make sure
+every pipeline passes before submitting it for review.
 
 Merge your PR
 -------------------------------------------------------------------------------
 
-The author of the PR is welcome to merge their own PR into the repository.
+When all the continuous integration checks have passed and upon receiving an
+approving review, the author of the PR is welcome to merge it into the repository.
 
-Optional - Release a new version
+Release new version
 -------------------------------------------------------------------------------
 
-Once your PR is merged you can create a new release to make your changes available. 
-GitHub's `instructions <https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository>`_ for doing so are here. 
-Use your best judgement when incrementing the version. i.e. is this a major, minor, or patch fix.
-
-Be kind
--------------------------------------------------------------------------------
-
-You are expected to comply with the 
-`LINCC Frameworks Code of Conduct <https://lsstdiscoveryalliance.org/programs/lincc-frameworks/code-conduct/>`_`.
+New versions are manually tagged and automatically released to pypi. To request
+a new release of LSDB, HATS, and hats-import packages, create a 
+`release ticket <https://github.com/astronomy-commons/lsdb/issues/new?assignees=delucchi-cmu&labels=&projects=&template=4-release_tracker.md&title=Release%3A+>`_.
