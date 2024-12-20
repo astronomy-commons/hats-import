@@ -10,9 +10,8 @@ import hats.pixel_math.healpix_shim as hp
 import numpy as np
 from hats import pixel_math
 from hats.io import file_io
-from hats.pixel_math import empty_histogram
 from hats.pixel_math.healpix_pixel import HealpixPixel
-from hats.pixel_math.sparse_histogram import SparseHistogram
+from hats.pixel_math.sparse_histogram import HistogramAggregator, SparseHistogram
 from numpy import frombuffer
 from upath import UPath
 
@@ -167,20 +166,14 @@ class ResumePlan(PipelineResumePlan):
             if len(remaining_map_files) > 0:
                 raise RuntimeError(f"{len(remaining_map_files)} map stages did not complete successfully.")
             histogram_files = file_io.find_files_matching_path(self.tmp_path, self.HISTOGRAMS_DIR, "*.npz")
-            aggregate_histogram = empty_histogram(healpix_order)
+            aggregate_histogram = HistogramAggregator(healpix_order)
             for partial_file_name in histogram_files:
                 partial = SparseHistogram.from_file(partial_file_name)
-                partial_as_array = partial.to_array()
-                if aggregate_histogram.shape != partial_as_array.shape:
-                    raise ValueError(
-                        "The histogram partials have incompatible sizes due to different healpix orders. "
-                        + "To start the pipeline from scratch with the current order set `resume` to False."
-                    )
-                aggregate_histogram = np.add(aggregate_histogram, partial_as_array)
+                aggregate_histogram.add(partial)
 
             file_name = file_io.append_paths_to_pointer(self.tmp_path, self.HISTOGRAM_BINARY_FILE)
             with open(file_name, "wb+") as file_handle:
-                file_handle.write(aggregate_histogram.data)
+                file_handle.write(aggregate_histogram.full_histogram)
             if self.delete_resume_log_files:
                 file_io.remove_directory(
                     file_io.append_paths_to_pointer(self.tmp_path, self.HISTOGRAMS_DIR),
