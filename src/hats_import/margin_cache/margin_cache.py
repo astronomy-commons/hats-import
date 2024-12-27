@@ -1,8 +1,10 @@
+from pathlib import Path
 from hats.catalog import PartitionInfo
 from hats.io import file_io, parquet_metadata, paths
 
 import hats_import.margin_cache.margin_cache_map_reduce as mcmr
 from hats_import.margin_cache.margin_cache_resume_plan import MarginCachePlan
+from hats.io.validation import is_valid_catalog
 
 # pylint: disable=too-many-locals,too-many-arguments
 
@@ -15,6 +17,11 @@ def generate_margin_cache(args, client):
         args (MarginCacheArguments): A valid `MarginCacheArguments` object.
         client (dask.distributed.Client): A dask distributed client object.
     """
+    potential_path = Path(args.output_path) / args.output_artifact_name
+    # Verify that the planned output path is not occupied by a valid catalog
+    if is_valid_catalog(potential_path):
+        raise ValueError(f"Output path {potential_path} already contains a valid catalog")
+
     resume_plan = MarginCachePlan(args)
     original_catalog_metadata = paths.get_common_metadata_pointer(args.input_catalog_path)
 
