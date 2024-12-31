@@ -5,8 +5,8 @@ The actual logic of the map reduce is in the `map_reduce.py` file.
 """
 
 import os
-from pathlib import Path
 import pickle
+from pathlib import Path
 
 import hats.io.file_io as io
 from hats.catalog import PartitionInfo

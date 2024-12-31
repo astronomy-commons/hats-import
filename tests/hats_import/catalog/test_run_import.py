@@ -13,11 +13,10 @@ from hats import read_hats
 from hats.pixel_math.sparse_histogram import SparseHistogram
 
 import hats_import.catalog.run_import as runner
+import hats_import.margin_cache.margin_cache as margin_runner
 from hats_import.catalog.arguments import ImportArguments
 from hats_import.catalog.file_readers import CsvReader
 from hats_import.catalog.resume_plan import ResumePlan
-
-import hats_import.margin_cache.margin_cache as margin_runner
 from hats_import.margin_cache.margin_cache_arguments import MarginCacheArguments
 
 
