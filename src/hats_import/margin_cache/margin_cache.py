@@ -1,10 +1,11 @@
 from pathlib import Path
+
 from hats.catalog import PartitionInfo
 from hats.io import file_io, parquet_metadata, paths
+from hats.io.validation import is_valid_catalog
 
 import hats_import.margin_cache.margin_cache_map_reduce as mcmr
 from hats_import.margin_cache.margin_cache_resume_plan import MarginCachePlan
-from hats.io.validation import is_valid_catalog
 
 # pylint: disable=too-many-locals,too-many-arguments
 
