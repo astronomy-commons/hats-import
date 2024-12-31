@@ -17,6 +17,9 @@ from hats_import.catalog.arguments import ImportArguments
 from hats_import.catalog.file_readers import CsvReader
 from hats_import.catalog.resume_plan import ResumePlan
 
+import hats_import.margin_cache.margin_cache as margin_runner
+from hats_import.margin_cache.margin_cache_arguments import MarginCacheArguments
+
 
 def test_empty_args():
     """Runner should fail with empty arguments"""
@@ -29,6 +32,34 @@ def test_bad_args():
     args = {"output_artifact_name": "bad_arg_type"}
     with pytest.raises(ValueError, match="ImportArguments"):
         runner.run(args, None)
+
+
+def test_no_import_overwrite(small_sky_object_catalog, parquet_shards_dir):
+    """Runner should refuse to overwrite a valid catalog"""
+    catalog_dir = small_sky_object_catalog.parent
+    catalog_name = small_sky_object_catalog.name
+    args = ImportArguments(
+        input_path=parquet_shards_dir,
+        output_path=catalog_dir,
+        output_artifact_name=catalog_name,
+        file_reader="parquet",
+    )
+    with pytest.raises(ValueError, match="already contains a valid catalog"):
+        runner.run(args, None)
+
+
+def test_no_margin_cache_overwrite(small_sky_object_catalog):
+    """Runner should refuse to generate margin cache which overwrites valid catalog"""
+    catalog_dir = small_sky_object_catalog.parent
+    catalog_name = small_sky_object_catalog.name
+    args = MarginCacheArguments(
+        input_catalog_path=small_sky_object_catalog,
+        output_path=catalog_dir,
+        margin_threshold=10.0,
+        output_artifact_name=catalog_name,
+    )
+    with pytest.raises(ValueError, match="already contains a valid catalog"):
+        margin_runner.generate_margin_cache(args, None)
 
 
 @pytest.mark.dask
