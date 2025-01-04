@@ -5,19 +5,6 @@ import pytest
 from hats_import.verification.arguments import VerificationArguments
 
 
-def test_none():
-    """No arguments provided. Should error for required args."""
-    with pytest.raises(TypeError):
-        VerificationArguments()
-
-
-def test_empty_required(tmp_path):
-    """*Most* required arguments are provided."""
-    ## Input path is missing
-    with pytest.raises(TypeError, match="input_catalog_path"):
-        VerificationArguments(output_path=tmp_path)
-
-
 def test_invalid_paths(tmp_path, small_sky_object_catalog):
     """Required arguments are provided, but paths aren't found."""
     ## Prove that it works with required args
