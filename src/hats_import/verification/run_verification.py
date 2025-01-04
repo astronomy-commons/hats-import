@@ -3,7 +3,9 @@
 import datetime
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
 
+import hats.io.paths
 import hats.io.validation
 import pandas as pd
 import pyarrow.dataset
@@ -12,7 +14,9 @@ from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN
 from hats_import.verification.arguments import VerificationArguments
 
 
-def run(args: VerificationArguments, check_metadata: bool = False, write_mode: str = "a") -> "Verifier":
+def run(
+    args: VerificationArguments, check_metadata: bool = False, write_mode: Literal["a", "w", "x"] = "a"
+) -> "Verifier":
     """Create a `Verifier` using `args`, run all tests, and write a verification report.
 
     Parameters
@@ -20,9 +24,9 @@ def run(args: VerificationArguments, check_metadata: bool = False, write_mode: s
     args : VerificationArguments
         Arguments to construct the Verifier.
     check_metadata : bool, optional
-        Flag to check metadata consistency, by default False.
-    write_mode : str, optional
-        Mode to be used when writing output files.
+        Whether to check the metadata along with the schema. Default is False.
+    write_mode : Literal["a", "w", "x"], optional
+        Mode to be used when writing output files. Default is "a" (append).
 
     Returns
     -------
@@ -63,16 +67,15 @@ class Result:
     """Test name."""
     target: str = field()
     """The file(s) targeted by the test."""
-    bad_files: list[str] = field(default_factory=list)
-    """List of additional files that caused the test to fail (empty if none)."""
     description: str = field()
     """Test description."""
+    bad_files: list[str] = field(default_factory=list)
+    """List of additional files that caused the test to fail (empty if none or not applicable)."""
 
 
 @dataclass(kw_only=True)
 class Verifier:
-    """Class for verification tests. Do not call this class directly; use
-    `Verifier.from_args` instead."""
+    """Run verification tests. To create an instance of this class, use `Verifier.from_args`."""
 
     args: VerificationArguments = field()
     """Arguments to use during verification."""
@@ -108,15 +111,17 @@ class Verifier:
         """
         args.output_path.mkdir(exist_ok=True, parents=True)
 
-        print("Loading datasets and schemas...")
+        print("Loading dataset and schema.")
         files_ds = pyarrow.dataset.dataset(args.input_dataset_path)
-        metadata_ds = pyarrow.dataset.parquet_dataset(args.input_dataset_path / "_metadata")
+        metadata_ds = pyarrow.dataset.parquet_dataset(
+            hats.io.paths.get_parquet_metadata_pointer(args.input_catalog_path)
+        )
 
         input_truth_schema = None
         if args.truth_schema is not None:
             input_truth_schema = pyarrow.dataset.parquet_dataset(args.truth_schema).schema
         common_metadata_schema = pyarrow.dataset.parquet_dataset(
-            args.input_dataset_path / "_common_metadata"
+            hats.io.paths.get_common_metadata_pointer(args.input_catalog_path)
         ).schema
         constructed_truth_schema = cls._construct_truth_schema(
             input_truth_schema=input_truth_schema, common_metadata_schema=common_metadata_schema
@@ -135,13 +140,13 @@ class Verifier:
         """Test results as a dataframe."""
         return pd.DataFrame(self.results)
 
-    def run(self, write_mode: str = "a", check_metadata: bool = False) -> None:
+    def run(self, write_mode: Literal["a", "w", "x"] = "a", check_metadata: bool = False) -> None:
         """Run all tests and write a verification report. See `results_df` property or
         written report for results.
 
         Parameters
         ----------
-        write_mode : str, optional
+        write_mode : Literal["a", "w", "x"], optional
             Mode to be used when writing output files.
         check_metadata : bool, optional
             Whether to check the metadata as well as the schema.
@@ -154,14 +159,14 @@ class Verifier:
         self.write_results(write_mode=write_mode)
 
     def test_is_valid_catalog(self) -> bool:
-        """Test if the provided catalog is a valid hats catalog. Add one `Result` to `results`.
+        """Test if the provided catalog is a valid HATS catalog. Add one `Result` to `results`.
 
         Returns
         -------
             bool: True if the test passed, else False.
         """
-        # [FIXME] How to get the hats version?
-        test, description = "valid hats", "Test hats.io.validation.is_valid_catalog (v<VERSION>)."
+        version = f"hats version {hats.__version__}"
+        test, description = "valid hats", f"Test hats.io.validation.is_valid_catalog ({version})."
         target = self.args.input_catalog_path
         print(f"\nStarting: {description}")
 
@@ -214,7 +219,7 @@ class Verifier:
         print(f"\nStarting: {description}")
 
         # get the number of rows in each file, indexed by file path. we treat this as truth.
-        files_df = self._load_nrows(self.files_ds, explicit_count=True)
+        files_df = self._load_nrows(self.files_ds)
         files_df_total = f"file footers ({files_df.num_rows.sum():,})"
 
         # check _metadata
@@ -251,15 +256,13 @@ class Verifier:
         print(f"Result: {'PASSED' if all_passed else 'FAILED'}")
         return all_passed
 
-    def _load_nrows(self, dataset: pyarrow.dataset.Dataset, explicit_count: bool = False) -> pd.DataFrame:
+    def _load_nrows(self, dataset: pyarrow.dataset.Dataset) -> pd.DataFrame:
         """Load the number of rows in each file in the dataset.
 
         Parameters
         ----------
         dataset : pyarrow.dataset.Dataset
             The dataset from which to load the number of rows.
-        explicit_count : bool
-            If True, explicitly count the rows in each fragment.
 
         Returns
         -------
@@ -268,11 +271,7 @@ class Verifier:
         nrows_df = pd.DataFrame(
             columns=["num_rows", "frag_path"],
             data=[
-                (
-                    # [TODO] check cpu/ram usage to try to determine if there is a difference here
-                    frag.count_rows() if explicit_count else frag.metadata.num_rows,
-                    str(Path(frag.path).relative_to(self.args.input_dataset_path)),
-                )
+                (frag.metadata.num_rows, str(Path(frag.path).relative_to(self.args.input_dataset_path)))
                 for frag in dataset.get_fragments()
             ],
         )
@@ -467,16 +466,15 @@ class Verifier:
         )
         return passed
 
-    def write_results(self, *, write_mode: str = "a") -> None:
+    def write_results(self, *, write_mode: Literal["a", "w", "x"] = "a") -> None:
         """Write the verification results to file at `args.output_path` / `args.output_filename`.
 
         Parameters
         ----------
-        write_mode : str
+        write_mode : Literal["a", "w", "x"], optional
             Mode to be used when writing output file. Passed to pandas.DataFrame.to_csv as `mode`.
         """
-        fout = self.args.output_path / self.args.output_filename
-        fout.parent.mkdir(exist_ok=True, parents=True)
-        header = not (write_mode == "a" and fout.is_file())
-        self.results_df.to_csv(fout, mode=write_mode, header=header, index=False)
-        print(f"\nVerifier results written to {fout}")
+        self.args.output_file_path.parent.mkdir(exist_ok=True, parents=True)
+        header = not (write_mode == "a" and self.args.output_file_path.exists())
+        self.results_df.to_csv(self.args.output_file_path, mode=write_mode, header=header, index=False)
+        print(f"\nVerifier results written to {self.args.output_file_path}")

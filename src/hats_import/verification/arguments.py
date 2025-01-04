@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 
+import hats.io.paths
+from hats.io import file_io
 from upath import UPath
 
 
@@ -12,35 +13,41 @@ from upath import UPath
 class VerificationArguments:
     """Container for verification arguments."""
 
-    input_catalog_path: str | Path | UPath = field()
+    input_catalog_path: UPath = field()
     """Path to an existing catalog that will be inspected. This must be a directory
     containing (at least) the hats ancillary files and a 'dataset/' directory
-    containing the parquet dataset."""
-    output_path: str | Path | UPath = field()
-    """Directory where the verification report should be written."""
+    containing the parquet dataset. Can be supplied as a string or path object."""
+    output_path: UPath = field()
+    """Directory where the verification report should be written.
+     Can be supplied as a string or path object."""
     output_filename: str = field(default="verifier_results.csv")
     """Filename for the verification report."""
     truth_total_rows: int | None = field(default=None)
     """Total number of rows expected in this catalog."""
-    truth_schema: str | Path | UPath | None = field(default=None)
+    truth_schema: UPath | None = field(default=None)
     """Path to a parquet file or dataset containing the expected schema. If None (default),
     the catalog's _common_metadata file will be used. This schema will be used to verify
-    the catalog's column names and data types for all non-hats columns. It will be
-    ignored when verifying all hats-specific columns and all metadata."""
+    all non-hats columns and (optionally) the file-level metadata. Can be supplied as a
+    string or path object."""
 
     @property
     def input_dataset_path(self) -> UPath:
-        """Directory containing the parquet dataset associated with `input_catalog_path`."""
-        return self.input_catalog_path / "dataset"
+        """Path to the directory under `input_catalog_path` that contains the parquet dataset."""
+        return file_io.append_paths_to_pointer(self.input_catalog_path, hats.io.paths.DATASET_DIR)
+
+    @property
+    def output_file_path(self) -> UPath:
+        """Path to the output file (`output_path` / `output_filename`)."""
+        return file_io.append_paths_to_pointer(self.output_path, self.output_filename)
 
     def __post_init__(self) -> None:
-        self.input_catalog_path = UPath(self.input_catalog_path)
+        self.input_catalog_path = file_io.append_paths_to_pointer(self.input_catalog_path)
         if not self.input_catalog_path.is_dir():
             raise ValueError("input_catalog_path must be an existing directory")
 
-        self.output_path = UPath(self.output_path)
+        self.output_path = file_io.append_paths_to_pointer(self.output_path)
 
         if self.truth_schema is not None:
-            self.truth_schema = UPath(self.truth_schema)
+            self.truth_schema = file_io.append_paths_to_pointer(self.truth_schema)
             if not self.truth_schema.exists():
                 raise ValueError("truth_schema must be an existing file or directory")
