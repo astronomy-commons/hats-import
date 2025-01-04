@@ -87,11 +87,9 @@ class Verifier:
     """Pyarrow schema, loaded from the _common_metadata file."""
     constructed_truth_schema: pyarrow.Schema = field()
     """Pyarrow schema treated as truth during verification. This is constructed
-    from `common_metadata_schema` and `input_truth_schema`. `common_metadata_schema`
-    is used for data types of hats-specific columns and for the metadata with key
-    b'pandas'. If provided, `input_truth_schema` is used for column names, data types,
-    and whether nullable for all non-hats columns. If None, `common_metadata_schema`
-    is used instead. No other schema metadata or properties are tested.
+    from `common_metadata_schema` and `args.truth_schema`. `common_metadata_schema`
+    is used for hats-specific columns. If provided, `args.truth_schema` is used
+    for all other columns plus metadata, otherwise `common_metadata_schema` is used.
     """
     results: list[Result] = field(default_factory=list)
     """List of results, one for each test that has been done."""
@@ -281,14 +279,10 @@ class Verifier:
     def test_schemas(self, check_metadata: bool = False) -> bool:
         """Test the equality of schemas. Add `Result`s to `results`.
 
-        This performs four tests:
-        1. `truth_schema` pandas metadata matches the schema (column names and data types).
-        2. `common_metadata_schema` matches `truth_schema` (schema and pandas metadata).
-        3. `metadata_ds.schema` matches `truth_schema` (schema and pandas metadata).
-        4. File footers match `truth_schema` (schema and pandas metadata).
-
-        Other than pandas metadata (b'pandas' key in file-level metadata), all file-level
-        and column-level metadata is ignored.
+        This performs three tests:
+        1. `common_metadata_schema` vs `constructed_truth_schema`.
+        2. `metadata_ds.schema` vs `constructed_truth_schema`.
+        3. File footers vs `constructed_truth_schema`.
 
         Parameters
         ----------
@@ -304,12 +298,11 @@ class Verifier:
         test_info = {"test": "schema", "description": f"Test that schemas are equal, {_include_md}."}
         print(f"\nStarting: {test_info['description']}")
 
-        passed_th = self._test_schema_constructed_truth()
         passed_cm = self._test_schema__common_metadata(test_info, check_metadata=check_metadata)
         passed_md = self._test_schema__metadata(test_info, check_metadata=check_metadata)
         passed_ff = self._test_schema_file_footers(test_info, check_metadata=check_metadata)
 
-        all_passed = all([passed_th, passed_cm, passed_md, passed_ff])
+        all_passed = all([passed_cm, passed_md, passed_ff])
         print(f"Result: {'PASSED' if all_passed else 'FAILED'}")
         return all_passed
 
@@ -317,7 +310,9 @@ class Verifier:
     def _construct_truth_schema(
         *, input_truth_schema: pyarrow.Schema | None, common_metadata_schema: pyarrow.Schema
     ) -> pyarrow.Schema:
-        """Copy of `truth_schema` with hats fields and metadata added from `common_metadata_schema`.
+        """Copy of `input_truth_schema` with HATS fields added from `common_metadata_schema`.
+
+        If `input_truth_schema` is not provided, this is just `common_metadata_schema`.
 
         Parameters
         ----------
@@ -329,58 +324,22 @@ class Verifier:
         Returns
         -------
         pyarrow.Schema
-            The constructed truth schema with hats fields and metadata added.
+            The constructed truth schema.
         """
+        if input_truth_schema is None:
+            return common_metadata_schema
+
         hats_cols = ["Norder", "Dir", "Npix"]
         hats_partition_fields = [common_metadata_schema.field(fld) for fld in hats_cols]
         hats_idx_fields = []
         if SPATIAL_INDEX_COLUMN in common_metadata_schema.names:
             hats_cols.append(SPATIAL_INDEX_COLUMN)
             hats_idx_fields.append(common_metadata_schema.field(SPATIAL_INDEX_COLUMN))
-        _input_truth_schema = input_truth_schema or common_metadata_schema
-        input_truth_fields = [fld for fld in _input_truth_schema if fld.name not in hats_cols]
+        input_truth_fields = [fld for fld in input_truth_schema if fld.name not in hats_cols]
 
         constructed_fields = hats_idx_fields + input_truth_fields + hats_partition_fields
-        constructed_metadata = {b"pandas": common_metadata_schema.metadata[b"pandas"]}
-        constructed_schema = pyarrow.schema(constructed_fields).with_metadata(constructed_metadata)
+        constructed_schema = pyarrow.schema(constructed_fields).with_metadata(input_truth_schema.metadata)
         return constructed_schema
-
-    def _test_schema_constructed_truth(self) -> bool:
-        """Test `constructed_truth_schema` for consistency between pandas metadata and schema
-        (column names and types).
-
-        Returns
-        -------
-        bool: True if the pandas metadata matches the expected schema and index columns, else False.
-        """
-        # info for the report
-        test, target = "schema consistency", "constructed_truth_schema"
-        description = [
-            "Test that column names and types in b'pandas' metadata key match those",
-            "found in the schema.",
-            "Hats columns and metadata key b'pandas' are from _common_metadata",
-            f"({self.args.input_dataset_path / '_common_metadata'}).",
-            "Non-hats columns are from the input truth schema",
-            f"({self.args.truth_schema}) or _common_metadata if None.",
-        ]
-        print(f"\t{target}")
-
-        # construct pyarrow schemas. we're only checking names and types.
-        pandas_fields = [
-            pyarrow.field(pcol["name"], pyarrow.from_numpy_dtype(pcol["numpy_type"]))
-            for pcol in self.constructed_truth_schema.pandas_metadata["columns"]
-        ]
-        pandas_schema = pyarrow.schema(pandas_fields)
-        true_schema = pyarrow.schema(
-            [pyarrow.field(fld.name, fld.type) for fld in self.constructed_truth_schema]
-        )
-
-        # [FIXME] need to check anything else? index column?
-        passed = true_schema.equals(pandas_schema)
-        self.results.append(
-            Result(passed=passed, test=test, description=" ".join(description), target=target)
-        )
-        return passed
 
     def _test_schema__common_metadata(self, test_info: dict, check_metadata: bool = False) -> bool:
         """Test `common_metadata_schema` against `constructed_truth_schema`.
@@ -388,7 +347,7 @@ class Verifier:
         Parameters
         ----------
         test_info : dict
-            Information related to the schema test.
+            Information about this test for the reported results.
         check_metadata : bool, optional
             Whether to check the metadata as well as the schema.
 
@@ -409,12 +368,12 @@ class Verifier:
         return passed
 
     def _test_schema__metadata(self, test_info: dict, check_metadata: bool = False) -> bool:
-        """Test _metadata schema and metadata against the truth schema.
+        """Test _metadata schema against the truth schema.
 
         Parameters
         ----------
         test_info : dict
-            Information related to the schema test.
+            Information about this test for the reported results.
         check_metadata : bool, optional
             Whether to check the metadata as well as the schema.
 
@@ -438,7 +397,7 @@ class Verifier:
         Parameters
         ----------
         test_info : dict
-            Information related to the test results for schema comparison.
+            Information about this test for the reported results.
         check_metadata : bool, optional
             Whether to check the metadata as well as the schema.
 
