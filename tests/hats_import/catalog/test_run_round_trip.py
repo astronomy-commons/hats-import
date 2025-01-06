@@ -287,15 +287,14 @@ def test_import_delete_provided_temp_directory(
     """Test that ALL intermediate files (and temporary base directory) are deleted
     after successful import, when both `delete_intermediate_parquet_files` and
     `delete_resume_log_files` are set to True."""
-    output_dir = tmp_path_factory.mktemp("small_sky_object_catalog")
+    output_dir = tmp_path_factory.mktemp("catalogs")
     # Provided temporary directory, outside `output_dir`
     temp = tmp_path_factory.mktemp("intermediate_files")
-    base_intermediate_dir = temp / "small_sky_object_catalog" / "intermediate"
 
     # When at least one of the delete flags is set to False we do
     # not delete the provided temporary base directory.
     args = ImportArguments(
-        output_artifact_name="small_sky_object_catalog",
+        output_artifact_name="keep_log_files",
         input_path=small_sky_parts_dir,
         file_reader="csv",
         output_path=output_dir,
@@ -307,10 +306,10 @@ def test_import_delete_provided_temp_directory(
         delete_resume_log_files=False,
     )
     runner.run(args, dask_client)
-    assert_stage_level_files_exist(base_intermediate_dir)
+    assert_stage_level_files_exist(temp / "keep_log_files" / "intermediate")
 
     args = ImportArguments(
-        output_artifact_name="small_sky_object_catalog",
+        output_artifact_name="keep_parquet_intermediate",
         input_path=small_sky_parts_dir,
         file_reader="csv",
         output_path=output_dir,
@@ -323,11 +322,11 @@ def test_import_delete_provided_temp_directory(
         resume=False,
     )
     runner.run(args, dask_client)
-    assert_intermediate_parquet_files_exist(base_intermediate_dir)
+    assert_intermediate_parquet_files_exist(temp / "keep_parquet_intermediate" / "intermediate")
 
     # The temporary directory is deleted.
     args = ImportArguments(
-        output_artifact_name="small_sky_object_catalog",
+        output_artifact_name="remove_all_intermediate",
         input_path=small_sky_parts_dir,
         file_reader="csv",
         output_path=output_dir,
@@ -340,7 +339,7 @@ def test_import_delete_provided_temp_directory(
         resume=False,
     )
     runner.run(args, dask_client)
-    assert not os.path.exists(temp)
+    assert not os.path.exists(temp / "remove_all_intermediate")
 
 
 def assert_stage_level_files_exist(base_intermediate_dir):
