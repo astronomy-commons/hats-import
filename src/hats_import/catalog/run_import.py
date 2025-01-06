@@ -1,28 +1,44 @@
 """Import a set of non-hats files using dask for parallelization
 
-Methods in this file set up a dask pipeline using futures. 
+Methods in this file set up a dask pipeline using futures.
 The actual logic of the map reduce is in the `map_reduce.py` file.
 """
 
 import os
 import pickle
+from pathlib import Path
 
 import hats.io.file_io as io
 from hats.catalog import PartitionInfo
 from hats.io import paths
 from hats.io.parquet_metadata import write_parquet_metadata
+from hats.io.validation import is_valid_catalog
 
 import hats_import.catalog.map_reduce as mr
 from hats_import.catalog.arguments import ImportArguments
 from hats_import.catalog.resume_plan import ResumePlan
 
 
-def run(args, client):
-    """Run catalog creation pipeline."""
+def _validate_arguments(args):
+    """
+    Verify that the args for run are valid: they exist, are of the appropriate type,
+    and do not specify an output which is a valid catalog.
+
+    Raises ValueError if they are invalid.
+    """
     if not args:
         raise ValueError("args is required and should be type ImportArguments")
     if not isinstance(args, ImportArguments):
         raise ValueError("args must be type ImportArguments")
+
+    potential_path = Path(args.output_path) / args.output_artifact_name
+    if is_valid_catalog(potential_path):
+        raise ValueError(f"Output path {potential_path} already contains a valid catalog")
+
+
+def run(args, client):
+    """Run catalog creation pipeline."""
+    _validate_arguments(args)
 
     resume_plan = ResumePlan(import_args=args)
 
