@@ -126,3 +126,16 @@ def test_to_table_properties(small_sky_source_catalog, tmp_path):
     assert catalog_info.total_rows == 10
     assert catalog_info.ra_column == "source_ra"
     assert catalog_info.dec_column == "source_dec"
+
+
+def test_no_margin_cache_overwrite(small_sky_object_catalog):
+    """Runner should refuse to generate margin cache which overwrites valid catalog"""
+    catalog_dir = small_sky_object_catalog.parent
+    catalog_name = small_sky_object_catalog.name
+    with pytest.raises(ValueError, match="already contains a valid catalog"):
+        MarginCacheArguments(
+            input_catalog_path=small_sky_object_catalog,
+            output_path=catalog_dir,
+            margin_threshold=10.0,
+            output_artifact_name=catalog_name,
+        )
