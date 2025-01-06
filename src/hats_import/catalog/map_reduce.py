@@ -10,7 +10,7 @@ import pyarrow.parquet as pq
 from hats import pixel_math
 from hats.io import file_io, paths
 from hats.pixel_math.healpix_pixel import HealpixPixel
-from hats.pixel_math.sparse_histogram import SparseHistogram
+from hats.pixel_math.sparse_histogram import HistogramAggregator, SparseHistogram
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, spatial_index_to_healpix
 from upath import UPath
 
@@ -105,7 +105,7 @@ def map_to_pixels(
         FileNotFoundError: if the file does not exist, or is a directory
     """
     try:
-        histo = SparseHistogram.make_empty(highest_order)
+        histo = HistogramAggregator(highest_order)
 
         if use_healpix_29:
             read_columns = [SPATIAL_INDEX_COLUMN]
@@ -123,12 +123,11 @@ def map_to_pixels(
         ):
             mapped_pixel, count_at_pixel = np.unique(mapped_pixels, return_counts=True)
 
-            partial = SparseHistogram.make_from_counts(
-                mapped_pixel, count_at_pixel, healpix_order=highest_order
-            )
-            histo.add(partial)
+            histo.add(SparseHistogram(mapped_pixel, count_at_pixel, highest_order))
 
-        histo.to_file(ResumePlan.partial_histogram_file(tmp_path=resume_path, mapping_key=mapping_key))
+        histo.to_sparse().to_file(
+            ResumePlan.partial_histogram_file(tmp_path=resume_path, mapping_key=mapping_key)
+        )
     except Exception as exception:  # pylint: disable=broad-exception-caught
         print_task_failure(f"Failed MAPPING stage with file {input_file}", exception)
         raise exception
