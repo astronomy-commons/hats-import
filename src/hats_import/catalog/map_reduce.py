@@ -123,10 +123,7 @@ def map_to_pixels(
         ):
             mapped_pixel, count_at_pixel = np.unique(mapped_pixels, return_counts=True)
 
-            partial = SparseHistogram.make_from_counts(
-                mapped_pixel, count_at_pixel, healpix_order=highest_order
-            )
-            histo.add(partial)
+            histo.add(SparseHistogram(mapped_pixel, count_at_pixel, highest_order))
 
         histo.to_sparse().to_file(
             ResumePlan.partial_histogram_file(tmp_path=resume_path, mapping_key=mapping_key)
