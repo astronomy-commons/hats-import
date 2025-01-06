@@ -1,6 +1,7 @@
 [project]
 name = "hats-import"
 license = {file = "LICENSE"}
+description = "Utility for ingesting large survey data into HATS structure"
 readme = "README.md"
 authors = [
     { name = "LINCC Frameworks", email = "lincc-frameworks-team@lists.lsst.org" }
