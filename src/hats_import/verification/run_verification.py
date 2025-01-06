@@ -8,7 +8,7 @@ from typing import Literal
 import hats.io.paths
 import hats.io.validation
 import pandas as pd
-import pyarrow.dataset
+import pyarrow.dataset as pds
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN
 
 from hats_import.verification.arguments import VerificationArguments
@@ -117,7 +117,7 @@ class Verifier:
 
         input_truth_schema = None
         if args.truth_schema is not None:
-            input_truth_schema = pyarrow.dataset.parquet_dataset(args.truth_schema).schema
+            input_truth_schema = pds.parquet_dataset(args.truth_schema).schema
         common_metadata_schema = pyarrow.dataset.parquet_dataset(
             hats.io.paths.get_common_metadata_pointer(args.input_catalog_path)
         ).schema
