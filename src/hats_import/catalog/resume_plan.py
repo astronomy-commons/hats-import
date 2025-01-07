@@ -302,9 +302,9 @@ class ResumePlan(PipelineResumePlan):
                 alignment = pickle.load(pickle_file)
             non_none_elements = alignment[alignment != np.array(None)]
             pixel_list = np.unique(non_none_elements)
-            self.destination_pixel_map = dict(
-                [(HealpixPixel(order, pix), count) for (order, pix, count) in pixel_list if int(count) > 0]
-            )
+            self.destination_pixel_map = {
+                HealpixPixel(order, pix): count for (order, pix, count) in pixel_list if int(count) > 0
+            }
         total_rows = sum(self.destination_pixel_map.values())
         if total_rows != expected_total_rows:
             raise ValueError(
