@@ -3,6 +3,7 @@
 import numpy as np
 import numpy.testing as npt
 import pytest
+from hats.pixel_math.healpix_pixel import HealpixPixel
 from hats.pixel_math.sparse_histogram import SparseHistogram
 
 from hats_import.catalog.resume_plan import ResumePlan
@@ -66,6 +67,23 @@ def test_same_input_paths(tmp_path, small_sky_single_file, formats_headers_csv):
             resume=True,
             input_paths=[small_sky_single_file, small_sky_single_file, formats_headers_csv],
         )
+
+
+def test_remaining_map_keys(tmp_path):
+    """Test that we can read what we write into a histogram file."""
+    num_inputs = 1_000
+    input_paths = [f"foo_{i}" for i in range(0, num_inputs)]
+    plan = ResumePlan(tmp_path=tmp_path, progress_bar=False, input_paths=input_paths)
+
+    remaining_keys = plan.get_remaining_map_keys()
+    assert len(remaining_keys) == num_inputs
+
+    histogram = SparseHistogram([11], [131], 0)
+    for i in range(0, num_inputs):
+        histogram.to_file(ResumePlan.partial_histogram_file(tmp_path=tmp_path, mapping_key=f"map_{i}"))
+
+    remaining_keys = plan.get_remaining_map_keys()
+    assert len(remaining_keys) == 0
 
 
 def test_read_write_histogram(tmp_path):
@@ -171,7 +189,6 @@ def test_some_split_task_failures(tmp_path, dask_client):
 
 def test_get_reduce_items(tmp_path):
     """Test generation of remaining reduce items"""
-    destination_pixel_map = [(0, 11, 131)]
     plan = ResumePlan(tmp_path=tmp_path, progress_bar=False)
 
     with pytest.raises(RuntimeError, match="destination pixel map"):
@@ -180,7 +197,7 @@ def test_get_reduce_items(tmp_path):
     with pytest.raises(RuntimeError, match="destination pixel map"):
         remaining_reduce_items = plan.get_destination_pixels()
 
-    plan.destination_pixel_map = destination_pixel_map
+    plan.destination_pixel_map = {HealpixPixel(0, 11): 131}
     remaining_reduce_items = plan.get_reduce_items()
     assert len(remaining_reduce_items) == 1
 
@@ -197,8 +214,7 @@ def test_some_reduce_task_failures(tmp_path, dask_client):
     """Test that we only consider reduce stage successful if all done files are written"""
     plan = ResumePlan(tmp_path=tmp_path, progress_bar=False)
 
-    destination_pixel_map = [(0, 11, 131)]
-    plan.destination_pixel_map = destination_pixel_map
+    plan.destination_pixel_map = {HealpixPixel(0, 11): 131}
     remaining_reduce_items = plan.get_reduce_items()
     assert len(remaining_reduce_items) == 1
 

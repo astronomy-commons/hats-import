@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import pickle
+import re
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import hats.pixel_math.healpix_shim as hp
 import numpy as np
@@ -29,7 +30,7 @@ class ResumePlan(PipelineResumePlan):
     """list of files (and job keys) that have yet to be mapped"""
     split_keys: List[Tuple[str, str]] = field(default_factory=list)
     """set of files (and job keys) that have yet to be split"""
-    destination_pixel_map: Optional[List[Tuple[int, int, int]]] = None
+    destination_pixel_map: Optional[Dict[HealpixPixel, int]] = None
     """Destination pixels and their expected final count"""
     should_run_mapping: bool = True
     should_run_splitting: bool = True
@@ -145,13 +146,12 @@ class ResumePlan(PipelineResumePlan):
         Returns:
             list of mapping keys *not* found in files like /resume/path/mapping_key.npz
         """
-        prefix = file_io.append_paths_to_pointer(self.tmp_path, self.HISTOGRAMS_DIR)
-        mapped_keys = self.get_keys_from_file_names(prefix, ".npz")
-        return [
-            (f"map_{i}", file_path)
-            for i, file_path in enumerate(self.input_paths)
-            if f"map_{i}" not in mapped_keys
+        prefix = file_io.get_upath(self.tmp_path) / self.HISTOGRAMS_DIR
+        done_indexes = [
+            int(re.match(r"map_(.*).npz", str(path.name)).group(1)) for path in prefix.glob("*.npz")
         ]
+        remaining_indexes = list(set(range(0, len(self.input_paths))).difference(set(done_indexes)))
+        return [(f"map_{key}", self.input_paths[key]) for key in remaining_indexes]
 
     def read_histogram(self, healpix_order):
         """Return histogram with healpix_order'd shape
@@ -220,12 +220,12 @@ class ResumePlan(PipelineResumePlan):
         Returns:
             list of splitting keys *not* found in files like /resume/path/split_key.done
         """
-        split_keys = set(self.read_done_keys(self.SPLITTING_STAGE))
-        return [
-            (f"split_{i}", file_path)
-            for i, file_path in enumerate(self.input_paths)
-            if f"split_{i}" not in split_keys
+        prefix = file_io.get_upath(self.tmp_path) / self.SPLITTING_STAGE
+        done_indexes = [
+            int(re.match(r"split_(.*)_done", str(path.name)).group(1)) for path in prefix.glob("*_done")
         ]
+        remaining_indexes = list(set(range(0, len(self.input_paths))).difference(set(done_indexes)))
+        return [(f"split_{key}", self.input_paths[key]) for key in remaining_indexes]
 
     @classmethod
     def splitting_key_done(cls, tmp_path, splitting_key: str):
@@ -308,11 +308,11 @@ class ResumePlan(PipelineResumePlan):
             with open(file_name, "rb") as pickle_file:
                 alignment = pickle.load(pickle_file)
             non_none_elements = alignment[alignment != np.array(None)]
-            self.destination_pixel_map = np.unique(non_none_elements)
-            self.destination_pixel_map = [
-                (order, pix, count) for (order, pix, count) in self.destination_pixel_map if int(count) > 0
-            ]
-        total_rows = sum(count for (_, _, count) in self.destination_pixel_map)
+            pixel_list = np.unique(non_none_elements)
+            self.destination_pixel_map = dict(
+                [(HealpixPixel(order, pix), count) for (order, pix, count) in pixel_list if int(count) > 0]
+            )
+        total_rows = sum(self.destination_pixel_map.values())
         if total_rows != expected_total_rows:
             raise ValueError(
                 f"Number of rows ({total_rows}) does not match expectation ({expected_total_rows})"
@@ -337,21 +337,22 @@ class ResumePlan(PipelineResumePlan):
         - number of rows expected for this pixel
         - reduce key (string of destination order+pixel)
         """
-        reduced_keys = set(self.read_done_keys(self.REDUCING_STAGE))
         if self.destination_pixel_map is None:
             raise RuntimeError("destination pixel map not provided for progress tracking.")
-        reduce_items = [
-            (HealpixPixel(hp_order, hp_pixel), row_count, f"{hp_order}_{hp_pixel}")
-            for hp_order, hp_pixel, row_count in self.destination_pixel_map
-            if f"{hp_order}_{hp_pixel}" not in reduced_keys
+
+        reduced_pixels = self.read_done_pixels(self.REDUCING_STAGE)
+
+        remaining_pixels = list(set(self.destination_pixel_map.keys()).difference(set(reduced_pixels)))
+        return [
+            (hp_pixel, self.destination_pixel_map[hp_pixel], f"{hp_pixel.order}_{hp_pixel.pixel}")
+            for hp_pixel in remaining_pixels
         ]
-        return reduce_items
 
     def get_destination_pixels(self):
         """Create HealpixPixel list of all destination pixels."""
         if self.destination_pixel_map is None:
             raise RuntimeError("destination pixel map not known.")
-        return [HealpixPixel(hp_order, hp_pixel) for hp_order, hp_pixel, _ in self.destination_pixel_map]
+        return list(self.destination_pixel_map.keys())
 
     def wait_for_reducing(self, futures):
         """Wait for reducing futures to complete."""

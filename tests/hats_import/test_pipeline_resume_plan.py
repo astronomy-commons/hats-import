@@ -8,29 +8,6 @@ import pytest
 from hats_import.pipeline_resume_plan import PipelineResumePlan, get_formatted_stage_name
 
 
-def test_done_key(tmp_path):
-    """Verify expected behavior of marking stage progress via done files."""
-    plan = PipelineResumePlan(tmp_path=tmp_path, progress_bar=False)
-    stage = "testing"
-    (tmp_path / stage).mkdir(parents=True)
-
-    keys = plan.read_done_keys(stage)
-    assert len(keys) == 0
-
-    PipelineResumePlan.touch_key_done_file(tmp_path, stage, "key_01")
-    keys = plan.read_done_keys(stage)
-    assert keys == ["key_01"]
-
-    PipelineResumePlan.touch_key_done_file(tmp_path, stage, "key_02")
-    keys = plan.read_done_keys(stage)
-    assert keys == ["key_01", "key_02"]
-
-    plan.clean_resume_files()
-
-    keys = plan.read_done_keys(stage)
-    assert len(keys) == 0
-
-
 def test_done_file(tmp_path):
     """Verify expected behavior of done file"""
     plan = PipelineResumePlan(tmp_path=tmp_path, progress_bar=False)
@@ -51,25 +28,6 @@ def test_done_file(tmp_path):
     plan.clean_resume_files()
 
     assert not plan.done_file_exists(done_file)
-
-
-def test_get_keys_from_results(tmp_path):
-    """Test that we can create a list of completed keys via the output results files."""
-    plan = PipelineResumePlan(tmp_path=tmp_path, progress_bar=False, resume=False)
-    keys = PipelineResumePlan.get_keys_from_file_names(tmp_path, ".foo")
-    assert len(keys) == 0
-
-    Path(tmp_path, "file_0.foo").touch()
-    keys = PipelineResumePlan.get_keys_from_file_names(tmp_path, ".foo")
-    assert keys == ["file_0"]
-
-    Path(tmp_path, "file_1.foo").touch()
-    keys = PipelineResumePlan.get_keys_from_file_names(tmp_path, ".foo")
-    assert keys == ["file_0", "file_1"]
-
-    plan.clean_resume_files()
-    keys = PipelineResumePlan.get_keys_from_file_names(tmp_path, ".foo")
-    assert len(keys) == 0
 
 
 def test_safe_to_resume(tmp_path):
