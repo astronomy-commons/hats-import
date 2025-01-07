@@ -9,6 +9,7 @@ from importlib.metadata import version
 from pathlib import Path
 
 from hats.io import file_io
+from hats.io.validation import is_valid_catalog
 from upath import UPath
 
 # pylint: disable=too-many-instance-attributes
@@ -89,6 +90,8 @@ class RuntimeArguments:
             raise ValueError("dask_threads_per_worker should be greater than 0")
 
         self.catalog_path = file_io.get_upath(self.output_path) / self.output_artifact_name
+        if is_valid_catalog(self.catalog_path):
+            raise ValueError(f"Output path {self.catalog_path} already contains a valid catalog")
         if not self.resume:
             file_io.remove_directory(self.catalog_path, ignore_errors=True)
         file_io.make_directory(self.catalog_path, exist_ok=True)

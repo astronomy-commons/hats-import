@@ -1,6 +1,6 @@
 """Import a set of non-hats files using dask for parallelization
 
-Methods in this file set up a dask pipeline using futures. 
+Methods in this file set up a dask pipeline using futures.
 The actual logic of the map reduce is in the `map_reduce.py` file.
 """
 
@@ -11,6 +11,7 @@ import hats.io.file_io as io
 from hats.catalog import PartitionInfo
 from hats.io import paths
 from hats.io.parquet_metadata import write_parquet_metadata
+from hats.io.validation import is_valid_catalog
 
 import hats_import.catalog.map_reduce as mr
 from hats_import.catalog.arguments import ImportArguments
@@ -121,7 +122,7 @@ def run(args, client):
 
     # All done - write out the metadata
     if resume_plan.should_run_finishing:
-        with resume_plan.print_progress(total=4, stage_name="Finishing") as step_progress:
+        with resume_plan.print_progress(total=5, stage_name="Finishing") as step_progress:
             partition_info = PartitionInfo.from_healpix(resume_plan.get_destination_pixels())
             partition_info_file = paths.get_partition_info_pointer(args.catalog_path)
             partition_info.write_to_file(partition_info_file)
@@ -135,12 +136,14 @@ def run(args, client):
             else:
                 partition_info.write_to_metadata_files(args.catalog_path)
             step_progress.update(1)
+            io.write_fits_image(raw_histogram, paths.get_point_map_file_pointer(args.catalog_path))
+            step_progress.update(1)
             catalog_info = args.to_table_properties(
                 total_rows, partition_info.get_highest_order(), partition_info.calculate_fractional_coverage()
             )
             catalog_info.to_properties_file(args.catalog_path)
             step_progress.update(1)
-            io.write_fits_image(raw_histogram, paths.get_point_map_file_pointer(args.catalog_path))
-            step_progress.update(1)
             resume_plan.clean_resume_files()
+            step_progress.update(1)
+            assert is_valid_catalog(args.catalog_path)
             step_progress.update(1)

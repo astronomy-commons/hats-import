@@ -241,3 +241,16 @@ def test_check_healpix_order_range():
         check_healpix_order_range("two", "order_field")
     with pytest.raises(TypeError, match="not supported"):
         check_healpix_order_range(5, "order_field", upper_bound="ten")
+
+
+def test_no_import_overwrite(small_sky_object_catalog, parquet_shards_dir):
+    """Runner should refuse to overwrite a valid catalog"""
+    catalog_dir = small_sky_object_catalog.parent
+    catalog_name = small_sky_object_catalog.name
+    with pytest.raises(ValueError, match="already contains a valid catalog"):
+        ImportArguments(
+            input_path=parquet_shards_dir,
+            output_path=catalog_dir,
+            output_artifact_name=catalog_name,
+            file_reader="parquet",
+        )

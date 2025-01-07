@@ -123,10 +123,10 @@ def test_dask_args(tmp_path):
         )
 
 
-def test_extra_property_dict(test_data_dir):
+def test_extra_property_dict(tmp_path):
     args = RuntimeArguments(
         output_artifact_name="small_sky_source_catalog",
-        output_path=test_data_dir,
+        output_path=tmp_path,
     )
 
     properties = args.extra_property_dict()
@@ -141,13 +141,13 @@ def test_extra_property_dict(test_data_dir):
     # Most values are dynamic, but these are some safe assumptions.
     assert properties["hats_builder"].startswith("hats")
     assert properties["hats_creation_date"].startswith("20")
-    assert properties["hats_estsize"] > 1_000
+    assert properties["hats_estsize"] >= 0
     assert properties["hats_release_date"].startswith("20")
     assert properties["hats_version"].startswith("v")
 
     args = RuntimeArguments(
         output_artifact_name="small_sky_source_catalog",
-        output_path=test_data_dir,
+        output_path=tmp_path,
         addl_hats_properties={"foo": "bar"},
     )
 
@@ -164,7 +164,7 @@ def test_extra_property_dict(test_data_dir):
     # Most values are dynamic, but these are some safe assumptions.
     assert properties["hats_builder"].startswith("hats")
     assert properties["hats_creation_date"].startswith("20")
-    assert properties["hats_estsize"] > 1_000
+    assert properties["hats_estsize"] >= 0
     assert properties["hats_release_date"].startswith("20")
     assert properties["hats_version"].startswith("v")
     assert properties["foo"] == "bar"
