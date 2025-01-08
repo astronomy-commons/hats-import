@@ -98,8 +98,9 @@ class SoapPlan(PipelineResumePlan):
             self.source_pixel_map = source_pixel_map
         if self.source_pixel_map is None:
             raise ValueError("source_pixel_map not provided for progress tracking.")
+        count_file_pattern = re.compile(r"(\d+)_(\d+).csv")
         counted_pixel_tuples = [
-            re.match(r"(\d+)_(\d+).csv", path.name).group(1, 2) for path in self.tmp_path.glob("*.csv")
+            count_file_pattern.match(path.name).group(1, 2) for path in self.tmp_path.glob("*.csv")
         ]
         counted_pixels = [HealpixPixel(int(match[0]), int(match[1])) for match in counted_pixel_tuples]
 

@@ -146,10 +146,9 @@ class ResumePlan(PipelineResumePlan):
             list of mapping keys *not* found in files like /resume/path/mapping_key.npz
         """
         prefix = file_io.get_upath(self.tmp_path) / self.HISTOGRAMS_DIR
-        done_indexes = [
-            int(re.match(r"map_(\d+).npz", path.name).group(1)) for path in prefix.glob("*.npz")
-        ]
-        remaining_indexes = list(set(range(0, len(self.input_paths))).difference(set(done_indexes)))
+        map_file_pattern = re.compile(r"map_(\d+).npz")
+        done_indexes = [int(map_file_pattern.match(path.name).group(1)) for path in prefix.glob("*.npz")]
+        remaining_indexes = list(set(range(0, len(self.input_paths))) - (set(done_indexes)))
         return [(f"map_{key}", self.input_paths[key]) for key in remaining_indexes]
 
     def read_histogram(self, healpix_order):
@@ -214,9 +213,8 @@ class ResumePlan(PipelineResumePlan):
             list of splitting keys *not* found in files like /resume/path/split_key.done
         """
         prefix = file_io.get_upath(self.tmp_path) / self.SPLITTING_STAGE
-        done_indexes = [
-            int(re.match(r"split_(\d+)_done", path.name).group(1)) for path in prefix.glob("*_done")
-        ]
+        split_file_pattern = re.compile(r"split_(\d+)_done")
+        done_indexes = [int(split_file_pattern.match(path.name).group(1)) for path in prefix.glob("*_done")]
         remaining_indexes = list(set(range(0, len(self.input_paths))) - set(done_indexes))
         return [(f"split_{key}", self.input_paths[key]) for key in remaining_indexes]
 

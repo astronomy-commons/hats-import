@@ -119,8 +119,9 @@ class PipelineResumePlan:
         prefix = file_io.append_paths_to_pointer(self.tmp_path, stage_name)
         result = {}
         result_files = file_io.find_files_matching_path(prefix, "*_done")
+        done_file_pattern = re.compile(r"(.*)_done")
         for file_path in result_files:
-            match = re.match(r"(.*)_done", str(file_path.name))
+            match = done_file_pattern.match(str(file_path.name))
             if not match:
                 raise ValueError(f"Unexpected file found: {file_path.name}")
             key = match.group(1)
@@ -136,9 +137,8 @@ class PipelineResumePlan:
             List[HealpixPixel] - all pixel keys found in done directory
         """
         prefix = file_io.append_paths_to_pointer(self.tmp_path, stage_name)
-        pixel_tuples = [
-            re.match(r"(\d+)_(\d+)_done", path.name).group(1, 2) for path in prefix.glob("*_done")
-        ]
+        done_file_pattern = re.compile(r"(\d+)_(\d+)_done")
+        pixel_tuples = [done_file_pattern.match(path.name).group(1, 2) for path in prefix.glob("*_done")]
         return [HealpixPixel(int(match[0]), int(match[1])) for match in pixel_tuples]
 
     def clean_resume_files(self):
