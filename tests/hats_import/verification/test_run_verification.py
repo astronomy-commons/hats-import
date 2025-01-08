@@ -50,11 +50,11 @@ def test_test_file_sets(small_sky_object_catalog, wrong_files_and_rows_dir, tmp_
     verifier = runner.Verifier.from_args(args)
     passed = verifier.test_file_sets()
     assert not passed, "bad catalog passed"
-    bad_files = {
-        str(COMMON_DIR / "Npix=11.extra_file.parquet"),
-        str(COMMON_DIR / "Npix=11.missing_file.parquet"),
+    expected_bad_file_names = {"Npix=11.extra_file.parquet", "Npix=11.missing_file.parquet"}
+    actual_bad_file_names = {
+        file_name.replace("\\", "/").split("/")[-1] for file_name in verifier.results_df.bad_files.squeeze()
     }
-    assert bad_files == set(verifier.results_df.bad_files.squeeze()), "bad_files failed"
+    assert expected_bad_file_names == actual_bad_file_names, "bad_files failed"
 
 
 def test_test_is_valid_catalog(small_sky_object_catalog, wrong_files_and_rows_dir, tmp_path):
@@ -92,13 +92,14 @@ def test_test_num_rows(small_sky_object_catalog, wrong_files_and_rows_dir, tmp_p
     targets = {"file footers vs _metadata", "file footers vs truth"}
     assert targets == set(results.target), "wrong targets"
 
-    bad_files = {
-        str(COMMON_DIR / "Npix=11.extra_file.parquet"),
-        str(COMMON_DIR / "Npix=11.extra_rows.parquet"),
-        str(COMMON_DIR / "Npix=11.missing_file.parquet"),
+    expected_bad_file_names = {
+        "Npix=11.extra_file.parquet",
+        "Npix=11.extra_rows.parquet",
+        "Npix=11.missing_file.parquet",
     }
     _result = results.loc[results.target == "file footers vs _metadata"].squeeze()
-    assert bad_files == set(_result.bad_files), "wrong bad_files"
+    actual_bad_file_names = {file_name.replace("\\", "/").split("/")[-1] for file_name in _result.bad_files}
+    assert expected_bad_file_names == actual_bad_file_names, "wrong bad_files"
 
 
 @pytest.mark.parametrize("check_metadata", [(False,), (True,)])
