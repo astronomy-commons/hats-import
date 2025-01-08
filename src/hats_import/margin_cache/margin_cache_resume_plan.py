@@ -106,12 +106,9 @@ class MarginCachePlan(PipelineResumePlan):
 
     def get_remaining_map_keys(self):
         """Fetch a tuple for each pixel/partition left to map."""
-        map_keys = set(self.read_done_keys(self.MAPPING_STAGE))
-        return [
-            (f"{hp_pixel.order}_{hp_pixel.pixel}", hp_pixel)
-            for hp_pixel in self.partition_pixels
-            if f"{hp_pixel.order}_{hp_pixel.pixel}" not in map_keys
-        ]
+        mapped_pixels = set(self.read_done_pixels(self.MAPPING_STAGE))
+        remaining_pixels = list(set(self.partition_pixels) - set(mapped_pixels))
+        return [(f"{hp_pixel.order}_{hp_pixel.pixel}", hp_pixel) for hp_pixel in remaining_pixels]
 
     @classmethod
     def reducing_key_done(cls, tmp_path, reducing_key: str):
@@ -125,13 +122,9 @@ class MarginCachePlan(PipelineResumePlan):
 
     def get_remaining_reduce_keys(self):
         """Fetch a tuple for each object catalog pixel to reduce."""
-        reduced_keys = set(self.read_done_keys(self.REDUCING_STAGE))
-        reduce_items = [
-            (f"{hp_pixel.order}_{hp_pixel.pixel}", hp_pixel)
-            for hp_pixel in self.combined_pixels
-            if f"{hp_pixel.order}_{hp_pixel.pixel}" not in reduced_keys
-        ]
-        return reduce_items
+        reduced_pixels = self.read_done_pixels(self.REDUCING_STAGE)
+        remaining_pixels = list(set(self.combined_pixels) - set(reduced_pixels))
+        return [(f"{hp_pixel.order}_{hp_pixel.pixel}", hp_pixel) for hp_pixel in remaining_pixels]
 
     def is_reducing_done(self) -> bool:
         """Are there partitions left to reduce?"""
