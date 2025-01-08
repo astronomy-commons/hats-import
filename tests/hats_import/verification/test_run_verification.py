@@ -1,14 +1,8 @@
-from pathlib import Path
-
 import pandas as pd
 import pytest
 
 import hats_import.verification.run_verification as runner
 from hats_import.verification.arguments import VerificationArguments
-
-# This directory is common to all bad files expected to be found in the tests.
-# Define it using pathlib because it needs to have the correct syntax regardless of OS.
-COMMON_DIR = Path("Norder=0") / "Dir=0"
 
 
 def test_bad_args():
@@ -52,7 +46,7 @@ def test_test_file_sets(small_sky_object_catalog, wrong_files_and_rows_dir, tmp_
     assert not passed, "bad catalog passed"
     expected_bad_file_names = {"Npix=11.extra_file.parquet", "Npix=11.missing_file.parquet"}
     actual_bad_file_names = {
-        file_name.replace("\\", "/").split("/")[-1] for file_name in verifier.results_df.bad_files.squeeze()
+        file_name.split("/")[-1] for file_name in verifier.results_df.bad_files.squeeze()
     }
     assert expected_bad_file_names == actual_bad_file_names, "bad_files failed"
 
@@ -98,7 +92,7 @@ def test_test_num_rows(small_sky_object_catalog, wrong_files_and_rows_dir, tmp_p
         "Npix=11.missing_file.parquet",
     }
     _result = results.loc[results.target == "file footers vs _metadata"].squeeze()
-    actual_bad_file_names = {file_name.replace("\\", "/").split("/")[-1] for file_name in _result.bad_files}
+    actual_bad_file_names = {file_name.split("/")[-1] for file_name in _result.bad_files}
     assert expected_bad_file_names == actual_bad_file_names, "wrong bad_files"
 
 
@@ -142,10 +136,11 @@ def test_test_schemas(small_sky_object_catalog, bad_schemas_dir, tmp_path, check
     # and files with wrong metadata to fail if check_metadata is true.
     result = results.loc[results.target == "file footers vs truth"].squeeze()
     expected_bad_files = [
-        str(COMMON_DIR / "Npix=11.extra_column.parquet"),
-        str(COMMON_DIR / "Npix=11.missing_column.parquet"),
-        str(COMMON_DIR / "Npix=11.wrong_dtypes.parquet"),
+        "Npix=11.extra_column.parquet",
+        "Npix=11.missing_column.parquet",
+        "Npix=11.wrong_dtypes.parquet",
     ]
     if check_metadata:
-        expected_bad_files = expected_bad_files + [str(COMMON_DIR / "Npix=11.wrong_metadata.parquet")]
-    assert set(expected_bad_files) == set(result.bad_files), "wrong bad_files"
+        expected_bad_files = expected_bad_files + ["Npix=11.wrong_metadata.parquet"]
+    actual_bad_file_names = {file_name.split("/")[-1] for file_name in result.bad_files}
+    assert set(expected_bad_files) == set(actual_bad_file_names), "wrong bad_files"
