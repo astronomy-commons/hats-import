@@ -99,11 +99,11 @@ class SoapPlan(PipelineResumePlan):
         if self.source_pixel_map is None:
             raise ValueError("source_pixel_map not provided for progress tracking.")
         counted_pixel_tuples = [
-            re.match(r"(.*)_(.*).csv", str(path.name)).group(1, 2) for path in self.tmp_path.glob("*.csv")
+            re.match(r"(\d+)_(\d+).csv", path.name).group(1, 2) for path in self.tmp_path.glob("*.csv")
         ]
         counted_pixels = [HealpixPixel(int(match[0]), int(match[1])) for match in counted_pixel_tuples]
 
-        remaining_pixels = list(set(source_pixel_map.keys()).difference(set(counted_pixels)))
+        remaining_pixels = list(set(source_pixel_map.keys()) - set(counted_pixels))
         return [
             (hp_pixel, source_pixel_map[hp_pixel], f"{hp_pixel.order}_{hp_pixel.pixel}")
             for hp_pixel in remaining_pixels
@@ -122,7 +122,7 @@ class SoapPlan(PipelineResumePlan):
     def get_objects_to_reduce(self):
         """Fetch a tuple for each object catalog pixel to reduce."""
         reduced_pixels = set(self.read_done_pixels(self.REDUCING_STAGE))
-        remaining_pixels = list(set(self.object_catalog.get_healpix_pixels()).difference(set(reduced_pixels)))
+        remaining_pixels = list(set(self.object_catalog.get_healpix_pixels()) - set(reduced_pixels))
         return [(hp_pixel, f"{hp_pixel.order}_{hp_pixel.pixel}") for hp_pixel in remaining_pixels]
 
     def is_reducing_done(self) -> bool:

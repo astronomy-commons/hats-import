@@ -137,7 +137,7 @@ class PipelineResumePlan:
         """
         prefix = file_io.append_paths_to_pointer(self.tmp_path, stage_name)
         pixel_tuples = [
-            re.match(r"(.*)_(.*)_done", str(path.name)).group(1, 2) for path in prefix.glob("*_done")
+            re.match(r"(\d+)_(\d+)_done", path.name).group(1, 2) for path in prefix.glob("*_done")
         ]
         return [HealpixPixel(int(match[0]), int(match[1])) for match in pixel_tuples]
 

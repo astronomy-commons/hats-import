@@ -147,7 +147,7 @@ class ResumePlan(PipelineResumePlan):
         """
         prefix = file_io.get_upath(self.tmp_path) / self.HISTOGRAMS_DIR
         done_indexes = [
-            int(re.match(r"map_(.*).npz", str(path.name)).group(1)) for path in prefix.glob("*.npz")
+            int(re.match(r"map_(\d+).npz", path.name).group(1)) for path in prefix.glob("*.npz")
         ]
         remaining_indexes = list(set(range(0, len(self.input_paths))).difference(set(done_indexes)))
         return [(f"map_{key}", self.input_paths[key]) for key in remaining_indexes]
@@ -215,9 +215,9 @@ class ResumePlan(PipelineResumePlan):
         """
         prefix = file_io.get_upath(self.tmp_path) / self.SPLITTING_STAGE
         done_indexes = [
-            int(re.match(r"split_(.*)_done", str(path.name)).group(1)) for path in prefix.glob("*_done")
+            int(re.match(r"split_(\d+)_done", path.name).group(1)) for path in prefix.glob("*_done")
         ]
-        remaining_indexes = list(set(range(0, len(self.input_paths))).difference(set(done_indexes)))
+        remaining_indexes = list(set(range(0, len(self.input_paths))) - set(done_indexes))
         return [(f"split_{key}", self.input_paths[key]) for key in remaining_indexes]
 
     @classmethod
@@ -335,7 +335,7 @@ class ResumePlan(PipelineResumePlan):
 
         reduced_pixels = self.read_done_pixels(self.REDUCING_STAGE)
 
-        remaining_pixels = list(set(self.destination_pixel_map.keys()).difference(set(reduced_pixels)))
+        remaining_pixels = list(set(self.destination_pixel_map.keys()) - set(reduced_pixels))
         return [
             (hp_pixel, self.destination_pixel_map[hp_pixel], f"{hp_pixel.order}_{hp_pixel.pixel}")
             for hp_pixel in remaining_pixels
