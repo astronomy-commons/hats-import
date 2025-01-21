@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
@@ -97,12 +98,16 @@ class SoapPlan(PipelineResumePlan):
             self.source_pixel_map = source_pixel_map
         if self.source_pixel_map is None:
             raise ValueError("source_pixel_map not provided for progress tracking.")
+        count_file_pattern = re.compile(r"(\d+)_(\d+).csv")
+        counted_pixel_tuples = [
+            count_file_pattern.match(path.name).group(1, 2) for path in self.tmp_path.glob("*.csv")
+        ]
+        counted_pixels = [HealpixPixel(int(match[0]), int(match[1])) for match in counted_pixel_tuples]
 
-        counted_keys = set(self.get_keys_from_file_names(self.tmp_path, ".csv"))
+        remaining_pixels = list(set(source_pixel_map.keys()) - set(counted_pixels))
         return [
-            (hp_pixel, object_pixels, f"{hp_pixel.order}_{hp_pixel.pixel}")
-            for hp_pixel, object_pixels in source_pixel_map.items()
-            if f"{hp_pixel.order}_{hp_pixel.pixel}" not in counted_keys
+            (hp_pixel, source_pixel_map[hp_pixel], f"{hp_pixel.order}_{hp_pixel.pixel}")
+            for hp_pixel in remaining_pixels
         ]
 
     @classmethod
@@ -117,13 +122,9 @@ class SoapPlan(PipelineResumePlan):
 
     def get_objects_to_reduce(self):
         """Fetch a tuple for each object catalog pixel to reduce."""
-        reduced_keys = set(self.read_done_keys(self.REDUCING_STAGE))
-        reduce_items = [
-            (hp_pixel, f"{hp_pixel.order}_{hp_pixel.pixel}")
-            for hp_pixel in self.object_catalog.get_healpix_pixels()
-            if f"{hp_pixel.order}_{hp_pixel.pixel}" not in reduced_keys
-        ]
-        return reduce_items
+        reduced_pixels = set(self.read_done_pixels(self.REDUCING_STAGE))
+        remaining_pixels = list(set(self.object_catalog.get_healpix_pixels()) - set(reduced_pixels))
+        return [(hp_pixel, f"{hp_pixel.order}_{hp_pixel.pixel}") for hp_pixel in remaining_pixels]
 
     def is_reducing_done(self) -> bool:
         """Are there partitions left to reduce?"""

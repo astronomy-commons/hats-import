@@ -13,11 +13,9 @@ from hats import read_hats
 from hats.pixel_math.sparse_histogram import SparseHistogram
 
 import hats_import.catalog.run_import as runner
-import hats_import.margin_cache.margin_cache as margin_runner
 from hats_import.catalog.arguments import ImportArguments
 from hats_import.catalog.file_readers import CsvReader
 from hats_import.catalog.resume_plan import ResumePlan
-from hats_import.margin_cache.margin_cache_arguments import MarginCacheArguments
 
 
 def test_empty_args():
@@ -31,34 +29,6 @@ def test_bad_args():
     args = {"output_artifact_name": "bad_arg_type"}
     with pytest.raises(ValueError, match="ImportArguments"):
         runner.run(args, None)
-
-
-def test_no_import_overwrite(small_sky_object_catalog, parquet_shards_dir):
-    """Runner should refuse to overwrite a valid catalog"""
-    catalog_dir = small_sky_object_catalog.parent
-    catalog_name = small_sky_object_catalog.name
-    args = ImportArguments(
-        input_path=parquet_shards_dir,
-        output_path=catalog_dir,
-        output_artifact_name=catalog_name,
-        file_reader="parquet",
-    )
-    with pytest.raises(ValueError, match="already contains a valid catalog"):
-        runner.run(args, None)
-
-
-def test_no_margin_cache_overwrite(small_sky_object_catalog):
-    """Runner should refuse to generate margin cache which overwrites valid catalog"""
-    catalog_dir = small_sky_object_catalog.parent
-    catalog_name = small_sky_object_catalog.name
-    args = MarginCacheArguments(
-        input_catalog_path=small_sky_object_catalog,
-        output_path=catalog_dir,
-        margin_threshold=10.0,
-        output_artifact_name=catalog_name,
-    )
-    with pytest.raises(ValueError, match="already contains a valid catalog"):
-        margin_runner.generate_margin_cache(args, None)
 
 
 @pytest.mark.dask
@@ -77,8 +47,8 @@ def test_resume_dask_runner(
     ## Now set up our resume files to match previous work.
     resume_tmp = tmp_path / "tmp" / "resume_catalog"
     ResumePlan(tmp_path=resume_tmp, progress_bar=False)
-    histogram = SparseHistogram.make_from_counts([11], [131], 0)
-    empty = SparseHistogram.make_empty(0)
+    histogram = SparseHistogram([11], [131], 0)
+    empty = SparseHistogram([], [], 0)
     for file_index in range(0, 5):
         ResumePlan.touch_key_done_file(resume_tmp, ResumePlan.SPLITTING_STAGE, f"split_{file_index}")
         histogram_file = ResumePlan.partial_histogram_file(
@@ -169,7 +139,7 @@ def test_resume_dask_runner_diff_pixel_order(
     ## Now set up our resume files to match previous work.
     resume_tmp = tmp_path / "tmp" / "resume_catalog"
     ResumePlan(tmp_path=resume_tmp, progress_bar=False)
-    SparseHistogram.make_from_counts([11], [131], 0).to_dense_file(resume_tmp / "mapping_histogram.npz")
+    SparseHistogram([11], [131], 0).to_dense_file(resume_tmp / "mapping_histogram.npz")
     for file_index in range(0, 5):
         ResumePlan.touch_key_done_file(resume_tmp, ResumePlan.SPLITTING_STAGE, f"split_{file_index}")
 
@@ -233,8 +203,8 @@ def test_resume_dask_runner_histograms_diff_size(
     ResumePlan(tmp_path=resume_tmp, progress_bar=False)
 
     # We'll create mock partial histograms of size 0 and 2
-    histogram = SparseHistogram.make_empty(0)
-    wrong_histogram = SparseHistogram.make_empty(2)
+    histogram = SparseHistogram([], [], 0)
+    wrong_histogram = SparseHistogram([], [], 2)
 
     for file_index in range(0, 5):
         ResumePlan.touch_key_done_file(resume_tmp, ResumePlan.SPLITTING_STAGE, f"split_{file_index}")

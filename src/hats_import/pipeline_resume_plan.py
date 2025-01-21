@@ -119,43 +119,27 @@ class PipelineResumePlan:
         prefix = file_io.append_paths_to_pointer(self.tmp_path, stage_name)
         result = {}
         result_files = file_io.find_files_matching_path(prefix, "*_done")
+        done_file_pattern = re.compile(r"(.*)_done")
         for file_path in result_files:
-            match = re.match(r"(.*)_done", str(file_path.name))
+            match = done_file_pattern.match(str(file_path.name))
             if not match:
                 raise ValueError(f"Unexpected file found: {file_path.name}")
             key = match.group(1)
             result[key] = file_io.load_text_file(file_path)
         return result
 
-    def read_done_keys(self, stage_name):
-        """Inspect the stage's directory of done files, fetching the keys from done file names.
+    def read_done_pixels(self, stage_name):
+        """Inspect the stage's directory of done files, fetching the pixel keys from done file names.
 
         Args:
             stage_name(str): name of the stage (e.g. mapping, reducing)
         Return:
-            List[str] - all keys found in done directory
+            List[HealpixPixel] - all pixel keys found in done directory
         """
         prefix = file_io.append_paths_to_pointer(self.tmp_path, stage_name)
-        return self.get_keys_from_file_names(prefix, "_done")
-
-    @staticmethod
-    def get_keys_from_file_names(directory, extension):
-        """Gather keys for successful tasks from result file names.
-
-        Args:
-            directory: where to look for result files. this is NOT a recursive lookup
-            extension (str): file suffix to look for and to remove from all file names.
-                if you expect a file like "map_01.csv", extension should be ".csv"
-
-        Returns:
-            list of keys taken from files like /resume/path/{key}{extension}
-        """
-        result_files = file_io.find_files_matching_path(directory, f"*{extension}")
-        keys = []
-        for file_path in result_files:
-            match = re.match(r"(.*)" + extension, str(file_path.name))
-            keys.append(match.group(1))
-        return keys
+        done_file_pattern = re.compile(r"(\d+)_(\d+)_done")
+        pixel_tuples = [done_file_pattern.match(path.name).group(1, 2) for path in prefix.glob("*_done")]
+        return [HealpixPixel(int(match[0]), int(match[1])) for match in pixel_tuples]
 
     def clean_resume_files(self):
         """Remove the intermediate directory created in execution if the user decided
