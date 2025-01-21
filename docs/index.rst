@@ -84,6 +84,7 @@ threading issues with dask:
    catalogs/arguments
    guide/hipscat_conversion
    catalogs/temp_files
+   catalogs/properties
    catalogs/public/index
 
 .. toctree::
