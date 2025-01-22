@@ -19,28 +19,35 @@ def test_runner(small_sky_object_catalog, wrong_files_and_rows_dir, tmp_path):
     """Runner should execute all tests and write a report to file."""
     result_cols = ["datetime", "passed", "test", "target"]
 
-    args = VerificationArguments(input_catalog_path=small_sky_object_catalog, output_path=tmp_path)
+    args = VerificationArguments(
+        input_catalog_path=small_sky_object_catalog, output_path=tmp_path, verbose=False
+    )
     verifier = runner.run(args, write_mode="w")
-    all_passed = verifier.results_df.passed.all()
-    assert all_passed, "good catalog failed"
+    assert verifier.all_tests_passed, "good catalog failed"
     written_results = pd.read_csv(args.output_path / args.output_filename)
     assert written_results[result_cols].equals(verifier.results_df[result_cols]), "report failed"
 
-    args = VerificationArguments(input_catalog_path=wrong_files_and_rows_dir, output_path=tmp_path)
+    args = VerificationArguments(
+        input_catalog_path=wrong_files_and_rows_dir, output_path=tmp_path, verbose=False
+    )
     verifier = runner.run(args, write_mode="w")
-    assert not verifier.results_df.passed.all(), "bad catalog passed"
+    assert not verifier.all_tests_passed, "bad catalog passed"
     written_results = pd.read_csv(args.output_path / args.output_filename)
     assert written_results[result_cols].equals(verifier.results_df[result_cols]), "report failed"
 
 
 def test_test_file_sets(small_sky_object_catalog, wrong_files_and_rows_dir, tmp_path):
     """File set tests should fail if files listed in _metadata don't match the actual data files."""
-    args = VerificationArguments(input_catalog_path=small_sky_object_catalog, output_path=tmp_path)
+    args = VerificationArguments(
+        input_catalog_path=small_sky_object_catalog, output_path=tmp_path, verbose=False
+    )
     verifier = runner.Verifier.from_args(args)
     passed = verifier.test_file_sets()
     assert passed, "good catalog failed"
 
-    args = VerificationArguments(input_catalog_path=wrong_files_and_rows_dir, output_path=tmp_path)
+    args = VerificationArguments(
+        input_catalog_path=wrong_files_and_rows_dir, output_path=tmp_path, verbose=False
+    )
     verifier = runner.Verifier.from_args(args)
     passed = verifier.test_file_sets()
     assert not passed, "bad catalog passed"
@@ -53,12 +60,16 @@ def test_test_file_sets(small_sky_object_catalog, wrong_files_and_rows_dir, tmp_
 
 def test_test_is_valid_catalog(small_sky_object_catalog, wrong_files_and_rows_dir, tmp_path):
     """`hats.is_valid_catalog` should pass for good catalogs, fail for catalogs without ancillary files."""
-    args = VerificationArguments(input_catalog_path=small_sky_object_catalog, output_path=tmp_path)
+    args = VerificationArguments(
+        input_catalog_path=small_sky_object_catalog, output_path=tmp_path, verbose=False
+    )
     verifier = runner.Verifier.from_args(args)
     passed = verifier.test_is_valid_catalog()
     assert passed, "good catalog failed"
 
-    args = VerificationArguments(input_catalog_path=wrong_files_and_rows_dir, output_path=tmp_path)
+    args = VerificationArguments(
+        input_catalog_path=wrong_files_and_rows_dir, output_path=tmp_path, verbose=False
+    )
     verifier = runner.Verifier.from_args(args)
     passed = verifier.test_is_valid_catalog()
     assert not passed, "bad catalog passed"
@@ -67,15 +78,14 @@ def test_test_is_valid_catalog(small_sky_object_catalog, wrong_files_and_rows_di
 def test_test_num_rows(small_sky_object_catalog, wrong_files_and_rows_dir, tmp_path):
     """Row count tests should pass if all row counts match, else fail."""
     args = VerificationArguments(
-        input_catalog_path=small_sky_object_catalog, output_path=tmp_path, truth_total_rows=131
+        input_catalog_path=small_sky_object_catalog, output_path=tmp_path, truth_total_rows=131, verbose=False
     )
     verifier = runner.Verifier.from_args(args)
     verifier.test_num_rows()
-    all_passed = verifier.results_df.passed.all()
-    assert all_passed, "good catalog failed"
+    assert verifier.all_tests_passed, "good catalog failed"
 
     args = VerificationArguments(
-        input_catalog_path=wrong_files_and_rows_dir, output_path=tmp_path, truth_total_rows=131
+        input_catalog_path=wrong_files_and_rows_dir, output_path=tmp_path, truth_total_rows=131, verbose=False
     )
     verifier = runner.Verifier.from_args(args)
     verifier.test_num_rows()
@@ -104,17 +114,18 @@ def test_test_schemas(small_sky_object_catalog, bad_schemas_dir, tmp_path, check
         input_catalog_path=small_sky_object_catalog,
         output_path=tmp_path,
         truth_schema=small_sky_object_catalog / "dataset/_common_metadata",
+        verbose=False,
     )
     verifier = runner.Verifier.from_args(args)
     verifier.test_schemas(check_metadata=check_metadata)
-    all_passed = verifier.results_df.passed.all()
-    assert all_passed, "good catalog failed"
+    assert verifier.all_tests_passed, "good catalog failed"
 
     # Show that bad schemas fail.
     args = VerificationArguments(
         input_catalog_path=bad_schemas_dir,
         output_path=tmp_path,
         truth_schema=bad_schemas_dir / "dataset/_common_metadata.import_truth",
+        verbose=False,
     )
     verifier = runner.Verifier.from_args(args)
     verifier.test_schemas(check_metadata=check_metadata)

@@ -3,10 +3,12 @@
 import datetime
 import re
 from dataclasses import dataclass, field
+from time import perf_counter
 from typing import Literal
 
 import hats.io.paths
 import hats.io.validation
+import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.dataset as pds
@@ -46,8 +48,12 @@ def run(
     if not isinstance(args, VerificationArguments):
         raise TypeError("args must be type VerificationArguments")
 
+    start = perf_counter()
     verifier = Verifier.from_args(args)
     verifier.run(write_mode=write_mode, check_metadata=check_metadata)
+
+    if args.verbose:
+        print(f"Elapsed time (seconds): {perf_counter()-start:.2f}")
 
     return verifier
 
@@ -111,7 +117,8 @@ class Verifier:
         """
         args.output_path.mkdir(exist_ok=True, parents=True)
 
-        print("Loading dataset and schema.")
+        if args.verbose:
+            print("Loading dataset and schema.")
         parquet_fs = args.input_catalog_path.fs
         files_ds = pds.dataset(args.input_dataset_path.path, filesystem=parquet_fs)
         metadata_ds = pds.parquet_dataset(
@@ -141,6 +148,11 @@ class Verifier:
         """Test results as a dataframe."""
         return pd.DataFrame(self.results)
 
+    @property
+    def all_tests_passed(self):
+        """Simple pass/fail if all of the test results have passed."""
+        return np.all([res.passed for res in self.results])
+
     def run(self, write_mode: Literal["a", "w", "x"] = "a", check_metadata: bool = False) -> None:
         """Run all tests and write a verification report. See `results_df` property or
         written report for results.
@@ -169,11 +181,11 @@ class Verifier:
         version = f"hats version {hats.__version__}"
         test, description = "valid hats", f"Test hats.io.validation.is_valid_catalog ({version})."
         target = self.args.input_catalog_path
-        print(f"\nStarting: {description}")
+        self.print_if_verbose(f"\nStarting: {description}")
 
-        passed = hats.io.validation.is_valid_catalog(target, strict=True)
+        passed = hats.io.validation.is_valid_catalog(target, strict=True, verbose=self.args.verbose)
         self.results.append(Result(test=test, description=description, passed=passed, target=target.name))
-        print(f"Result: {'PASSED' if passed else 'FAILED'}")
+        self.print_if_verbose(f"Result: {'PASSED' if passed else 'FAILED'}")
         return passed
 
     def test_file_sets(self) -> bool:
@@ -188,7 +200,7 @@ class Verifier:
         """
         # info for the report
         description = "Test that files in _metadata match the data files on disk."
-        print(f"\nStarting: {description}")
+        self.print_if_verbose(f"\nStarting: {description}")
 
         files_ds_files = self._relative_paths(self.files_ds.files)
         metadata_ds_files = self._relative_paths(self.metadata_ds.files)
@@ -204,7 +216,7 @@ class Verifier:
             )
         )
 
-        print(f"Result: {'PASSED' if passed else 'FAILED'}")
+        self.print_if_verbose(f"Result: {'PASSED' if passed else 'FAILED'}")
         return passed
 
     def test_num_rows(self) -> bool:
@@ -218,7 +230,7 @@ class Verifier:
         """
         test = "num rows"
         description = "Test that number of rows are equal."
-        print(f"\nStarting: {description}")
+        self.print_if_verbose(f"\nStarting: {description}")
 
         catalog_prop_len = read_hats(self.args.input_catalog_path).catalog_info.total_rows
 
@@ -228,7 +240,7 @@ class Verifier:
         files_df_total = f"file footers ({files_df_sum:,})"
 
         target = "file footers vs catalog properties"
-        print(f"\t{target}")
+        self.print_if_verbose(f"\t{target}")
         passed_cat = catalog_prop_len == files_df_sum
         _description = f" {files_df_total} vs catalog properties ({catalog_prop_len:,})."
         self.results.append(
@@ -237,7 +249,7 @@ class Verifier:
 
         # check _metadata
         target = "file footers vs _metadata"
-        print(f"\t{target}")
+        self.print_if_verbose(f"\t{target}")
         metadata_df = self._load_nrows(self.metadata_ds)
         row_diff = files_df - metadata_df
         failed_frags = row_diff.loc[row_diff.num_rows != 0].index.to_list()
@@ -256,7 +268,7 @@ class Verifier:
         # check user-supplied total, if provided
         if self.args.truth_total_rows is not None:
             target = "file footers vs truth"
-            print(f"\t{target}")
+            self.print_if_verbose(f"\t{target}")
             passed_th = self.args.truth_total_rows == files_df_sum
             _description = f" {files_df_total} vs user-provided truth ({self.args.truth_total_rows:,})."
             self.results.append(
@@ -266,7 +278,7 @@ class Verifier:
             passed_th = True  # this test did not fail. this is only needed for the return value.
 
         all_passed = all([passed_md, passed_th, passed_cat])
-        print(f"Result: {'PASSED' if all_passed else 'FAILED'}")
+        self.print_if_verbose(f"Result: {'PASSED' if all_passed else 'FAILED'}")
         return all_passed
 
     def _load_nrows(self, dataset: pds.Dataset) -> pd.DataFrame:
@@ -307,14 +319,14 @@ class Verifier:
         # info for the report
         _include_md = "including metadata" if check_metadata else "excluding metadata"
         test_info = {"test": "schema", "description": f"Test that schemas are equal, {_include_md}."}
-        print(f"\nStarting: {test_info['description']}")
+        self.print_if_verbose(f"\nStarting: {test_info['description']}")
 
         passed_cm = self._test_schema__common_metadata(test_info, check_metadata=check_metadata)
         passed_md = self._test_schema__metadata(test_info, check_metadata=check_metadata)
         passed_ff = self._test_schema_file_footers(test_info, check_metadata=check_metadata)
 
         all_passed = all([passed_cm, passed_md, passed_ff])
-        print(f"Result: {'PASSED' if all_passed else 'FAILED'}")
+        self.print_if_verbose(f"Result: {'PASSED' if all_passed else 'FAILED'}")
         return all_passed
 
     @staticmethod
@@ -367,7 +379,7 @@ class Verifier:
         bool: True if all tests pass, else False.
         """
         targets = "_common_metadata vs truth"
-        print(f"\t{targets}")
+        self.print_if_verbose(f"\t{targets}")
         passed = self.common_metadata_schema.equals(
             self.constructed_truth_schema, check_metadata=check_metadata
         )
@@ -393,7 +405,7 @@ class Verifier:
         bool: True if both schema and metadata match the truth source, else False.
         """
         targets = "_metadata vs truth"
-        print(f"\t{targets}")
+        self.print_if_verbose(f"\t{targets}")
         passed = self.metadata_ds.schema.equals(self.constructed_truth_schema, check_metadata=check_metadata)
         self.results.append(
             Result(
@@ -417,7 +429,7 @@ class Verifier:
         bool: True if all schema and metadata tests pass, else False.
         """
         targets = "file footers vs truth"
-        print(f"\t{targets}")
+        self.print_if_verbose(f"\t{targets}")
 
         bad_files = []
         for frag in self.files_ds.get_fragments():
@@ -455,4 +467,9 @@ class Verifier:
         self.args.output_file_path.parent.mkdir(exist_ok=True, parents=True)
         header = not (write_mode == "a" and self.args.output_file_path.exists())
         self.results_df.to_csv(self.args.output_file_path, mode=write_mode, header=header, index=False)
-        print(f"\nVerifier results written to {self.args.output_file_path}")
+        self.print_if_verbose(f"\nVerifier results written to {self.args.output_file_path}")
+
+    def print_if_verbose(self, message):
+        """If the args.verbose=True flag is enabled, print to standard out. Otherwise, no operation."""
+        if self.args.verbose:
+            print(message)
