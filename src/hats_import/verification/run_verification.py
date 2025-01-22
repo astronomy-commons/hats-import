@@ -53,7 +53,7 @@ def run(
     verifier.run(write_mode=write_mode, check_metadata=check_metadata)
 
     if args.verbose:
-        print(f" Elapsed time (seconds) :{perf_counter()-start:.2f}")
+        print(f"Elapsed time (seconds): {perf_counter()-start:.2f}")
 
     return verifier
 
@@ -149,7 +149,8 @@ class Verifier:
         return pd.DataFrame(self.results)
 
     @property
-    def all_tests_passed(self) -> bool:
+    def all_tests_passed(self):
+        """Simple pass/fail if all of the test results have passed."""
         return np.all([res.passed for res in self.results])
 
     def run(self, write_mode: Literal["a", "w", "x"] = "a", check_metadata: bool = False) -> None:
@@ -469,5 +470,6 @@ class Verifier:
         self.print_if_verbose(f"\nVerifier results written to {self.args.output_file_path}")
 
     def print_if_verbose(self, message):
+        """If the args.verbose=True flag is enabled, print to standard out. Otherwise, no operation."""
         if self.args.verbose:
             print(message)
