@@ -28,7 +28,6 @@ Example conversion
 
     import glob
     import re
-    import pandas as pd
     from tqdm.auto import tqdm
     from astropy.table import Table
     from astropy.table.table import descr
@@ -38,7 +37,7 @@ Example conversion
 
     for in_file in tqdm(files, bar_format='{l_bar}{bar:80}{r_bar}'):
         
-        match = re.match(r".*(calibObj-.*-star).fits.gz", str(file))
+        match = re.match(r".*(calibObj-.*-star).fits.gz", str(in_file))
         file_prefix = match.group(1)
         out_file = f"/data/sdss/parquet/{file_prefix}.parquet"
 
