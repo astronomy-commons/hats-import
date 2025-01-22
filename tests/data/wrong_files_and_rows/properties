@@ -1,0 +1,8 @@
+#HATS catalog
+obs_collection=wrong_files_and_rows
+dataproduct_type=object
+hats_nrows=600
+hats_col_ra=source_ra
+hats_col_dec=source_dec
+hats_order=2
+

@@ -10,6 +10,7 @@ import hats.io.validation
 import pandas as pd
 import pyarrow as pa
 import pyarrow.dataset as pds
+from hats import read_hats
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN
 
 from hats_import.verification.arguments import VerificationArguments
@@ -219,9 +220,20 @@ class Verifier:
         description = "Test that number of rows are equal."
         print(f"\nStarting: {description}")
 
+        catalog_prop_len = read_hats(self.args.input_catalog_path).catalog_info.total_rows
+
         # get the number of rows in each file, indexed by file path. we treat this as truth.
         files_df = self._load_nrows(self.files_ds)
-        files_df_total = f"file footers ({files_df.num_rows.sum():,})"
+        files_df_sum = files_df.num_rows.sum()
+        files_df_total = f"file footers ({files_df_sum:,})"
+
+        target = "file footers vs catalog properties"
+        print(f"\t{target}")
+        passed_cat = catalog_prop_len == files_df_sum
+        _description = f" {files_df_total} vs catalog properties ({catalog_prop_len:,})."
+        self.results.append(
+            Result(passed=passed_cat, test=test, target=target, description=description + _description)
+        )
 
         # check _metadata
         target = "file footers vs _metadata"
@@ -245,7 +257,7 @@ class Verifier:
         if self.args.truth_total_rows is not None:
             target = "file footers vs truth"
             print(f"\t{target}")
-            passed_th = self.args.truth_total_rows == files_df.num_rows.sum()
+            passed_th = self.args.truth_total_rows == files_df_sum
             _description = f" {files_df_total} vs user-provided truth ({self.args.truth_total_rows:,})."
             self.results.append(
                 Result(passed=passed_th, test=test, target=target, description=description + _description)
@@ -253,7 +265,7 @@ class Verifier:
         else:
             passed_th = True  # this test did not fail. this is only needed for the return value.
 
-        all_passed = all([passed_md, passed_th])
+        all_passed = all([passed_md, passed_th, passed_cat])
         print(f"Result: {'PASSED' if all_passed else 'FAILED'}")
         return all_passed
 

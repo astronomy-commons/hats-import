@@ -83,7 +83,7 @@ def test_test_num_rows(small_sky_object_catalog, wrong_files_and_rows_dir, tmp_p
     all_failed = not results.passed.any()
     assert all_failed, "bad catalog passed"
 
-    targets = {"file footers vs _metadata", "file footers vs truth"}
+    targets = {"file footers vs catalog properties", "file footers vs _metadata", "file footers vs truth"}
     assert targets == set(results.target), "wrong targets"
 
     expected_bad_file_names = {
