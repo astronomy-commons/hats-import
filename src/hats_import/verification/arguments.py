@@ -29,6 +29,8 @@ class VerificationArguments:
     the catalog's _common_metadata file will be used. This schema will be used to verify
     all non-hats columns and (optionally) the file-level metadata. Can be supplied as a
     string or path object."""
+    verbose: bool = True
+    """Should we output progress and results to standard out?"""
 
     @property
     def input_dataset_path(self) -> UPath:
