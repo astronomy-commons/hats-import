@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
 
 from hats.catalog import TableProperties
 from hats.pixel_math import spatial_index
@@ -24,9 +23,9 @@ class ImportArguments(RuntimeArguments):
     """level of catalog data, object (things in the sky) or source (detections)"""
     input_path: str | Path | UPath | None = None
     """path to search for the input data"""
-    input_file_list: List[str | Path | UPath] = field(default_factory=list)
+    input_file_list: list[str | Path | UPath] = field(default_factory=list)
     """can be used instead of input_path to import only specified files"""
-    input_paths: List[str | Path | UPath] = field(default_factory=list)
+    input_paths: list[str | Path | UPath] = field(default_factory=list)
     """resolved list of all files that will be used in the importer"""
 
     ra_column: str = "ra"
@@ -71,7 +70,7 @@ class ImportArguments(RuntimeArguments):
     """healpix order to use when mapping. will be
     ``highest_healpix_order`` unless a positive value is provided for
     ``constant_healpix_order``"""
-    run_stages: List[str] = field(default_factory=list)
+    run_stages: list[str] = field(default_factory=list)
     """list of parallel stages to run. options are ['mapping', 'splitting', 'reducing',
     'finishing']. ['planning', 'binning'] stages are not optional.
     this can be used to force the pipeline to stop after an early stage, to allow the

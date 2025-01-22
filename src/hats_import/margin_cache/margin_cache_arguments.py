@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
 
 import hats.pixel_math.healpix_shim as hp
 from hats import read_hats
@@ -34,7 +33,7 @@ class MarginCacheArguments(RuntimeArguments):
 
     input_catalog_path: str | Path | UPath | None = None
     """the path to the hats-formatted input catalog."""
-    debug_filter_pixel_list: List[HealpixPixel] = field(default_factory=list)
+    debug_filter_pixel_list: list[HealpixPixel] = field(default_factory=list)
     """debug setting. if provided, we will first filter the catalog to the pixels
     provided. this can be useful for creating a margin over a subset of a catalog."""
 
