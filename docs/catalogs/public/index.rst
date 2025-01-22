@@ -1,9 +1,12 @@
-Public Catalogs
+Public Catalog Tips
 ===============================================================================
 
 The LINCC Frameworks team has built the import tool hoping to handle catalogs
 in various formats. We've learned some lessons in importing public data sets, 
 and provide steps to import those catalogs in case these hints help anyone else.
+
+If you would like to use some public datasets that have already been imported
+into HATS format, see data.lsdb.io.
 
 .. note::
    These are datasets that our team has data rights to. We make no guarantees
@@ -21,8 +24,8 @@ and provide steps to import those catalogs in case these hints help anyone else.
    sdss
    tic
    zubercal
-   ZTF Bright Transient Survey and New General Catalogue <https://lsdb.readthedocs.io/en/stable/tutorials/ztf_bts-ngc.html>
-   GAIA and DES <https://lsdb.readthedocs.io/en/stable/tutorials/des-gaia.html>
+   ZTF Bright Transient Survey and New General Catalogue <https://lsdb.readthedocs.io/en/stable/tutorials/pre_executed/ztf_bts-ngc.html>
+   GAIA and DES <https://lsdb.readthedocs.io/en/stable/tutorials/pre_executed/des-gaia.html>
 
 .. tip::
    Want to see more?

@@ -172,7 +172,7 @@ class PipelineResumePlan:
                     raise future.exception()
 
         if some_error:
-            raise RuntimeError(f"Some {stage_name} stages failed. See logs for details.")
+            raise RuntimeError(f"Some {stage_name} stages failed. See above Exceptions.")
 
     def print_progress(self, iterable=None, total=None, stage_name=None):
         """Create a progress bar that will provide user with task feedback.
