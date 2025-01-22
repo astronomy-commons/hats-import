@@ -305,3 +305,13 @@ def assert_parquet_file_index():
         npt.assert_array_equal(values, expected_values)
 
     return assert_parquet_file_index
+
+
+@pytest.fixture
+def bad_schemas_dir(test_data_dir):
+    return test_data_dir / "bad_schemas"
+
+
+@pytest.fixture
+def wrong_files_and_rows_dir(test_data_dir):
+    return test_data_dir / "wrong_files_and_rows"
