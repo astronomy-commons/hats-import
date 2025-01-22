@@ -342,3 +342,17 @@ using the LSST nomenclature:
 
 Some data providers split detection-level data into a separate catalog, to make object
 catalogs smaller, and reflects a relational data model.
+
+Additional catalog properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The HATS format allows for many additional key-values in the high-level ``properties``
+file. Many of these values are automatically set by the import process itself, but 
+catalog providers may want to set additional fields for data provenance.
+
+This full set of properties is outlined on a separate page (:doc:`properties`), 
+but you can pass these key-value sets to the import process with the ``addl_hats_properties`` 
+argument, and they will appear in the final ``properties`` file:
+
+.. code-block::
+
+    addl_hats_properties={"hats_cols_default": "id, mjd", "obs_regime": "Optical"},
