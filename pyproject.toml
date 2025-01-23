@@ -19,7 +19,7 @@ requires-python = ">=3.10"
 dependencies = [
     "dask[complete]>=2024.3.0", # Includes dask expressions.
     "deprecated",
-    "hats >=0.4.3",
+    "hats >=0.4.6",
     "numpy",
     "pandas",
     "pyarrow",
