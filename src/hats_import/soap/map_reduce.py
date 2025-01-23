@@ -1,7 +1,5 @@
 """Inner methods for SOAP"""
 
-from typing import List
-
 import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
@@ -79,7 +77,7 @@ def _write_count_results(cache_path, source_healpix, results):
     )
 
 
-def count_joins(soap_args: SoapArguments, source_pixel: HealpixPixel, object_pixels: List[HealpixPixel]):
+def count_joins(soap_args: SoapArguments, source_pixel: HealpixPixel, object_pixels: list[HealpixPixel]):
     """Count the number of equijoined sources in the object pixels.
     If any un-joined source pixels remain, stretch out to neighboring object pixels.
 

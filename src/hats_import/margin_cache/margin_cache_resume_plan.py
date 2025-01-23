@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List
 
 import pandas as pd
 from hats import pixel_math
@@ -19,8 +18,8 @@ class MarginCachePlan(PipelineResumePlan):
     """Container class for holding the state of each file in the pipeline plan."""
 
     margin_pair_file: str | None = None
-    partition_pixels: List[HealpixPixel] = field(default_factory=list)
-    combined_pixels: List[HealpixPixel] = field(default_factory=list)
+    partition_pixels: list[HealpixPixel] = field(default_factory=list)
+    combined_pixels: list[HealpixPixel] = field(default_factory=list)
 
     MAPPING_STAGE = "mapping"
     REDUCING_STAGE = "reducing"

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
 
 import hats.pixel_math.healpix_shim as hp
 import numpy as np
@@ -22,11 +21,11 @@ from hats_import.soap.arguments import SoapArguments
 class SoapPlan(PipelineResumePlan):
     """Container class for holding the state of each file in the pipeline plan."""
 
-    count_keys: List[Tuple[HealpixPixel, List[HealpixPixel], str]] = field(default_factory=list)
+    count_keys: list[tuple[HealpixPixel, list[HealpixPixel], str]] = field(default_factory=list)
     """set of pixels (and job keys) that have yet to be counted"""
-    reduce_keys: List[Tuple[HealpixPixel, str]] = field(default_factory=list)
+    reduce_keys: list[tuple[HealpixPixel, str]] = field(default_factory=list)
     """set of object catalog pixels (and job keys) that have yet to be reduced/combined"""
-    source_pixel_map: Optional[List[Tuple[HealpixPixel, List[HealpixPixel], str]]] = None
+    source_pixel_map: list[tuple[HealpixPixel, list[HealpixPixel], str]] | None = None
     """Map of object pixels to source pixels, with counting key."""
     object_catalog: Catalog | None = None
 

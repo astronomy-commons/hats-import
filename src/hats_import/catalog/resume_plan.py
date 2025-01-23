@@ -5,7 +5,6 @@ from __future__ import annotations
 import pickle
 import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 import hats.pixel_math.healpix_shim as hp
 import numpy as np
@@ -23,13 +22,13 @@ from hats_import.pipeline_resume_plan import PipelineResumePlan
 class ResumePlan(PipelineResumePlan):
     """Container class for holding the state of each file in the pipeline plan."""
 
-    input_paths: List[UPath] = field(default_factory=list)
+    input_paths: list[UPath] = field(default_factory=list)
     """resolved list of all files that will be used in the importer"""
-    map_files: List[Tuple[str, str]] = field(default_factory=list)
+    map_files: list[tuple[str, str]] = field(default_factory=list)
     """list of files (and job keys) that have yet to be mapped"""
-    split_keys: List[Tuple[str, str]] = field(default_factory=list)
+    split_keys: list[tuple[str, str]] = field(default_factory=list)
     """set of files (and job keys) that have yet to be split"""
-    destination_pixel_map: Optional[Dict[HealpixPixel, int]] = None
+    destination_pixel_map: dict[HealpixPixel, int] | None = None
     """Destination pixels and their expected final count"""
     should_run_mapping: bool = True
     should_run_splitting: bool = True
@@ -55,7 +54,7 @@ class ResumePlan(PipelineResumePlan):
         tmp_base_path: UPath | None = None,
         delete_resume_log_files: bool = True,
         delete_intermediate_parquet_files: bool = True,
-        run_stages: List[str] | None = None,
+        run_stages: list[str] | None = None,
         import_args=None,
     ):
         if import_args:
@@ -76,7 +75,7 @@ class ResumePlan(PipelineResumePlan):
             self.input_paths = input_paths
         self.gather_plan(run_stages)
 
-    def gather_plan(self, run_stages: List[str] | None = None):
+    def gather_plan(self, run_stages: list[str] | None = None):
         """Initialize the plan."""
         with self.print_progress(total=4, stage_name="Planning") as step_progress:
             ## Make sure it's safe to use existing resume state.

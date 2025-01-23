@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
 
 from hats import read_hats
 from hats.catalog import Catalog, TableProperties
@@ -20,9 +19,9 @@ class IndexArguments(RuntimeArguments):
 
     ## Input
     input_catalog_path: str | Path | UPath | None = None
-    input_catalog: Optional[Catalog] = None
+    input_catalog: Catalog | None = None
     indexing_column: str = ""
-    extra_columns: List[str] = field(default_factory=list)
+    extra_columns: list[str] = field(default_factory=list)
 
     ## Output
     include_healpix_29: bool = True
@@ -40,7 +39,7 @@ class IndexArguments(RuntimeArguments):
     ## Compute parameters
     compute_partition_size: int = 1_000_000_000
     """partition size used when creating leaf parquet files."""
-    division_hints: Optional[List] = None
+    division_hints: list | None = None
     """Hints used when splitting up the rows by the new index. If you have
     some prior knowledge about the distribution of your indexing_column, 
     providing it here can speed up calculations dramatically. Note that
