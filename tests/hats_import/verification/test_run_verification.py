@@ -24,7 +24,7 @@ def test_runner(small_sky_object_catalog, wrong_files_and_rows_dir, tmp_path):
     )
     verifier = runner.run(args, write_mode="w")
     assert verifier.all_tests_passed, "good catalog failed"
-    written_results = pd.read_csv(args.output_path / args.output_filename)
+    written_results = pd.read_csv(args.output_path / args.output_filename, comment="#")
     assert written_results[result_cols].equals(verifier.results_df[result_cols]), "report failed"
 
     args = VerificationArguments(
@@ -32,7 +32,7 @@ def test_runner(small_sky_object_catalog, wrong_files_and_rows_dir, tmp_path):
     )
     verifier = runner.run(args, write_mode="w")
     assert not verifier.all_tests_passed, "bad catalog passed"
-    written_results = pd.read_csv(args.output_path / args.output_filename)
+    written_results = pd.read_csv(args.output_path / args.output_filename, comment="#")
     assert written_results[result_cols].equals(verifier.results_df[result_cols]), "report failed"
 
 

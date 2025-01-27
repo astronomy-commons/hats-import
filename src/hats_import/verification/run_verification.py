@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from time import perf_counter
 from typing import Literal
 
+import hats
 import hats.io.paths
 import hats.io.validation
 import numpy as np
@@ -15,6 +16,7 @@ import pyarrow.dataset as pds
 from hats import read_hats
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN
 
+import hats_import
 from hats_import.verification.arguments import VerificationArguments
 
 
@@ -178,8 +180,7 @@ class Verifier:
         -------
             bool: True if the test passed, else False.
         """
-        version = f"hats version {hats.__version__}"
-        test, description = "valid hats", f"Test hats.io.validation.is_valid_catalog ({version})."
+        test, description = "valid hats", "Test hats.io.validation.is_valid_catalog."
         target = self.args.input_catalog_path
         self.print_if_verbose(f"\nStarting: {description}")
 
@@ -222,7 +223,8 @@ class Verifier:
     def test_num_rows(self) -> bool:
         """Test the number of rows in the dataset. Add `Result`s to `results`.
 
-        File footers are compared with _metadata and the user-supplied truth (if provided).
+        Row counts in parquet file footers are compared with the '_metadata' file,
+        HATS 'properties' file, and (if provided) the user-supplied truth.
 
         Returns
         -------
@@ -462,11 +464,25 @@ class Verifier:
         Parameters
         ----------
         write_mode : Literal["a", "w", "x"], optional
-            Mode to be used when writing output file. Passed to pandas.DataFrame.to_csv as `mode`.
+            Mode to be used when writing the output file. Options have the typical meanings:
+                - 'w': truncate the file first
+                - 'x': exclusive creation, failing if the file already exists
+                - 'a': append to the end of file if it exists
         """
         self.args.output_file_path.parent.mkdir(exist_ok=True, parents=True)
-        header = not (write_mode == "a" and self.args.output_file_path.exists())
-        self.results_df.to_csv(self.args.output_file_path, mode=write_mode, header=header, index=False)
+        # Write provenance info
+        with open(self.args.output_file_path, write_mode, encoding="utf8") as fout:
+            fout.writelines(
+                [
+                    "# HATS verification results for\n",
+                    f"# {self.args.input_catalog_path}\n",
+                    f"# Package versions: hats v{hats.__version__}; hats-import v{hats_import.__version__}\n",
+                    f"# User-supplied truth schema: {self.args.truth_schema}\n",
+                    f"# User-supplied truth total rows: {self.args.truth_total_rows}\n",
+                ]
+            )
+        # Write results
+        self.results_df.to_csv(self.args.output_file_path, mode="a", header=True, index=False)
         self.print_if_verbose(f"\nVerifier results written to {self.args.output_file_path}")
 
     def print_if_verbose(self, message):
