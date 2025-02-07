@@ -5,7 +5,7 @@ HATS, hats-import, and LSDB are primarily written and maintained by LINCC Framew
 would love to turn it over to the open-source scientific community!! We want to 
 make sure that any discourse is open and inclusive, and we ask that everyone
 involved read and adhere to the 
-`LINCC Frameworks Code of Conduct <https://lsstdiscoveryalliance.org/programs/lincc-frameworks/code-conduct/>`_
+`LINCC Frameworks Code of Conduct <https://lsstdiscoveryalliance.org/programs/lincc-frameworks/code-conduct/>`__
 
 Installation from Source
 ------------------------
@@ -47,21 +47,21 @@ by creating a new GitHub issue.
 Note that you may need to make changes in multiple repos to fully implement new
 features or bug fixes! See related projects:
 
-* HATS (`on GitHub <https://github.com/astronomy-commons/hats>`_ 
-  and `on ReadTheDocs <https://hats.readthedocs.io/en/stable/>`_)
-* LSDB (`on GitHub <https://github.com/astronomy-commons/lsdb>`_
-  and `on ReadTheDocs <https://docs.lsdb.io>`_)
+* HATS (`on GitHub <https://github.com/astronomy-commons/hats>`__ 
+  and `on ReadTheDocs <https://hats.readthedocs.io/en/stable/>`__)
+* LSDB (`on GitHub <https://github.com/astronomy-commons/lsdb>`__
+  and `on ReadTheDocs <https://docs.lsdb.io>`__)
 
 Fork the repository
 -------------------------------------------------------------------------------
 
-Contributing to hats-import requires you to `fork <https://github.com/astronomy-commons/hats-import/fork>`_ 
+Contributing to hats-import requires you to `fork <https://github.com/astronomy-commons/hats-import/fork>`__ 
 the GitHub repository. The next steps assume the creation of branches and PRs are performed from your fork.
 
 .. note::
         
     If you are (or expect to be) a frequent contributor, you should consider requesting
-    access to the `hats-friends <https://github.com/orgs/astronomy-commons/teams/hats-friends>`_
+    access to the `hats-friends <https://github.com/orgs/astronomy-commons/teams/hats-friends>`__
     working group. Members of this GitHub group should be able to create branches and PRs directly
     on LSDB, hats and hats-import, without the need of a fork.
 
@@ -70,7 +70,7 @@ Testing
 
 We use ``pytest`` as our preferred unit test runner engine, in keeping with
 LSST DM style guide. We make heavy use of 
-`pytest fixtures <https://docs.pytest.org/en/7.1.x/explanation/fixtures.html#about-fixtures>`_, 
+`pytest fixtures <https://docs.pytest.org/en/7.1.x/explanation/fixtures.html#about-fixtures>`__, 
 which set up various resources used for unit testing, or provide consistent 
 paths. These are defined in ``conftest.py`` files. They're powerful and flexible 
 (and fun in their own way), and we encourage contributors to familiarize themselves.
@@ -126,4 +126,4 @@ Release new version
 
 New versions are manually tagged and automatically released to pypi. To request
 a new release of LSDB, HATS, and hats-import packages, create a 
-`release ticket <https://github.com/astronomy-commons/lsdb/issues/new?assignees=delucchi-cmu&labels=&projects=&template=4-release_tracker.md&title=Release%3A+>`_.
+`release ticket <https://github.com/astronomy-commons/lsdb/issues/new?assignees=delucchi-cmu&labels=&projects=&template=4-release_tracker.md&title=Release%3A+>`__.

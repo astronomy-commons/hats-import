@@ -1,12 +1,13 @@
 Margin Cache
 ===============================================================================
 
-For more discussion of the whys and hows of margin caches, please see 
-`Max's AAS iPoster <https://aas242-aas.ipostersessions.com/?s=66-E9-54-B6-6B-C3-4B-47-79-24-44-5A-13-25-82-E7>`_
+For more discussion of the whys and hows of margin caches, please see the 
+`demo notebook in LSDB documentation <https://docs.lsdb.io/en/latest/tutorials/margins.html>`__ and
+`Max's AAS iPoster <https://aas242-aas.ipostersessions.com/?s=66-E9-54-B6-6B-C3-4B-47-79-24-44-5A-13-25-82-E7>`__
 for more information.
 
 This page discusses topics around setting up a pipeline to generate a margin
-cache from an existing hats catalog on disk.
+cache from an existing HATS catalog on disk.
 
 At a minimum, you need arguments that include where to find the input files,
 and where to put the output files. A minimal arguments block will look something like:
@@ -91,15 +92,48 @@ This defaults to 5 arcseconds, but you should set this value to whatever is
 appropriate for the astrometry error/PSF width for your instruments. If you're
 not sure how to determine this, please reach out! We'd love to help! :doc:`/guide/contact`.
 
-Setting ``margin_order`` *can* make your pipeline run faster.
+This is equivalent to setting the ``margin_order``. We use a lookup, with roughly
+the following table of values. This is the minimum separation angle possible within 
+healpix pixels of a given order.
 
-#. For each input catalog partition, we can quickly determine all possible 
-   neighboring healpix pixels at the given ``margin_order``. All of these partitions 
-   *may* contain points that are inside the ``margin_threshold``.
-#. For each point in the input catalog, we can quickly determine the healpix
-   pixel at ``margin_order`` and filter points based on this. 
-#. Using this smaller, constrained data set, we do precise boundary checking
-   to determine if the points are within the ``margin_threshold``.
+=================  =========================
+``margin_order``   minimum separation angle 
+=================  =========================
+10                 2.15 arcmin
+11                 1.07 arcmin
+12                 32.21 arcsec
+13                 16.10 arcsec
+14                 8.05 arcsec
+15                 4.03 arcsec
+16                 2.01 arcsec
+17                 1.01 arcsec
+18                 0.50 arcsec
+19                 0.25 arcsec
+20                 0.13 arcsec
+21                 62.91 msec
+22                 31.45 msec
+=================  =========================
+
+
+For each input catalog partition, we can quickly determine all possible neighboring
+healpix pixels at the given ``margin_order``. All of these partitions *may* contain 
+points that are inside the ``margin_threshold``. For each point in the input catalog, 
+we can quickly determine the healpix pixel at ``margin_order`` and filter points 
+based on this.
+
+In the figure below, the central yellow pixel is the primary catalog pixel at order 10,
+and the surrounding pink order 13 pixels represent the margin for 10 arcsec.
+
+.. figure:: /static/margin_pixels.png
+   :class: no-scaled-link
+   :align: center
+   :alt: Visual of primary catalog pixel and the margin pixels.
+
+   Visual of primary catalog pixel and the margin pixels.
+
+
+For reasons of runtime performance and numerical precision, we do not perform precise
+boundary checking on individual points.
 
 Progress Reporting
 -------------------------------------------------------------------------------

@@ -32,7 +32,7 @@ need to install or upgrade versions of dependencies to work with hats-import.
     ``healpy`` is an optional dependency for hats-import (included in the ``full`` extra)
     to support converting from older HiPSCat catalogs, but
     native prebuilt binaries for healpy on Apple Silicon Macs 
-    `do not yet exist <https://healpy.readthedocs.io/en/latest/install.html#binary-installation-with-pip-recommended-for-most-other-python-users>`_, 
+    `do not yet exist <https://healpy.readthedocs.io/en/latest/install.html#binary-installation-with-pip-recommended-for-most-other-python-users>`__, 
     so it's recommended to install via conda before proceeding to hats-import.
 
     .. code-block:: console

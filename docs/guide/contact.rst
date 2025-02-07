@@ -11,10 +11,10 @@ making our products better, or pretty much anything else, reach out!
 * Start a new github discussion
     * https://github.com/astronomy-commons/hats-import/discussions/new/choose
 * If you're on LSSTC slack, so are we!
-    * `#lincc-frameworks-qa <https://lsstc.slack.com/archives/C062LG1AK1S>`_
-    * `#lincc-frameworks-lsdb <https://lsstc.slack.com/archives/C04610PQW9F>`_
+    * `#lincc-frameworks-qa <https://lsstc.slack.com/archives/C062LG1AK1S>`__
+    * `#lincc-frameworks-lsdb <https://lsstc.slack.com/archives/C04610PQW9F>`__
 * Join the working group, where we discuss HATS standardization and early results
-    * Google group: `hipscat-wg@googlegroups.com <https://groups.google.com/g/hipscat-wg>`_
+    * Google group: `hipscat-wg@googlegroups.com <https://groups.google.com/g/hipscat-wg>`__
     * You can listen in to demo meetings, or ask questions during co-working sessions. 
       Events are published on a google calendar, embedded below.
     * Key:
@@ -34,4 +34,4 @@ making our products better, or pretty much anything else, reach out!
 
 However you reach out, we want to make sure that any discourse is open and 
 inclusive, and we ask that everyone involved read and adhere to the 
-`LINCC Frameworks Code of Conduct <https://lsstdiscoveryalliance.org/programs/lincc-frameworks/code-conduct/>`_
+`LINCC Frameworks Code of Conduct <https://lsstdiscoveryalliance.org/programs/lincc-frameworks/code-conduct/>`__

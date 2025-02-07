@@ -129,4 +129,4 @@ What next?
 
 You can validate that your new HATS catalog meets both the HATS/LSDB expectations,
 as well as your own expectations of the data contents. You can follow along with the
-`Manual catalog verification <https://docs.lsdb.io/en/stable/tutorials/pre_executed/manual_verification.html>`_.
+`Manual catalog verification <https://docs.lsdb.io/en/stable/tutorials/pre_executed/manual_verification.html>`__.

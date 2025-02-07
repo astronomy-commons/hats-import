@@ -5,7 +5,7 @@ This page discusses a few topics around setting up a catalog pipeline.
 
 Once your catalog has been imported, you can verify and inspect the metadata, 
 either with the :doc:`Verification Pipeline </guide/verification>`, or methods
-described in the `Manual catalog verification notebook <https://docs.lsdb.io/en/stable/tutorials/manual_verification.html>`_
+described in the `Manual catalog verification notebook <https://docs.lsdb.io/en/stable/tutorials/manual_verification.html>`__
 
 At a minimum, you need arguments that include where to find the input files,
 the column names for RA, and DEC, and where to put the output files. 
