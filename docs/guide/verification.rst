@@ -125,4 +125,4 @@ Additional Steps
 -------------------------------------------------------------------------------
 
 You can verify and inspect the metadata using methods described in the 
-`Manual catalog verification notebook <https://docs.lsdb.io/en/stable/tutorials/manual_verification.html>`_.
+`Manual catalog verification notebook <https://docs.lsdb.io/en/stable/tutorials/manual_verification.html>`__.
