@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 from hats import pixel_math
 from hats.io import paths
+from hats.io.file_io import write_parquet_metadata
 from hats.pixel_math.healpix_pixel import HealpixPixel
 
 from hats_import.margin_cache import margin_cache_map_reduce
@@ -37,7 +38,11 @@ def validate_result_dataframe(df_path, expected_len):
 
 
 @pytest.mark.timeout(5)
-def test_to_pixel_shard_equator(tmp_path, basic_data_shard_df):
+def test_to_pixel_shard_equator(tmp_path, basic_data_shard_df, shard_margin_schema):
+    # Create a margin schema parquet file.
+    margin_schema_path = tmp_path / "margin_schema.parquet"
+    write_parquet_metadata(shard_margin_schema, margin_schema_path)
+
     margin_cache_map_reduce._to_pixel_shard(
         basic_data_shard_df,
         pixel=HealpixPixel(1, 21),
@@ -47,6 +52,7 @@ def test_to_pixel_shard_equator(tmp_path, basic_data_shard_df):
         dec_column="weird_dec",
         source_pixel=HealpixPixel(1, 0),
         fine_filtering=True,
+        margin_schema_path=margin_schema_path,
     )
 
     path = tmp_path / "order_1" / "dir_0" / "pixel_21" / "dataset" / "Norder=1" / "Dir=0" / "Npix=0.parquet"
@@ -57,7 +63,11 @@ def test_to_pixel_shard_equator(tmp_path, basic_data_shard_df):
 
 
 @pytest.mark.timeout(5)
-def test_to_pixel_shard_polar(tmp_path, polar_data_shard_df):
+def test_to_pixel_shard_polar(tmp_path, polar_data_shard_df, shard_margin_schema):
+    # Create a margin schema parquet file.
+    margin_schema_path = tmp_path / "margin_schema.parquet"
+    write_parquet_metadata(shard_margin_schema, margin_schema_path)
+
     margin_cache_map_reduce._to_pixel_shard(
         polar_data_shard_df,
         pixel=HealpixPixel(2, 15),
@@ -67,6 +77,7 @@ def test_to_pixel_shard_polar(tmp_path, polar_data_shard_df):
         dec_column="weird_dec",
         source_pixel=HealpixPixel(2, 0),
         fine_filtering=True,
+        margin_schema_path=margin_schema_path,
     )
 
     path = tmp_path / "order_2" / "dir_0" / "pixel_15" / "dataset" / "Norder=2" / "Dir=0" / "Npix=0.parquet"
@@ -83,7 +94,8 @@ def test_map_pixel_shards_error(tmp_path, capsys):
         margin_cache_map_reduce.map_pixel_shards(
             paths.pixel_catalog_file(tmp_path, HealpixPixel(1, 0)),
             mapping_key="1_21",
-            original_catalog_metadata="",
+            original_schema_path="",
+            margin_schema_path="",
             margin_pair_file="",
             margin_threshold=10,
             output_path=tmp_path,
@@ -99,14 +111,22 @@ def test_map_pixel_shards_error(tmp_path, capsys):
 
 @pytest.mark.skip()
 @pytest.mark.timeout(30)
-def test_map_pixel_shards_fine(tmp_path, test_data_dir, small_sky_source_catalog):
+def test_map_pixel_shards_fine(
+    tmp_path, test_data_dir, small_sky_source_catalog, small_sky_source_margin_schema
+):
     """Test basic mapping behavior, with fine filtering enabled."""
     intermediate_dir = tmp_path / "intermediate"
     os.makedirs(intermediate_dir / "mapping")
+
+    # Create a margin schema parquet file.
+    margin_schema_path = tmp_path / "margin_schema.parquet"
+    write_parquet_metadata(small_sky_source_margin_schema, margin_schema_path)
+
     margin_cache_map_reduce.map_pixel_shards(
         small_sky_source_catalog / "dataset" / "Norder=1" / "Dir=0" / "Npix=47.parquet",
         mapping_key="1_47",
-        original_catalog_metadata=small_sky_source_catalog / "dataset" / "_common_metadata",
+        original_schema_path=small_sky_source_catalog / "dataset" / "_common_metadata",
+        margin_schema_path=margin_schema_path,
         margin_pair_file=test_data_dir / "margin_pairs" / "small_sky_source_pairs.csv",
         margin_threshold=3600,
         output_path=intermediate_dir,
@@ -146,14 +166,22 @@ def test_map_pixel_shards_fine(tmp_path, test_data_dir, small_sky_source_catalog
 
 
 @pytest.mark.timeout(15)
-def test_map_pixel_shards_coarse(tmp_path, test_data_dir, small_sky_source_catalog):
+def test_map_pixel_shards_coarse(
+    tmp_path, test_data_dir, small_sky_source_catalog, small_sky_source_margin_schema
+):
     """Test basic mapping behavior, without fine filtering enabled."""
     intermediate_dir = tmp_path / "intermediate"
     os.makedirs(intermediate_dir / "mapping")
+
+    # Create a margin schema parquet file.
+    margin_schema_path = tmp_path / "margin_schema.parquet"
+    write_parquet_metadata(small_sky_source_margin_schema, margin_schema_path)
+
     margin_cache_map_reduce.map_pixel_shards(
         small_sky_source_catalog / "dataset" / "Norder=1" / "Dir=0" / "Npix=47.parquet",
         mapping_key="1_47",
-        original_catalog_metadata=small_sky_source_catalog / "dataset" / "_common_metadata",
+        original_schema_path=small_sky_source_catalog / "dataset" / "_common_metadata",
+        margin_schema_path=margin_schema_path,
         margin_pair_file=test_data_dir / "margin_pairs" / "small_sky_source_pairs.csv",
         margin_threshold=3600,
         output_path=intermediate_dir,
@@ -214,24 +242,23 @@ def test_reduce_margin_shards(tmp_path):
     margin_pixels = hp.radec2pix(3, ras, dec)
 
     test_df = pd.DataFrame(
-        data=zip(hats_indexes, ras, dec, norder, ndir, npix, margin_order, margin_dir, margin_pixels),
+        data=zip(hats_indexes, ras, dec, margin_order, margin_dir, margin_pixels, norder, ndir, npix),
         columns=[
             "_healpix_29",
             "weird_ra",
             "weird_dec",
-            "Norder",
-            "Dir",
-            "Npix",
             "margin_Norder",
             "margin_Dir",
             "margin_Npix",
+            "Norder",
+            "Dir",
+            "Npix",
         ],
     )
 
-    # Create a schema parquet file.
-    schema_path = tmp_path / "metadata.parquet"
-    schema_df = test_df.drop(columns=["margin_Norder", "margin_Dir", "margin_Npix"])
-    schema_df.to_parquet(schema_path)
+    # Create a margin schema parquet file.
+    margin_schema_path = tmp_path / "margin_schema.parquet"
+    test_df.to_parquet(margin_schema_path)
 
     basic_data_shard_df = test_df
 
@@ -244,7 +271,7 @@ def test_reduce_margin_shards(tmp_path):
         tmp_path,
         1,
         21,
-        original_catalog_metadata=schema_path,
+        margin_schema_path=margin_schema_path,
         delete_intermediate_parquet_files=False,
     )
 
@@ -260,7 +287,7 @@ def test_reduce_margin_shards(tmp_path):
         tmp_path,
         1,
         21,
-        original_catalog_metadata=schema_path,
+        margin_schema_path=margin_schema_path,
         delete_intermediate_parquet_files=True,
     )
 
@@ -280,7 +307,7 @@ def test_reduce_margin_shards_error(tmp_path, basic_data_shard_df, capsys):
     os.makedirs(intermediate_dir / "reducing")
 
     # Don't write anything at the metadata path!
-    schema_path = tmp_path / "metadata.parquet"
+    margin_schema_path = tmp_path / "margin_schema.parquet"
 
     basic_data_shard_df.to_parquet(paths.pixel_catalog_file(partition_dir, HealpixPixel(1, 0)))
     basic_data_shard_df.to_parquet(paths.pixel_catalog_file(partition_dir, HealpixPixel(1, 1)))
@@ -292,7 +319,7 @@ def test_reduce_margin_shards_error(tmp_path, basic_data_shard_df, capsys):
             tmp_path,
             1,
             21,
-            original_catalog_metadata=schema_path,
+            margin_schema_path=margin_schema_path,
             delete_intermediate_parquet_files=True,
         )
 

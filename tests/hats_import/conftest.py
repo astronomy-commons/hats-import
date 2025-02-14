@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import numpy.testing as npt
 import pandas as pd
+import pyarrow as pa
 import pytest
 from dask.distributed import Client
 from hats import pixel_math
@@ -211,6 +212,45 @@ def polar_data_shard_df():
     )
 
     return test_df
+
+
+@pytest.fixture
+def shard_margin_schema():
+    return pa.schema(
+        [
+            pa.field("_healpix_29", pa.int64()),
+            pa.field("weird_ra", pa.float64()),
+            pa.field("weird_dec", pa.float64()),
+            pa.field("margin_Norder", pa.uint8()),
+            pa.field("margin_Npix", pa.uint64()),
+            pa.field("Norder", pa.uint8()),
+            pa.field("Npix", pa.uint64()),
+        ]
+    )
+
+
+@pytest.fixture
+def small_sky_source_margin_schema():
+    return pa.schema(
+        [
+            pa.field("_healpix_29", pa.int64()),
+            pa.field("source_id", pa.int64()),
+            pa.field("source_ra", pa.float64()),
+            pa.field("source_dec", pa.float64()),
+            pa.field("mjd", pa.float64()),
+            pa.field("mag", pa.float64()),
+            pa.field("band", pa.string()),
+            pa.field("object_id", pa.int64()),
+            pa.field("object_ra", pa.float64()),
+            pa.field("object_dec", pa.float64()),
+            pa.field("margin_Norder", pa.uint8()),
+            pa.field("margin_Dir", pa.uint64()),
+            pa.field("margin_Npix", pa.uint64()),
+            pa.field("Norder", pa.uint8()),
+            pa.field("Dir", pa.uint64()),
+            pa.field("Npix", pa.uint64()),
+        ]
+    )
 
 
 @pytest.fixture
