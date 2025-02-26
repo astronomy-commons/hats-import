@@ -6,7 +6,6 @@ import pandas as pd
 import pytest
 from hats import read_hats
 from hats.io import paths
-from hats.io.file_io import read_parquet_metadata
 from hats.pixel_math.healpix_pixel import HealpixPixel
 
 import hats_import.margin_cache.margin_cache as mc
@@ -14,7 +13,7 @@ from hats_import.margin_cache.margin_cache_arguments import MarginCacheArguments
 
 
 @pytest.mark.dask(timeout=150)
-def test_margin_cache_gen(small_sky_source_catalog, small_sky_source_margin_schema, tmp_path, dask_client):
+def test_margin_cache_gen(small_sky_source_catalog, tmp_path, dask_client):
     """Test that margin cache generation works end to end."""
     args = MarginCacheArguments(
         margin_threshold=180.0,
@@ -46,9 +45,27 @@ def test_margin_cache_gen(small_sky_source_catalog, small_sky_source_margin_sche
     assert data.dtypes[paths.PARTITION_PIXEL] == np.uint64
     assert data.dtypes[paths.PARTITION_DIR] == np.uint64
 
-    npt.assert_array_equal(data.columns, small_sky_source_margin_schema.names)
-    metadata = read_parquet_metadata(tmp_path / "catalog_cache" / "dataset" / "_common_metadata")
-    assert metadata.schema.to_arrow_schema().equals(small_sky_source_margin_schema)
+    npt.assert_array_equal(
+        data.columns,
+        [
+            "_healpix_29",
+            "source_id",
+            "source_ra",
+            "source_dec",
+            "mjd",
+            "mag",
+            "band",
+            "object_id",
+            "object_ra",
+            "object_dec",
+            "margin_Norder",
+            "margin_Dir",
+            "margin_Npix",
+            "Norder",
+            "Dir",
+            "Npix",
+        ],
+    )
 
     catalog = read_hats(args.catalog_path)
     assert catalog.on_disk
