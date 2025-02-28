@@ -5,7 +5,8 @@ import numpy.testing as npt
 import pandas as pd
 import pytest
 from hats import read_hats
-from hats.io import paths
+from hats.io import get_parquet_metadata_pointer, paths
+from hats.io.file_io import read_parquet_metadata
 from hats.pixel_math.healpix_pixel import HealpixPixel
 
 import hats_import.margin_cache.margin_cache as mc
@@ -113,3 +114,60 @@ def test_margin_too_small(small_sky_object_catalog, tmp_path, dask_client):
 
     with pytest.raises(ValueError, match="Margin cache contains no rows"):
         mc.generate_margin_cache(args, dask_client)
+
+
+@pytest.mark.dask(timeout=150)
+def test_margin_gen_nested_catalog(small_sky_nested_catalog, tmp_path, dask_client):
+    args = MarginCacheArguments(
+        margin_order=8,
+        input_catalog_path=small_sky_nested_catalog,
+        output_path=tmp_path,
+        output_artifact_name="catalog_cache",
+        progress_bar=False,
+    )
+
+    mc.generate_margin_cache(args, dask_client)
+
+    metadata_path = get_parquet_metadata_pointer(args.catalog_path)
+    metadata = read_parquet_metadata(metadata_path)
+    assert metadata.num_rows == 13
+
+    norder = 2
+    npix = 178
+
+    test_file = paths.pixel_catalog_file(args.catalog_path, HealpixPixel(norder, npix))
+
+    data = pd.read_parquet(test_file)
+
+    assert len(data) == 2
+
+    assert all(data[paths.PARTITION_ORDER] == norder)
+    assert all(data[paths.PARTITION_PIXEL] == npix)
+    assert all(data[paths.PARTITION_DIR] == int(npix / 10_000) * 10_000)
+
+    assert data.dtypes[paths.PARTITION_ORDER] == np.uint8
+    assert data.dtypes[paths.PARTITION_PIXEL] == np.uint64
+    assert data.dtypes[paths.PARTITION_DIR] == np.uint64
+
+    npt.assert_array_equal(
+        data.columns,
+        [
+            "id",
+            "ra",
+            "dec",
+            "ra_error",
+            "dec_error",
+            "margin_Norder",
+            "margin_Dir",
+            "margin_Npix",
+            "lc",
+            "_healpix_29",
+            "Norder",
+            "Dir",
+            "Npix",
+        ],
+    )
+
+    catalog = read_hats(args.catalog_path)
+    assert catalog.on_disk
+    assert catalog.catalog_path == args.catalog_path

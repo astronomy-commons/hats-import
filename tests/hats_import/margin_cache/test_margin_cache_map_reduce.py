@@ -84,7 +84,7 @@ def test_map_pixel_shards_error(tmp_path, capsys):
         margin_cache_map_reduce.map_pixel_shards(
             paths.pixel_catalog_file(tmp_path, HealpixPixel(1, 0)),
             mapping_key="1_21",
-            original_schema_path="",
+            original_catalog_metadata="",
             margin_pair_file="",
             margin_threshold=10,
             output_path=tmp_path,
@@ -107,7 +107,7 @@ def test_map_pixel_shards_fine(tmp_path, test_data_dir, small_sky_source_catalog
     margin_cache_map_reduce.map_pixel_shards(
         small_sky_source_catalog / "dataset" / "Norder=1" / "Dir=0" / "Npix=47.parquet",
         mapping_key="1_47",
-        original_schema_path=small_sky_source_catalog / "dataset" / "_common_metadata",
+        original_catalog_metadata=small_sky_source_catalog / "dataset" / "_common_metadata",
         margin_pair_file=test_data_dir / "margin_pairs" / "small_sky_source_pairs.csv",
         margin_threshold=3600,
         output_path=intermediate_dir,
@@ -154,7 +154,7 @@ def test_map_pixel_shards_coarse(tmp_path, test_data_dir, small_sky_source_catal
     margin_cache_map_reduce.map_pixel_shards(
         small_sky_source_catalog / "dataset" / "Norder=1" / "Dir=0" / "Npix=47.parquet",
         mapping_key="1_47",
-        original_schema_path=small_sky_source_catalog / "dataset" / "_common_metadata",
+        original_catalog_metadata=small_sky_source_catalog / "dataset" / "_common_metadata",
         margin_pair_file=test_data_dir / "margin_pairs" / "small_sky_source_pairs.csv",
         margin_threshold=3600,
         output_path=intermediate_dir,

@@ -6,6 +6,7 @@ import pyarrow.dataset as ds
 import pyarrow.parquet as pq
 from hats.io import file_io, paths
 from hats.pixel_math.healpix_pixel import HealpixPixel
+from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN
 
 from hats_import.margin_cache.margin_cache_resume_plan import MarginCachePlan
 from hats_import.pipeline_resume_plan import get_pixel_cache_directory, print_task_failure
@@ -15,7 +16,7 @@ from hats_import.pipeline_resume_plan import get_pixel_cache_directory, print_ta
 def map_pixel_shards(
     partition_file,
     mapping_key,
-    original_schema_path,
+    original_catalog_metadata,
     margin_pair_file,
     margin_threshold,
     output_path,
@@ -29,8 +30,8 @@ def map_pixel_shards(
         if fine_filtering:
             raise NotImplementedError("Fine filtering temporarily removed.")
 
-        original_schema = file_io.read_parquet_metadata(original_schema_path).schema.to_arrow_schema()
-        data = pq.read_table(partition_file, schema=original_schema).combine_chunks()
+        schema = file_io.read_parquet_metadata(original_catalog_metadata).schema.to_arrow_schema()
+        data = pq.read_table(partition_file, schema=schema).combine_chunks()
         source_pixel = HealpixPixel(data["Norder"][0].as_py(), data["Npix"][0].as_py())
 
         # Constrain the possible margin pairs, first by only those `margin_order` pixels
@@ -92,8 +93,8 @@ def _to_pixel_shard(
 ):
     """Do boundary checking for the cached partition and then output remaining data."""
     margin_data = filtered_data
-    num_rows = len(margin_data)
 
+    num_rows = len(margin_data)
     if num_rows:
         # generate a file name for our margin shard, that uses both sets of Norder/Npix
         partition_dir = get_pixel_cache_directory(output_path, pixel)
@@ -105,9 +106,9 @@ def _to_pixel_shard(
 
         margin_data = _rename_original_pixel_columns(margin_data)
         margin_data = _append_margin_pixel_columns(margin_data, pixel)
+        margin_data = margin_data.sort_by(SPATIAL_INDEX_COLUMN)
 
         pq.write_table(margin_data, shard_path.path, filesystem=shard_path.fs)
-
     return num_rows
 
 
