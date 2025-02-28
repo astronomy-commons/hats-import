@@ -31,7 +31,7 @@ def map_pixel_shards(
             raise NotImplementedError("Fine filtering temporarily removed.")
 
         schema = file_io.read_parquet_metadata(original_catalog_metadata).schema.to_arrow_schema()
-        data = pq.read_table(partition_file, schema=schema).combine_chunks()
+        data = pq.read_table(partition_file, filesystem=partition_file.fs, schema=schema).combine_chunks()
         source_pixel = HealpixPixel(data["Norder"][0].as_py(), data["Npix"][0].as_py())
 
         # Constrain the possible margin pairs, first by only those `margin_order` pixels
@@ -152,14 +152,16 @@ def reduce_margin_shards(
         shard_dir = get_pixel_cache_directory(intermediate_directory, healpix_pixel)
 
         if file_io.does_file_or_directory_exist(shard_dir):
-            full_df = ds.dataset(shard_dir, format="parquet").to_table()
+            margin_table = ds.dataset(shard_dir, format="parquet").to_table()
 
-            if len(full_df):
+            if len(margin_table):
                 margin_cache_dir = paths.pixel_directory(output_path, partition_order, partition_pixel)
                 file_io.make_directory(margin_cache_dir, exist_ok=True)
 
                 margin_cache_file_path = paths.pixel_catalog_file(output_path, healpix_pixel)
-                pq.write_table(full_df, margin_cache_file_path.path, filesystem=margin_cache_file_path.fs)
+                pq.write_table(
+                    margin_table, margin_cache_file_path.path, filesystem=margin_cache_file_path.fs
+                )
 
                 if delete_intermediate_parquet_files:
                     file_io.remove_directory(shard_dir)
