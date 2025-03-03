@@ -3,6 +3,7 @@ import os
 import hats.pixel_math.healpix_shim as hp
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 import pytest
 from hats import pixel_math
 from hats.io import paths
@@ -39,7 +40,7 @@ def validate_result_dataframe(df_path, expected_len):
 @pytest.mark.timeout(5)
 def test_to_pixel_shard_equator(tmp_path, basic_data_shard_df):
     margin_cache_map_reduce._to_pixel_shard(
-        basic_data_shard_df,
+        pa.Table.from_pandas(basic_data_shard_df),
         pixel=HealpixPixel(1, 21),
         margin_threshold=360.0,
         output_path=tmp_path,
@@ -59,7 +60,7 @@ def test_to_pixel_shard_equator(tmp_path, basic_data_shard_df):
 @pytest.mark.timeout(5)
 def test_to_pixel_shard_polar(tmp_path, polar_data_shard_df):
     margin_cache_map_reduce._to_pixel_shard(
-        polar_data_shard_df,
+        pa.Table.from_pandas(polar_data_shard_df),
         pixel=HealpixPixel(2, 15),
         margin_threshold=360.0,
         output_path=tmp_path,
@@ -104,7 +105,7 @@ def test_map_pixel_shards_fine(tmp_path, test_data_dir, small_sky_source_catalog
     intermediate_dir = tmp_path / "intermediate"
     os.makedirs(intermediate_dir / "mapping")
     margin_cache_map_reduce.map_pixel_shards(
-        small_sky_source_catalog / "dataset" / "Norder=1" / "Dir=0" / "Npix=47.parquet",
+        paths.pixel_catalog_file(small_sky_source_catalog, HealpixPixel(1, 47)),
         mapping_key="1_47",
         original_catalog_metadata=small_sky_source_catalog / "dataset" / "_common_metadata",
         margin_pair_file=test_data_dir / "margin_pairs" / "small_sky_source_pairs.csv",
@@ -151,7 +152,7 @@ def test_map_pixel_shards_coarse(tmp_path, test_data_dir, small_sky_source_catal
     intermediate_dir = tmp_path / "intermediate"
     os.makedirs(intermediate_dir / "mapping")
     margin_cache_map_reduce.map_pixel_shards(
-        small_sky_source_catalog / "dataset" / "Norder=1" / "Dir=0" / "Npix=47.parquet",
+        paths.pixel_catalog_file(small_sky_source_catalog, HealpixPixel(1, 47)),
         mapping_key="1_47",
         original_catalog_metadata=small_sky_source_catalog / "dataset" / "_common_metadata",
         margin_pair_file=test_data_dir / "margin_pairs" / "small_sky_source_pairs.csv",
@@ -244,7 +245,6 @@ def test_reduce_margin_shards(tmp_path):
         tmp_path,
         1,
         21,
-        original_catalog_metadata=schema_path,
         delete_intermediate_parquet_files=False,
     )
 
@@ -260,7 +260,6 @@ def test_reduce_margin_shards(tmp_path):
         tmp_path,
         1,
         21,
-        original_catalog_metadata=schema_path,
         delete_intermediate_parquet_files=True,
     )
 
@@ -268,33 +267,3 @@ def test_reduce_margin_shards(tmp_path):
 
     validate_result_dataframe(result_path, 720)
     assert not os.path.exists(shard_dir)
-
-
-def test_reduce_margin_shards_error(tmp_path, basic_data_shard_df, capsys):
-    """Test error behavior on reduce stage. e.g. by not creating the original
-    catalog metadata."""
-    intermediate_dir = tmp_path / "intermediate"
-    partition_dir = get_pixel_cache_directory(intermediate_dir, HealpixPixel(1, 21))
-    shard_dir = paths.pixel_directory(partition_dir, 1, 21)
-    os.makedirs(shard_dir)
-    os.makedirs(intermediate_dir / "reducing")
-
-    # Don't write anything at the metadata path!
-    schema_path = tmp_path / "metadata.parquet"
-
-    basic_data_shard_df.to_parquet(paths.pixel_catalog_file(partition_dir, HealpixPixel(1, 0)))
-    basic_data_shard_df.to_parquet(paths.pixel_catalog_file(partition_dir, HealpixPixel(1, 1)))
-
-    with pytest.raises(FileNotFoundError):
-        margin_cache_map_reduce.reduce_margin_shards(
-            intermediate_dir,
-            "1_21",
-            tmp_path,
-            1,
-            21,
-            original_catalog_metadata=schema_path,
-            delete_intermediate_parquet_files=True,
-        )
-
-    captured = capsys.readouterr()
-    assert "Parquet file does not exist" in captured.out

@@ -86,6 +86,11 @@ def small_sky_source_catalog(test_data_dir):
 
 
 @pytest.fixture
+def small_sky_nested_catalog(test_data_dir):
+    return test_data_dir / "small_sky_nested_catalog"
+
+
+@pytest.fixture
 def blank_data_dir(test_data_dir):
     return test_data_dir / "blank"
 
@@ -175,16 +180,18 @@ def basic_data_shard_df():
     ras = np.arange(0.0, 360.0)
     dec = np.full(360, 0.0)
     norder = np.full(360, 1)
+    _dir = np.full(360, 0)
     npix = np.full(360, 0)
     spatial_indexes = pixel_math.compute_spatial_index(ras, dec)
 
     test_df = pd.DataFrame(
-        data=zip(spatial_indexes, ras, dec, norder, npix),
+        data=zip(spatial_indexes, ras, dec, norder, _dir, npix),
         columns=[
             "_healpix_29",
             "weird_ra",
             "weird_dec",
             "Norder",
+            "Dir",
             "Npix",
         ],
     )
@@ -196,16 +203,18 @@ def polar_data_shard_df():
     ras = np.arange(0.0, 360.0)
     dec = np.full(360, 89.9)
     norder = np.full(360, 2)
+    _dir = np.full(360, 0)
     npix = np.full(360, 0)
     spatial_indexes = pixel_math.compute_spatial_index(ras, dec)
 
     test_df = pd.DataFrame(
-        data=zip(spatial_indexes, ras, dec, norder, npix),
+        data=zip(spatial_indexes, ras, dec, norder, _dir, npix),
         columns=[
             "_healpix_29",
             "weird_ra",
             "weird_dec",
             "Norder",
+            "Dir",
             "Npix",
         ],
     )
@@ -243,9 +252,9 @@ def assert_text_file_matches():
             contents
         ), f"files not the same length ({len(contents)} vs {len(expected_lines)})"
         for i, expected in enumerate(expected_lines):
-            assert re.match(expected, contents[i]), (
-                f"files do not match at line {i+1} " f"(actual: [{contents[i]}] vs expected: [{expected}])"
-            )
+            assert re.match(
+                expected, contents[i]
+            ), f"files do not match at line {i + 1} (actual: [{contents[i]}] vs expected: [{expected}])"
 
     return assert_text_file_matches
 
