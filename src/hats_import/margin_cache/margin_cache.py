@@ -55,7 +55,6 @@ def generate_margin_cache(args, client):
                     output_path=args.catalog_path,
                     partition_order=pix.order,
                     partition_pixel=pix.pixel,
-                    original_catalog_metadata=original_catalog_metadata,
                     delete_intermediate_parquet_files=args.delete_intermediate_parquet_files,
                 )
             )
