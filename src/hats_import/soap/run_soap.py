@@ -1,5 +1,5 @@
 """Create pixel-to-pixel association between object and source catalogs.
-Methods in this file set up a dask pipeline using futures. 
+Methods in this file set up a dask pipeline using futures.
 The actual logic of the map reduce is in the `map_reduce.py` file.
 """
 

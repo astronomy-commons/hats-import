@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass, field
 from time import perf_counter
 from typing import Literal
+from urllib.parse import unquote
 
 import hats
 import hats.io.paths
@@ -117,12 +118,20 @@ class Verifier:
         -------
         Verifier
         """
+
         args.output_path.mkdir(exist_ok=True, parents=True)
 
         if args.verbose:
             print("Loading dataset and schema.")
         parquet_fs = args.input_catalog_path.fs
-        files_ds = pds.dataset(args.input_dataset_path.path, filesystem=parquet_fs)
+
+        ## Fetch all sub-URLs that could contain hats leaf files.
+        all_files = []
+        for child in args.input_dataset_path.rglob("Norder*/**/*"):
+            if not child.is_dir():
+                all_files.append(unquote(child.path))
+
+        files_ds = pds.dataset(all_files, filesystem=parquet_fs)
         metadata_ds = pds.parquet_dataset(
             hats.io.paths.get_parquet_metadata_pointer(args.input_catalog_path), filesystem=parquet_fs
         )
