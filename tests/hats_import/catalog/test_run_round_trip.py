@@ -1,6 +1,6 @@
 """Test end-to-end execution of pipeline with different formats and configurations.
 
-Please add a brief description in the docstring of the features or specific 
+Please add a brief description in the docstring of the features or specific
 regression the test case is exercising.
 """
 

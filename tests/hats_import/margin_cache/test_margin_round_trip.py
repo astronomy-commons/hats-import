@@ -1,4 +1,4 @@
-"""Tests that create a new primary object catalog, and immediately 
+"""Tests that create a new primary object catalog, and immediately
 create a margin cache based on the primary catalog."""
 
 import os
