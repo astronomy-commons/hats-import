@@ -22,7 +22,9 @@ def test_reimport_arguments(tmp_path, small_sky_object_catalog):
 def test_reimport_arguments_extra_kwargs(tmp_path, small_sky_object_catalog):
     output_name = "small_sky_higher_order"
     pixel_thresh = 100
-    args = ImportArguments.reimport_from_hats(small_sky_object_catalog, tmp_path, pixel_threshold=pixel_thresh, output_artifact_name=output_name)
+    args = ImportArguments.reimport_from_hats(
+        small_sky_object_catalog, tmp_path, pixel_threshold=pixel_thresh, output_artifact_name=output_name
+    )
     catalog = hats.read_hats(small_sky_object_catalog)
     assert args.catalog_type == catalog.catalog_info.catalog_type
     assert args.ra_column == catalog.catalog_info.ra_column

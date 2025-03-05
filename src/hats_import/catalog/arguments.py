@@ -8,11 +8,11 @@ from pathlib import Path
 import hats
 from hats.catalog import TableProperties
 from hats.io.file_io import get_upath
-from hats.io.paths import DATASET_DIR, PARTITION_ORDER, PARTITION_DIR, PARTITION_PIXEL
+from hats.io.paths import DATASET_DIR, PARTITION_DIR, PARTITION_ORDER, PARTITION_PIXEL
 from hats.pixel_math import spatial_index
 from upath import UPath
 
-from hats_import.catalog.file_readers import InputReader, get_file_reader, ParquetReader
+from hats_import.catalog.file_readers import InputReader, ParquetReader, get_file_reader
 from hats_import.runtime_arguments import RuntimeArguments, find_input_paths
 
 # pylint: disable=too-many-locals,too-many-arguments,too-many-instance-attributes,too-many-branches,too-few-public-methods
@@ -141,7 +141,9 @@ class ImportArguments(RuntimeArguments):
         return TableProperties(**info)
 
     @classmethod
-    def reimport_from_hats(cls, path: str | Path | UPath, output_dir: str | Path | UPath, **kwargs) -> ImportArguments:
+    def reimport_from_hats(
+        cls, path: str | Path | UPath, output_dir: str | Path | UPath, **kwargs
+    ) -> ImportArguments:
         """Generate the import arguments to reimport a HATS catalog with different parameters
 
         Args:
@@ -157,10 +159,11 @@ class ImportArguments(RuntimeArguments):
 
         catalog = hats.read_hats(path)
 
-        column_names = catalog.schema.names
-        column_names.remove(PARTITION_ORDER)
-        column_names.remove(PARTITION_DIR)
-        column_names.remove(PARTITION_PIXEL)
+        column_names = catalog.schema.names if catalog.schema is not None else None
+        if column_names is not None:
+            column_names.remove(PARTITION_ORDER)
+            column_names.remove(PARTITION_DIR)
+            column_names.remove(PARTITION_PIXEL)
 
         import_args = {
             "catalog_type": catalog.catalog_info.catalog_type,
@@ -175,7 +178,7 @@ class ImportArguments(RuntimeArguments):
         }
 
         import_args.update(**kwargs)
-        return cls(**import_args)
+        return cls(**import_args)  # type: ignore
 
 
 def check_healpix_order_range(
