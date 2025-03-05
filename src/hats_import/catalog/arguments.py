@@ -5,11 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import hats
 from hats.catalog import TableProperties
+from hats.io.file_io import get_upath
+from hats.io.paths import DATASET_DIR, PARTITION_ORDER, PARTITION_DIR, PARTITION_PIXEL
 from hats.pixel_math import spatial_index
 from upath import UPath
 
-from hats_import.catalog.file_readers import InputReader, get_file_reader
+from hats_import.catalog.file_readers import InputReader, get_file_reader, ParquetReader
 from hats_import.runtime_arguments import RuntimeArguments, find_input_paths
 
 # pylint: disable=too-many-locals,too-many-arguments,too-many-instance-attributes,too-many-branches,too-few-public-methods
@@ -136,6 +139,43 @@ class ImportArguments(RuntimeArguments):
             "moc_sky_fraction": f"{moc_sky_fraction:0.5f}",
         } | self.extra_property_dict()
         return TableProperties(**info)
+
+    @classmethod
+    def reimport_from_hats(cls, path: str | Path | UPath, output_dir: str | Path | UPath, **kwargs) -> ImportArguments:
+        """Generate the import arguments to reimport a HATS catalog with different parameters
+
+        Args:
+            path (str | Path | UPath): the path to the existing HATS catalog to reimport
+            output_dir (str | Path | UPath): the path to output the reimported catalog to
+            kwargs: any import arguments to update from the existing catalog
+
+        Returns:
+            A ImportArguments object with the arguments from the existing catalog, and any updates from kwargs
+        """
+
+        path = get_upath(path)
+
+        catalog = hats.read_hats(path)
+
+        column_names = catalog.schema.names
+        column_names.remove(PARTITION_ORDER)
+        column_names.remove(PARTITION_DIR)
+        column_names.remove(PARTITION_PIXEL)
+
+        import_args = {
+            "catalog_type": catalog.catalog_info.catalog_type,
+            "ra_column": catalog.catalog_info.ra_column,
+            "dec_column": catalog.catalog_info.dec_column,
+            "input_path": path / DATASET_DIR,
+            "file_reader": ParquetReader(column_names=column_names),
+            "output_artifact_name": catalog.catalog_name,
+            "output_path": output_dir,
+            "use_healpix_29": True,
+            "add_healpix_29": False,
+        }
+
+        import_args.update(**kwargs)
+        return cls(**import_args)
 
 
 def check_healpix_order_range(
