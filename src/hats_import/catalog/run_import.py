@@ -133,8 +133,6 @@ def run(args, client):
                         f"Number of rows in parquet ({parquet_rows}) "
                         f"does not match expectation ({total_rows})"
                     )
-            else:
-                partition_info.write_to_metadata_files(args.catalog_path)
             step_progress.update(1)
             io.write_fits_image(raw_histogram, paths.get_point_map_file_pointer(args.catalog_path))
             step_progress.update(1)
