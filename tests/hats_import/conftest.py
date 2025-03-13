@@ -151,11 +151,6 @@ def parquet_shards_dir(test_data_dir):
 
 
 @pytest.fixture
-def soap_intermediate_dir(test_data_dir):
-    return test_data_dir / "soap_intermediate"
-
-
-@pytest.fixture
 def parquet_shards_shard_44_0(test_data_dir):
     return test_data_dir / "parquet_shards" / "order_1" / "dir_0" / "pixel_44" / "shard_3_0.parquet"
 
