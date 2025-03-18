@@ -111,9 +111,6 @@ def test_import_mixed_schema_csv(
             pa.field("dec_error", pa.int64()),
             pa.field("comment", pa.string()),
             pa.field("code", pa.string()),
-            pa.field("Norder", pa.uint8()),
-            pa.field("Dir", pa.uint64()),
-            pa.field("Npix", pa.uint64()),
         ]
     )
     schema = pq.read_metadata(output_file).schema.to_arrow_schema()
@@ -175,7 +172,7 @@ def test_import_preserve_index(
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
     npt.assert_array_equal(
         data_frame.columns,
-        ["obs_id", "obj_id", "band", "ra", "dec", "mag", "Norder", "Dir", "Npix"],
+        ["obs_id", "obj_id", "band", "ra", "dec", "mag"],
     )
 
     ## DO generate a hats spatial index. Verify that the original index is preserved in a column.
@@ -199,7 +196,7 @@ def test_import_preserve_index(
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
     npt.assert_array_equal(
         data_frame.columns,
-        ["_healpix_29", "obs_id", "obj_id", "band", "ra", "dec", "mag", "Norder", "Dir", "Npix"],
+        ["_healpix_29", "obs_id", "obj_id", "band", "ra", "dec", "mag"],
     )
     assert_parquet_file_ids(output_file, "obs_id", expected_indexes)
 
@@ -543,9 +540,6 @@ def test_import_pyarrow_types(
             pa.field("ra_error", pa.int64()),
             pa.field("dec_error", pa.int64()),
             pa.field("extras", pa.list_(pa.bool_(), 3)),  # The 3 is the length for `fixed_size_list`
-            pa.field("Norder", pa.uint8()),
-            pa.field("Dir", pa.uint64()),
-            pa.field("Npix", pa.uint64()),
         ]
     )
     schema = pq.read_metadata(output_file).schema.to_arrow_schema()
@@ -599,7 +593,7 @@ def test_import_healpix_29_pyarrow_table_csv(
     assert data_frame.index.name is None
     npt.assert_array_equal(
         data_frame.columns,
-        ["_healpix_29", "id", "ra", "dec", "ra_error", "dec_error", "Norder", "Dir", "Npix"],
+        ["_healpix_29", "id", "ra", "dec", "ra_error", "dec_error"],
     )
 
 
@@ -642,7 +636,7 @@ def test_import_healpix_29_pyarrow_table_parquet(
 
     npt.assert_array_equal(
         data_frame.columns,
-        ["id", "_healpix_29", "Norder", "Dir", "Npix"],
+        ["id", "_healpix_29"],
     )
 
 
@@ -695,7 +689,7 @@ def test_import_healpix_29(
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
     npt.assert_array_equal(
         data_frame.columns,
-        ["_healpix_29", "id", "Norder", "Dir", "Npix"],
+        ["_healpix_29", "id"],
     )
 
 
@@ -737,7 +731,7 @@ def test_import_healpix_29_no_pandas(
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
     npt.assert_array_equal(
         data_frame.columns,
-        ["id", "_healpix_29", "magnitude", "nobs", "Norder", "Dir", "Npix"],
+        ["id", "_healpix_29", "magnitude", "nobs"],
     )
 
 
@@ -785,11 +779,6 @@ def test_import_gaia_minimum(
     # Make sure that the spatial index values match the pixel for the partition (0,5)
     spatial_index_pixels = spatial_index_to_healpix(data_frame["_healpix_29"].values, 0)
     npt.assert_array_equal(spatial_index_pixels, [5, 5, 5])
-
-    column_names = data_frame.columns
-    assert "Norder" in column_names
-    assert "Dir" in column_names
-    assert "Npix" in column_names
 
 
 @pytest.mark.dask
@@ -882,9 +871,6 @@ def test_gaia_ecsv(
             pa.field("variability_flag_g_reject", pa.list_(pa.bool_())),
             pa.field("variability_flag_bp_reject", pa.list_(pa.bool_())),
             pa.field("variability_flag_rp_reject", pa.list_(pa.bool_())),
-            pa.field("Norder", pa.uint8()),
-            pa.field("Dir", pa.uint64()),
-            pa.field("Npix", pa.uint64()),
         ]
     )
 

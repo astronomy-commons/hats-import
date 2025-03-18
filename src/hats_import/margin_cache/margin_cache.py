@@ -26,15 +26,12 @@ def generate_margin_cache(args, client):
                 client.submit(
                     mcmr.map_pixel_shards,
                     partition_file=partition_file,
+                    source_pixel=pix,
                     mapping_key=mapping_key,
                     original_catalog_metadata=original_catalog_metadata,
                     margin_pair_file=resume_plan.margin_pair_file,
-                    margin_threshold=args.margin_threshold,
                     output_path=args.tmp_path,
                     margin_order=args.margin_order,
-                    ra_column=args.catalog.catalog_info.ra_column,
-                    dec_column=args.catalog.catalog_info.dec_column,
-                    fine_filtering=args.fine_filtering,
                 )
             )
         resume_plan.wait_for_mapping(futures)

@@ -364,14 +364,13 @@ class Verifier:
             return common_metadata_schema
 
         hats_cols = ["Norder", "Dir", "Npix"]
-        hats_partition_fields = [common_metadata_schema.field(fld) for fld in hats_cols]
         hats_idx_fields = []
         if SPATIAL_INDEX_COLUMN in common_metadata_schema.names:
             hats_cols.append(SPATIAL_INDEX_COLUMN)
             hats_idx_fields.append(common_metadata_schema.field(SPATIAL_INDEX_COLUMN))
         input_truth_fields = [fld for fld in input_truth_schema if fld.name not in hats_cols]
 
-        constructed_fields = hats_idx_fields + input_truth_fields + hats_partition_fields
+        constructed_fields = hats_idx_fields + input_truth_fields
         constructed_schema = pa.schema(constructed_fields).with_metadata(input_truth_schema.metadata)
         return constructed_schema
 

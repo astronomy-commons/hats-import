@@ -284,9 +284,6 @@ def test_dask_runner(
             pa.field("dec", pa.float32()),
             pa.field("ra_error", pa.float32()),
             pa.field("dec_error", pa.float32()),
-            pa.field("Norder", pa.uint8()),
-            pa.field("Dir", pa.uint64()),
-            pa.field("Npix", pa.uint64()),
         ]
     )
     schema = pq.read_metadata(output_file).schema.to_arrow_schema()
@@ -304,9 +301,6 @@ def test_dask_runner(
             "dec": np.float32,
             "ra_error": np.float32,
             "dec_error": np.float32,
-            "Norder": np.uint8,
-            "Dir": np.uint64,
-            "Npix": np.uint64,
         }
     )
     assert data_frame.dtypes.equals(expected_dtypes)

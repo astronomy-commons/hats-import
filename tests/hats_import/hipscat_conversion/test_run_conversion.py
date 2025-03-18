@@ -74,9 +74,6 @@ def test_run_conversion_object(
             pa.field("dec", pa.float64()),
             pa.field("ra_error", pa.int64()),
             pa.field("dec_error", pa.int64()),
-            pa.field("Norder", pa.int8()),
-            pa.field("Dir", pa.int64()),
-            pa.field("Npix", pa.int64()),
         ]
     )
     schema = pq.read_metadata(output_file).schema.to_arrow_schema()

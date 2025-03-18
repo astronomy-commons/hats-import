@@ -355,7 +355,7 @@ def test_reduce_healpix_29(parquet_shards_dir, assert_parquet_file_ids, tmp_path
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
     npt.assert_array_equal(
         data_frame.columns,
-        ["_healpix_29", "id", "ra", "dec", "ra_error", "dec_error", "Norder", "Dir", "Npix"],
+        ["_healpix_29", "id", "ra", "dec", "ra_error", "dec_error"],
     )
 
     mr.reduce_pixel_shards(
@@ -380,7 +380,7 @@ def test_reduce_healpix_29(parquet_shards_dir, assert_parquet_file_ids, tmp_path
     ## Data fields are the same.
     npt.assert_array_equal(
         data_frame.columns,
-        ["id", "ra", "dec", "ra_error", "dec_error", "Norder", "Dir", "Npix"],
+        ["id", "ra", "dec", "ra_error", "dec_error"],
     )
 
 
