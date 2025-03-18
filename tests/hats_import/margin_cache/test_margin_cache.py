@@ -101,7 +101,6 @@ def test_margin_too_small(small_sky_object_catalog, tmp_path, dask_client):
         mc.generate_margin_cache(args, dask_client)
 
 
-@pytest.mark.skip("TODO")
 @pytest.mark.dask(timeout=150)
 def test_margin_gen_nested_catalog(small_sky_nested_catalog, tmp_path, dask_client):
     args = MarginCacheArguments(

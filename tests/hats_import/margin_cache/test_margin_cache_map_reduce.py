@@ -1,6 +1,5 @@
 import os
 
-import hats.pixel_math.healpix_shim as hp
 import numpy as np
 import pandas as pd
 import pyarrow as pa
@@ -144,35 +143,16 @@ def test_reduce_margin_shards(tmp_path):
 
     ras = np.arange(0.0, 360.0)
     dec = np.full(360, 0.0)
-    norder = np.full(360, 1)
-    ndir = np.full(360, 0)
-    npix = np.full(360, 0)
     hats_indexes = pixel_math.compute_spatial_index(ras, dec)
-    margin_order = np.full(360, 0)
-    margin_dir = np.full(360, 0)
-    margin_pixels = hp.radec2pix(3, ras, dec)
 
-    test_df = pd.DataFrame(
-        data=zip(hats_indexes, ras, dec, norder, ndir, npix, margin_order, margin_dir, margin_pixels),
+    basic_data_shard_df = pd.DataFrame(
+        data=zip(hats_indexes, ras, dec),
         columns=[
             "_healpix_29",
             "weird_ra",
             "weird_dec",
-            "Norder",
-            "Dir",
-            "Npix",
-            "margin_Norder",
-            "margin_Dir",
-            "margin_Npix",
         ],
     )
-
-    # Create a schema parquet file.
-    schema_path = tmp_path / "metadata.parquet"
-    schema_df = test_df.drop(columns=["margin_Norder", "margin_Dir", "margin_Npix"])
-    schema_df.to_parquet(schema_path)
-
-    basic_data_shard_df = test_df
 
     basic_data_shard_df.to_parquet(first_shard_path)
     basic_data_shard_df.to_parquet(second_shard_path)
