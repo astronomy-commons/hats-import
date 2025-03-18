@@ -34,7 +34,7 @@ def test_create_index(
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
     npt.assert_array_equal(
         data_frame.columns,
-        ["_healpix_29", "Norder", "Dir", "Npix"],
+        ["_healpix_29", "Norder", "Npix"],
     )
     assert data_frame.index.name == "id"
     assert (data_frame["Norder"] == 0).all()
@@ -56,7 +56,7 @@ def test_create_index_no_healpix_29(small_sky_object_catalog, tmp_path, dask_cli
     output_file = tmp_path / "small_sky_object_index" / "dataset" / "index" / "part.0.parquet"
 
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
-    npt.assert_array_equal(data_frame.columns, ["Norder", "Dir", "Npix"])
+    npt.assert_array_equal(data_frame.columns, ["Norder", "Npix"])
     assert data_frame.index.name == "id"
 
 
@@ -101,7 +101,7 @@ def test_create_index_source(small_sky_source_catalog, assert_parquet_file_index
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
     npt.assert_array_equal(
         data_frame.columns,
-        ["_healpix_29", "Norder", "Dir", "Npix"],
+        ["_healpix_29", "Norder", "Npix"],
     )
     assert data_frame.index.name == "source_id"
     assert len(data_frame) == 17161
@@ -140,7 +140,7 @@ def test_create_index_with_divisions(
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
     npt.assert_array_equal(
         data_frame.columns,
-        ["_healpix_29", "Norder", "Dir", "Npix"],
+        ["_healpix_29", "Norder", "Npix"],
     )
     assert data_frame.index.name == "source_id"
     assert len(data_frame) == 17161
@@ -173,7 +173,7 @@ def test_create_index_source_by_object(
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
     npt.assert_array_equal(
         data_frame.columns,
-        ["_healpix_29", "Norder", "Dir", "Npix"],
+        ["_healpix_29", "Norder", "Npix"],
     )
     assert data_frame.index.name == "object_id"
     assert len(data_frame) == 17161
@@ -205,7 +205,7 @@ def test_create_index_extra_columns(
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
     npt.assert_array_equal(
         data_frame.columns,
-        ["source_ra", "_healpix_29", "Norder", "Dir", "Npix"],
+        ["source_ra", "_healpix_29", "Norder", "Npix"],
     )
     assert data_frame.index.name == "object_id"
     assert len(data_frame) == 17161

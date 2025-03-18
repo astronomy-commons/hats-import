@@ -302,14 +302,6 @@ def reduce_pixel_shards(
         elif use_healpix_29:
             merged_table = merged_table.sort_by(SPATIAL_INDEX_COLUMN)
 
-        merged_table = (
-            merged_table.append_column(
-                "Norder", [np.full(rows_written, fill_value=healpix_pixel.order, dtype=np.uint8)]
-            )
-            .append_column("Dir", [np.full(rows_written, fill_value=healpix_pixel.dir, dtype=np.uint64)])
-            .append_column("Npix", [np.full(rows_written, fill_value=healpix_pixel.pixel, dtype=np.uint64)])
-        )
-
         pq.write_table(merged_table, destination_file.path, filesystem=destination_file.fs)
         del merged_table
 

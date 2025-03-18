@@ -122,24 +122,17 @@ def _convert_partition_file(pixel, args, schema, ra_column, dec_column):
         )
 
         table = pq.read_table(input_file, schema=schema)
-        num_rows = len(table)
 
-        table = (
-            table.drop_columns(["_hipscat_index", "Norder", "Dir", "Npix"])
-            .add_column(
-                0,
-                "_healpix_29",
-                [
-                    healpix.radec2pix(
-                        29,
-                        table[ra_column].to_numpy(),
-                        table[dec_column].to_numpy(),
-                    )
-                ],
-            )
-            .append_column("Norder", [np.full(num_rows, fill_value=pixel.order, dtype=np.int8)])
-            .append_column("Dir", [np.full(num_rows, fill_value=pixel.dir, dtype=np.int64)])
-            .append_column("Npix", [np.full(num_rows, fill_value=pixel.pixel, dtype=np.int64)])
+        table = table.drop_columns(["_hipscat_index", "Norder", "Dir", "Npix"]).add_column(
+            0,
+            "_healpix_29",
+            [
+                healpix.radec2pix(
+                    29,
+                    table[ra_column].to_numpy(),
+                    table[dec_column].to_numpy(),
+                )
+            ],
         )
         table = table.replace_schema_metadata()
 
