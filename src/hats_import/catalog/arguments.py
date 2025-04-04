@@ -127,7 +127,7 @@ class ImportArguments(RuntimeArguments):
         self, total_rows: int, highest_order: int, moc_sky_fraction: float
     ) -> TableProperties:
         """Catalog-type-specific dataset info."""
-        info = {
+        info = self.extra_property_dict() | {
             "catalog_name": self.output_artifact_name,
             "catalog_type": self.catalog_type,
             "total_rows": total_rows,
@@ -137,7 +137,7 @@ class ImportArguments(RuntimeArguments):
             "hats_max_rows": self.pixel_threshold,
             "hats_order": highest_order,
             "moc_sky_fraction": f"{moc_sky_fraction:0.5f}",
-        } | self.extra_property_dict()
+        }
         return TableProperties(**info)
 
     @classmethod
@@ -175,6 +175,8 @@ class ImportArguments(RuntimeArguments):
             "output_path": output_dir,
             "use_healpix_29": True,
             "add_healpix_29": False,
+            "expected_total_rows": catalog.catalog_info.total_rows,
+            "addl_hats_properties": catalog.catalog_info.extra_dict(by_alias=True),
         }
 
         import_args.update(**kwargs)
