@@ -54,6 +54,7 @@ See dataset-specific notes on arguments:
 * :doc:`guide/hipscat_conversion`
 * :doc:`guide/margin_cache`
 * :doc:`guide/index_table`
+* :doc:`guide/reimporting`
 
 Once you have created your arguments object, you pass it into the pipeline control,
 and then wait. Running within a main guard will potentially avoid some python
@@ -87,6 +88,7 @@ threading issues with dask:
    catalogs/properties
    guide/verification
    catalogs/public/index
+   guide/reimporting
 
 .. toctree::
    :hidden:

@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import glob
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import hats
 from hats.catalog import TableProperties
 from hats.io.file_io import get_upath
-from hats.io.paths import DATASET_DIR, PARTITION_DIR, PARTITION_ORDER, PARTITION_PIXEL
+from hats.io.paths import DATASET_DIR, PARTITION_ORDER
 from hats.pixel_math import spatial_index
 from upath import UPath
 
@@ -149,7 +150,8 @@ class ImportArguments(RuntimeArguments):
         Args:
             path (str | Path | UPath): the path to the existing HATS catalog to reimport
             output_dir (str | Path | UPath): the path to output the reimported catalog to
-            kwargs: any import arguments to update from the existing catalog
+            kwargs: any import arguments to update from the existing catalog. Can be any argument usually
+                passed to :func:`ImportArguments`
 
         Returns:
             A ImportArguments object with the arguments from the existing catalog, and any updates from kwargs
@@ -160,21 +162,20 @@ class ImportArguments(RuntimeArguments):
         catalog = hats.read_hats(path)
 
         column_names = catalog.schema.names if catalog.schema is not None else None
-        if column_names is not None:
-            column_names.remove(PARTITION_ORDER)
-            column_names.remove(PARTITION_DIR)
-            column_names.remove(PARTITION_PIXEL)
+
+        in_file_paths = glob.glob(str(path / DATASET_DIR / f"{PARTITION_ORDER}*/**/*.parquet"), recursive=True)
 
         import_args = {
             "catalog_type": catalog.catalog_info.catalog_type,
             "ra_column": catalog.catalog_info.ra_column,
             "dec_column": catalog.catalog_info.dec_column,
-            "input_path": path / DATASET_DIR,
+            "input_file_list": in_file_paths,
             "file_reader": ParquetReader(column_names=column_names),
             "output_artifact_name": catalog.catalog_name,
             "output_path": output_dir,
             "use_healpix_29": True,
             "add_healpix_29": False,
+            "use_schema_file": hats.io.paths.get_common_metadata_pointer(catalog.catalog_base_dir),
             "expected_total_rows": catalog.catalog_info.total_rows,
             "addl_hats_properties": catalog.catalog_info.extra_dict(by_alias=True),
         }

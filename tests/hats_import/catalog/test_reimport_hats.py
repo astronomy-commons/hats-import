@@ -17,10 +17,27 @@ import pyarrow.parquet as pq
 def test_reimport_arguments(tmp_path, small_sky_object_catalog):
     args = ImportArguments.reimport_from_hats(small_sky_object_catalog, tmp_path)
     catalog = hats.read_hats(small_sky_object_catalog)
+    file_paths = [str(hats.io.pixel_catalog_file(catalog.catalog_base_dir, p)) for p in catalog.get_healpix_pixels()]
     assert args.catalog_type == catalog.catalog_info.catalog_type
     assert args.ra_column == catalog.catalog_info.ra_column
     assert args.dec_column == catalog.catalog_info.dec_column
-    assert args.input_path == catalog.catalog_base_dir / DATASET_DIR
+    assert args.input_paths == file_paths
+    assert isinstance(args.file_reader, ParquetReader)
+    assert args.output_artifact_name == catalog.catalog_name
+    assert args.expected_total_rows == catalog.catalog_info.total_rows
+    assert args.addl_hats_properties == catalog.catalog_info.extra_dict(by_alias=True)
+    assert args.use_healpix_29
+    assert not args.add_healpix_29
+
+
+def test_reimport_arguments_constant(tmp_path, small_sky_object_catalog):
+    args = ImportArguments.reimport_from_hats(small_sky_object_catalog, tmp_path, constant_healpix_order=6)
+    catalog = hats.read_hats(small_sky_object_catalog)
+    file_paths = [str(hats.io.pixel_catalog_file(catalog.catalog_base_dir, p)) for p in catalog.get_healpix_pixels()]
+    assert args.catalog_type == catalog.catalog_info.catalog_type
+    assert args.ra_column == catalog.catalog_info.ra_column
+    assert args.dec_column == catalog.catalog_info.dec_column
+    assert args.input_paths == file_paths
     assert isinstance(args.file_reader, ParquetReader)
     assert args.output_artifact_name == catalog.catalog_name
     assert args.expected_total_rows == catalog.catalog_info.total_rows
@@ -36,10 +53,11 @@ def test_reimport_arguments_extra_kwargs(tmp_path, small_sky_object_catalog):
         small_sky_object_catalog, tmp_path, pixel_threshold=pixel_thresh, output_artifact_name=output_name
     )
     catalog = hats.read_hats(small_sky_object_catalog)
+    file_paths = [str(hats.io.pixel_catalog_file(catalog.catalog_base_dir, p)) for p in catalog.get_healpix_pixels()]
     assert args.catalog_type == catalog.catalog_info.catalog_type
     assert args.ra_column == catalog.catalog_info.ra_column
     assert args.dec_column == catalog.catalog_info.dec_column
-    assert args.input_path == catalog.catalog_base_dir / DATASET_DIR
+    assert args.input_paths == file_paths
     assert isinstance(args.file_reader, ParquetReader)
     assert args.output_artifact_name == output_name
     assert args.pixel_threshold == pixel_thresh
