@@ -153,12 +153,12 @@ def test_extra_property_dict(tmp_path):
 
     properties = args.extra_property_dict()
     assert list(properties.keys()) == [
+        "foo",
         "hats_builder",
         "hats_creation_date",
         "hats_estsize",
         "hats_release_date",
         "hats_version",
-        "foo",
     ]
 
     # Most values are dynamic, but these are some safe assumptions.

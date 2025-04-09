@@ -1,23 +1,21 @@
-import pandas as pd
 import hats
+import pandas as pd
+import pyarrow.parquet as pq
 import pytest
-
 from hats import read_hats
 from hats.io import paths
-from hats.io.paths import DATASET_DIR
 
+import hats_import.catalog.run_import as runner
 from hats_import.catalog import ImportArguments
 from hats_import.catalog.file_readers import ParquetReader
-import hats_import.catalog.run_import as runner
-
-import pyarrow.parquet as pq
-
 
 
 def test_reimport_arguments(tmp_path, small_sky_object_catalog):
     args = ImportArguments.reimport_from_hats(small_sky_object_catalog, tmp_path)
     catalog = hats.read_hats(small_sky_object_catalog)
-    file_paths = [str(hats.io.pixel_catalog_file(catalog.catalog_base_dir, p)) for p in catalog.get_healpix_pixels()]
+    file_paths = [
+        str(hats.io.pixel_catalog_file(catalog.catalog_base_dir, p)) for p in catalog.get_healpix_pixels()
+    ]
     assert args.catalog_type == catalog.catalog_info.catalog_type
     assert args.ra_column == catalog.catalog_info.ra_column
     assert args.dec_column == catalog.catalog_info.dec_column
@@ -33,7 +31,9 @@ def test_reimport_arguments(tmp_path, small_sky_object_catalog):
 def test_reimport_arguments_constant(tmp_path, small_sky_object_catalog):
     args = ImportArguments.reimport_from_hats(small_sky_object_catalog, tmp_path, constant_healpix_order=6)
     catalog = hats.read_hats(small_sky_object_catalog)
-    file_paths = [str(hats.io.pixel_catalog_file(catalog.catalog_base_dir, p)) for p in catalog.get_healpix_pixels()]
+    file_paths = [
+        str(hats.io.pixel_catalog_file(catalog.catalog_base_dir, p)) for p in catalog.get_healpix_pixels()
+    ]
     assert args.catalog_type == catalog.catalog_info.catalog_type
     assert args.ra_column == catalog.catalog_info.ra_column
     assert args.dec_column == catalog.catalog_info.dec_column
@@ -53,7 +53,9 @@ def test_reimport_arguments_extra_kwargs(tmp_path, small_sky_object_catalog):
         small_sky_object_catalog, tmp_path, pixel_threshold=pixel_thresh, output_artifact_name=output_name
     )
     catalog = hats.read_hats(small_sky_object_catalog)
-    file_paths = [str(hats.io.pixel_catalog_file(catalog.catalog_base_dir, p)) for p in catalog.get_healpix_pixels()]
+    file_paths = [
+        str(hats.io.pixel_catalog_file(catalog.catalog_base_dir, p)) for p in catalog.get_healpix_pixels()
+    ]
     assert args.catalog_type == catalog.catalog_info.catalog_type
     assert args.ra_column == catalog.catalog_info.ra_column
     assert args.dec_column == catalog.catalog_info.dec_column
@@ -77,7 +79,6 @@ def test_reimport_arguments_wrong_dir(tmp_path):
 def test_run_reimport(
     dask_client,
     small_sky_object_catalog,
-    assert_parquet_file_ids,
     tmp_path,
 ):
     output_name = "small_sky_higher_order"
@@ -98,7 +99,6 @@ def test_run_reimport(
     assert catalog.catalog_info.dec_column == old_cat.catalog_info.dec_column
     assert catalog.catalog_info.total_rows == old_cat.catalog_info.total_rows
     assert len(catalog.get_healpix_pixels()) == 4
-
 
     # Check that the schema is correct for leaf parquet and _metadata files
     original_common_md = paths.get_common_metadata_pointer(old_cat.catalog_base_dir)

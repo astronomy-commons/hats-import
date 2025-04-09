@@ -163,7 +163,9 @@ class ImportArguments(RuntimeArguments):
 
         column_names = catalog.schema.names if catalog.schema is not None else None
 
-        in_file_paths = glob.glob(str(path / DATASET_DIR / f"{PARTITION_ORDER}*/**/*.parquet"), recursive=True)
+        in_file_paths = glob.glob(
+            str(path / DATASET_DIR / f"{PARTITION_ORDER}*/**/*.parquet"), recursive=True
+        )
 
         import_args = {
             "catalog_type": catalog.catalog_info.catalog_type,
