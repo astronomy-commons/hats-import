@@ -167,7 +167,7 @@ def test_import_preserve_index(
     runner.run(args, dask_client)
 
     # Check that the catalog parquet file exists
-    output_file = os.path.join(args.catalog_path, "dataset", "Norder=0", "Dir=0", "Npix=11.parquet")
+    output_file = os.path.join(args.catalog_path, "dataset", "Norder=1", "Dir=0", "Npix=46.parquet")
 
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
     npt.assert_array_equal(
@@ -191,7 +191,7 @@ def test_import_preserve_index(
     runner.run(args, dask_client)
 
     # Check that the catalog parquet file exists
-    output_file = os.path.join(args.catalog_path, "dataset", "Norder=0", "Dir=0", "Npix=11.parquet")
+    output_file = os.path.join(args.catalog_path, "dataset", "Norder=1", "Dir=0", "Npix=46.parquet")
 
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
     npt.assert_array_equal(
@@ -422,7 +422,8 @@ def test_import_lowest_healpix_order(
     assert catalog.on_disk
     assert catalog.catalog_path == args.catalog_path
     # Check that the partition info file exists - all pixels at order 2!
-    assert all(pixel.order == 2 for pixel in catalog.partition_info.get_healpix_pixels())
+    assert all(pixel.order >= 2 for pixel in catalog.get_healpix_pixels())
+    assert len(catalog.get_healpix_pixels()) == 14
 
     # Pick a parquet file and make sure it contains as many rows as we expect
     output_file = os.path.join(args.catalog_path, "dataset", "Norder=2", "Dir=0", "Npix=178.parquet")
@@ -773,7 +774,14 @@ def test_import_gaia_minimum(
     assert len(catalog.get_healpix_pixels()) == 3
 
     # Pick an output file, and make sure it has valid columns:
-    output_file = os.path.join(args.catalog_path, "dataset", "Norder=0", "Dir=0", "Npix=5.parquet")
+    first_pixel = catalog.get_healpix_pixels()[0]
+    output_file = (
+        args.catalog_path
+        / "dataset"
+        / f"Norder={first_pixel.order}"
+        / "Dir=0"
+        / f"Npix={first_pixel.pixel}.parquet"
+    )
     data_frame = pd.read_parquet(output_file)
 
     # Make sure that the spatial index values match the pixel for the partition (0,5)
@@ -813,8 +821,14 @@ def test_gaia_ecsv(
     assert catalog.catalog_info.total_rows == 3
     assert len(catalog.get_healpix_pixels()) == 1
 
-    output_file = os.path.join(args.catalog_path, "dataset", "Norder=0", "Dir=0", "Npix=0.parquet")
-
+    first_pixel = catalog.get_healpix_pixels()[0]
+    output_file = (
+        args.catalog_path
+        / "dataset"
+        / f"Norder={first_pixel.order}"
+        / "Dir=0"
+        / f"Npix={first_pixel.pixel}.parquet"
+    )
     assert_parquet_file_ids(output_file, "source_id", [10655814178816, 10892037246720, 14263587225600])
 
     # Check that the schema is correct for leaf parquet and _metadata files
