@@ -43,6 +43,7 @@ def test_margin_import_gaia_minimum(
         highest_healpix_order=2,
         pixel_threshold=3_000,
         progress_bar=False,
+        drop_empty_siblings=False,
     )
 
     runner.run(args, dask_client)
