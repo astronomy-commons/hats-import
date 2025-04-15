@@ -105,7 +105,7 @@ def test_run_reimport(
         tmp_path,
         pixel_threshold=pixel_thresh,
         output_artifact_name=output_name,
-        highest_healpix_order=2,
+        highest_healpix_order=1,
         addl_hats_properties={"obs_regime": "Optical"},
     )
 
