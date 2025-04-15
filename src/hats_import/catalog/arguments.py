@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import glob
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -163,23 +162,35 @@ class ImportArguments(RuntimeArguments):
 
         column_names = catalog.schema.names if catalog.schema is not None else None
 
-        in_file_paths = glob.glob(
-            str(path / DATASET_DIR / f"{PARTITION_ORDER}*/**/*.parquet"), recursive=True
+        in_file_paths = list(
+            (path / DATASET_DIR).rglob(f"{PARTITION_ORDER}*/**/*{catalog.catalog_info.npix_suffix}")
         )
+
+        addl_hats_properties = catalog.catalog_info.extra_dict(by_alias=True)
+
+        addl_hats_properties.update(
+            {
+                "hats_cols_default": catalog.catalog_info.default_columns,
+                "hats_npix_suffix": catalog.catalog_info.npix_suffix,
+            }
+        )
+
+        if "addl_hats_properties" in kwargs:
+            addl_hats_properties.update(kwargs.pop("addl_hats_properties"))
 
         import_args = {
             "catalog_type": catalog.catalog_info.catalog_type,
             "ra_column": catalog.catalog_info.ra_column,
             "dec_column": catalog.catalog_info.dec_column,
             "input_file_list": in_file_paths,
-            "file_reader": ParquetReader(column_names=column_names),
+            "file_reader": ParquetPyarrowReader(column_names=column_names),
             "output_artifact_name": catalog.catalog_name,
             "output_path": output_dir,
             "use_healpix_29": True,
             "add_healpix_29": False,
             "use_schema_file": hats.io.paths.get_common_metadata_pointer(catalog.catalog_base_dir),
             "expected_total_rows": catalog.catalog_info.total_rows,
-            "addl_hats_properties": catalog.catalog_info.extra_dict(by_alias=True),
+            "addl_hats_properties": addl_hats_properties,
         }
 
         import_args.update(**kwargs)
