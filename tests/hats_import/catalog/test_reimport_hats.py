@@ -85,7 +85,7 @@ def test_run_reimport(
     output_name = "small_sky_higher_order"
     pixel_thresh = 100
     args = ImportArguments.reimport_from_hats(
-        small_sky_object_catalog, tmp_path, pixel_threshold=pixel_thresh, output_artifact_name=output_name
+        small_sky_object_catalog, tmp_path, pixel_threshold=pixel_thresh, output_artifact_name=output_name, addl_hats_properties={"obs_regime": "Optical"},
     )
 
     runner.run(args, dask_client)
@@ -99,6 +99,7 @@ def test_run_reimport(
     assert catalog.catalog_info.ra_column == old_cat.catalog_info.ra_column
     assert catalog.catalog_info.dec_column == old_cat.catalog_info.dec_column
     assert catalog.catalog_info.total_rows == old_cat.catalog_info.total_rows
+    assert catalog_info.__pydantic_extra__["obs_regime"] == "Optical"
     assert len(catalog.get_healpix_pixels()) == 4
 
     # Check that the schema is correct for leaf parquet and _metadata files
