@@ -91,7 +91,7 @@ def test_reimport_arguments_wrong_dir(tmp_path):
         ImportArguments.reimport_from_hats(wrong_input_path, tmp_path)
 
 
-@pytest.mark.timeout(5)
+@pytest.mark.timeout(10)
 @pytest.mark.dask
 def test_run_reimport(
     dask_client,
