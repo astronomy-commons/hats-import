@@ -122,6 +122,9 @@ class RuntimeArguments:
         """Generate additional HATS properties for this import run as a dictionary."""
         properties = {}
 
+        if self.addl_hats_properties:
+            properties = properties | self.addl_hats_properties
+
         properties["hats_builder"] = f"hats-import v{version('hats-import')}"
 
         now = datetime.now(tz=timezone.utc)
@@ -129,9 +132,6 @@ class RuntimeArguments:
         properties["hats_estsize"] = int(_estimate_dir_size(self.catalog_path) / 1024)
         properties["hats_release_date"] = "2024-09-18"
         properties["hats_version"] = "v0.1"
-
-        if self.addl_hats_properties:
-            properties = properties | self.addl_hats_properties
         return properties
 
     def resume_kwargs_dict(self):

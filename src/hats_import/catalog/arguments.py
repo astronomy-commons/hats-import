@@ -5,11 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import hats
 from hats.catalog import TableProperties
+from hats.io.file_io import get_upath
+from hats.io.paths import DATASET_DIR, PARTITION_ORDER
 from hats.pixel_math import spatial_index
 from upath import UPath
 
-from hats_import.catalog.file_readers import InputReader, get_file_reader
+from hats_import.catalog.file_readers import InputReader, ParquetPyarrowReader, get_file_reader
 from hats_import.runtime_arguments import RuntimeArguments, find_input_paths
 
 # pylint: disable=too-many-locals,too-many-arguments,too-many-instance-attributes,too-many-branches,too-few-public-methods
@@ -124,7 +127,7 @@ class ImportArguments(RuntimeArguments):
         self, total_rows: int, highest_order: int, moc_sky_fraction: float
     ) -> TableProperties:
         """Catalog-type-specific dataset info."""
-        info = {
+        info = self.extra_property_dict() | {
             "catalog_name": self.output_artifact_name,
             "catalog_type": self.catalog_type,
             "total_rows": total_rows,
@@ -134,8 +137,64 @@ class ImportArguments(RuntimeArguments):
             "hats_max_rows": self.pixel_threshold,
             "hats_order": highest_order,
             "moc_sky_fraction": f"{moc_sky_fraction:0.5f}",
-        } | self.extra_property_dict()
+        }
         return TableProperties(**info)
+
+    @classmethod
+    def reimport_from_hats(
+        cls, path: str | Path | UPath, output_dir: str | Path | UPath, **kwargs
+    ) -> ImportArguments:
+        """Generate the import arguments to reimport a HATS catalog with different parameters
+
+        Args:
+            path (str | Path | UPath): the path to the existing HATS catalog to reimport
+            output_dir (str | Path | UPath): the path to output the reimported catalog to
+            kwargs: any import arguments to update from the existing catalog. Can be any argument usually
+                passed to :func:`ImportArguments`
+
+        Returns:
+            A ImportArguments object with the arguments from the existing catalog, and any updates from kwargs
+        """
+
+        path = get_upath(path)
+
+        catalog = hats.read_hats(path)
+
+        column_names = catalog.schema.names if catalog.schema is not None else None
+
+        in_file_paths = list(
+            (path / DATASET_DIR).rglob(f"{PARTITION_ORDER}*/**/*{catalog.catalog_info.npix_suffix}")
+        )
+
+        addl_hats_properties = catalog.catalog_info.extra_dict(by_alias=True)
+
+        addl_hats_properties.update(
+            {
+                "hats_cols_default": catalog.catalog_info.default_columns,
+                "hats_npix_suffix": catalog.catalog_info.npix_suffix,
+            }
+        )
+
+        if "addl_hats_properties" in kwargs:
+            addl_hats_properties.update(kwargs.pop("addl_hats_properties"))
+
+        import_args = {
+            "catalog_type": catalog.catalog_info.catalog_type,
+            "ra_column": catalog.catalog_info.ra_column,
+            "dec_column": catalog.catalog_info.dec_column,
+            "input_file_list": in_file_paths,
+            "file_reader": ParquetPyarrowReader(column_names=column_names),
+            "output_artifact_name": catalog.catalog_name,
+            "output_path": output_dir,
+            "use_healpix_29": True,
+            "add_healpix_29": False,
+            "use_schema_file": hats.io.paths.get_common_metadata_pointer(catalog.catalog_base_dir),
+            "expected_total_rows": catalog.catalog_info.total_rows,
+            "addl_hats_properties": addl_hats_properties,
+        }
+
+        import_args.update(**kwargs)
+        return cls(**import_args)  # type: ignore
 
 
 def check_healpix_order_range(
