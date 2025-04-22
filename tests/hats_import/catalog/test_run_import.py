@@ -286,7 +286,11 @@ def test_dask_runner(
             pa.field("dec_error", pa.float32()),
         ]
     )
-    schema = pq.read_metadata(output_file).schema.to_arrow_schema()
+    metadata = pq.read_metadata(output_file)
+    assert metadata.num_row_groups == 1
+    assert metadata.row_group(0).column(0).compression == "ZSTD"
+
+    schema = metadata.schema.to_arrow_schema()
     assert schema.equals(expected_parquet_schema)
     schema = pq.read_metadata(args.catalog_path / "dataset" / "_metadata").schema.to_arrow_schema()
     assert schema.equals(expected_parquet_schema)
