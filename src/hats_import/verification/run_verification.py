@@ -15,12 +15,14 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.dataset as pds
 from hats import read_hats
+from hats.catalog.catalog_collection import CatalogCollection
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN
 
 import hats_import
 from hats_import.verification.arguments import VerificationArguments
 
 
+# pylint: disable=too-many-lines
 def run(
     args: VerificationArguments, check_metadata: bool = False, write_mode: Literal["a", "w", "x"] = "a"
 ) -> "Verifier":
@@ -243,7 +245,11 @@ class Verifier:
         description = "Test that number of rows are equal."
         self.print_if_verbose(f"\nStarting: {description}")
 
-        catalog_prop_len = read_hats(self.args.input_catalog_path).catalog_info.total_rows
+        catalog = read_hats(self.args.input_catalog_path)
+
+        if isinstance(catalog, CatalogCollection):
+            catalog = catalog.main_catalog
+        catalog_prop_len = catalog.catalog_info.total_rows
 
         # get the number of rows in each file, indexed by file path. we treat this as truth.
         files_df = self._load_nrows(self.files_ds)
