@@ -85,10 +85,26 @@ def test_reimport_arguments_extra_kwargs(tmp_path, small_sky_object_catalog):
     assert not args.add_healpix_29
 
 
-def test_reimport_arguments_wrong_dir(tmp_path):
+def test_reimport_arguments_empty_dir(tmp_path):
     wrong_input_path = tmp_path / "nonsense"
     with pytest.raises(FileNotFoundError):
         ImportArguments.reimport_from_hats(wrong_input_path, tmp_path)
+
+
+def test_reimport_arguments_invalid_dir(wrong_files_and_rows_dir, tmp_path):
+    with pytest.raises(ValueError):
+        ImportArguments.reimport_from_hats(wrong_files_and_rows_dir, tmp_path)
+
+
+def test_reimport_arguments_catalog_collection(test_data_dir, small_sky_object_catalog, tmp_path):
+    wrong_input_path = test_data_dir / "small_sky_collection"
+    args = ImportArguments.reimport_from_hats(wrong_input_path, tmp_path)
+
+    catalog = hats.read_hats(small_sky_object_catalog)
+    assert len(args.input_paths) == len(catalog.get_healpix_pixels())
+    assert args.catalog_type == catalog.catalog_info.catalog_type
+    assert args.ra_column == catalog.catalog_info.ra_column
+    assert args.dec_column == catalog.catalog_info.dec_column
 
 
 @pytest.mark.timeout(10)
