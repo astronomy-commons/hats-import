@@ -242,9 +242,9 @@ def reduce_pixel_shards(
             used as input for this method.
         use_schema_file (str): use the parquet schema from the indicated
             parquet file.
-        write_table_kwargs (dict): additional keyword arguments to use when 
+        write_table_kwargs (dict): additional keyword arguments to use when
             writing files to parquet (e.g. compression schemes)
-        row_group_kwargs (dict): additional keyword arguments to use in 
+        row_group_kwargs (dict): additional keyword arguments to use in
             creation of rowgroups when writing files to parquet.
 
     Raises:
