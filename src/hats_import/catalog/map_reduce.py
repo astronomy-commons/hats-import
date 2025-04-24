@@ -197,6 +197,7 @@ def split_pixels(
         raise exception
 
 
+# pylint: disable=too-many-positional-arguments
 def reduce_pixel_shards(
     cache_shard_path,
     resume_path,
@@ -218,40 +219,33 @@ def reduce_pixel_shards(
     """Reduce sharded source pixels into destination pixels.
 
     In addition to combining multiple shards of data into a single
-    parquet file, this method will add a few new columns:
-
-        - ``Norder`` - the healpix order for the pixel
-        - ``Dir`` - the directory part, corresponding to the pixel
-        - ``Npix`` - the healpix pixel
-        - ``_healpix_29`` - optional - a spatially-correlated
-          64-bit index field.
-
-    Notes on ``_healpix_29``:
-
-        - if we generate the field, we will promote any previous
-          *named* pandas index field(s) to a column with
-          that name.
-        - see ``hats.pixel_math.spatial_index``
-          for more in-depth discussion of this field.
+    parquet file, this method will (optionally) add the ``_healpix_29`` column.
+    See ``hats.pixel_math.spatial_index`` for more in-depth discussion of this field.
 
     Args:
         cache_shard_path (UPath): where to read intermediate parquet files.
         resume_path (UPath): where to write resume files.
         reducing_key (str): unique string for this task, used for resume files.
-        origin_pixel_numbers (list[int]): high order pixels, with object
-            data written to intermediate directories.
         destination_pixel_order (int): order of the final catalog pixel
         destination_pixel_number (int): pixel number at the above order
         destination_pixel_size (int): expected number of rows to write
             for the catalog's final pixel
         output_path (UPath): where to write the final catalog pixel data
+        ra_column (str): where to find right ascension data in the dataframe
+        dec_column (str): where to find declation in the dataframe
         sort_columns (str): column for survey identifier, or other sortable column
+        use_healpix_29 (bool): should we use a pre-existing _healpix_29 column
+            for position information.
         add_healpix_29 (bool): should we add a _healpix_29 column to
             the resulting parquet file?
         delete_input_files (bool): should we delete the intermediate files
             used as input for this method.
         use_schema_file (str): use the parquet schema from the indicated
             parquet file.
+        write_table_kwargs (dict): additional keyword arguments to use when 
+            writing files to parquet (e.g. compression schemes)
+        row_group_kwargs (dict): additional keyword arguments to use in 
+            creation of rowgroups when writing files to parquet.
 
     Raises:
         ValueError: if the number of rows written doesn't equal provided

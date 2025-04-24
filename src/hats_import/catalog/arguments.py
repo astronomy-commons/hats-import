@@ -130,14 +130,13 @@ class ImportArguments(RuntimeArguments):
         # Basic checks complete - make more checks and create directories where necessary
         self.input_paths = find_input_paths(self.input_path, "**/*.*", self.input_file_list)
 
-        if self.write_table_kwargs:
-            # If user has provided some args, let's make sure they're good.
-            if "compression" in self.write_table_kwargs:
-                compression_type = self.write_table_kwargs["compression"]
-                ## TODO!
-                print(compression_type)
-        else:
-            self.write_table_kwargs = {"compression": "ZSTD", "compression_level": 15}
+        if self.write_table_kwargs is None:
+            self.write_table_kwargs = {}
+        if "compression" not in self.write_table_kwargs:
+            self.write_table_kwargs = self.write_table_kwargs | {
+                "compression": "ZSTD",
+                "compression_level": 15,
+            }
 
     def to_table_properties(
         self, total_rows: int, highest_order: int, moc_sky_fraction: float
