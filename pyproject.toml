@@ -17,7 +17,7 @@ classifiers = [
 dynamic = ["version"]
 requires-python = ">=3.10"
 dependencies = [
-    "dask[complete]>=2024.3.0", # Includes dask expressions.
+    "dask[complete]>=2024.3.0,<2025.4.0", # Includes dask expressions.
     "deprecated",
     "hats >=0.5.1",
     "numpy",
@@ -66,7 +66,10 @@ markers = [
 ]
 testpaths = [
     "tests",
+    "src",
+    "docs",
 ]
+addopts = "--doctest-modules --doctest-glob=*.rst"
 
 [tool.coverage.report]
 omit = [

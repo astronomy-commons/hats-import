@@ -7,8 +7,10 @@ from pathlib import Path
 
 import hats
 from hats.catalog import TableProperties
+from hats.catalog.catalog_collection import CatalogCollection
 from hats.io.file_io import get_upath
 from hats.io.paths import DATASET_DIR, PARTITION_ORDER
+from hats.io.validation import is_valid_catalog
 from hats.pixel_math import spatial_index
 from upath import UPath
 
@@ -173,6 +175,12 @@ class ImportArguments(RuntimeArguments):
         path = get_upath(path)
 
         catalog = hats.read_hats(path)
+
+        if isinstance(catalog, CatalogCollection):
+            path = catalog.main_catalog_dir
+            catalog = catalog.main_catalog
+        if not is_valid_catalog(path, strict=True):
+            raise ValueError("path not a valid catalog")
 
         column_names = catalog.schema.names if catalog.schema is not None else None
 
