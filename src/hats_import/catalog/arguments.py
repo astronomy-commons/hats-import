@@ -46,7 +46,7 @@ class ImportArguments(RuntimeArguments):
     add_healpix_29: bool = True
     """add the healpix-based hats spatial index field alongside the data"""
     write_table_kwargs: dict | None = None
-    """additional keyword arguments to use when writing files to parquet (e.g. compression schemes)"""
+    """additional keyword arguments to use when writing files to parquet (e.g. compression schemes)."""
     row_group_kwargs: dict | None = None
     """additional keyword arguments to use in creation of rowgroups when writing files to parquet."""
 

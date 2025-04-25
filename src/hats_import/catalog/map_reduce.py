@@ -232,7 +232,7 @@ def reduce_pixel_shards(
             for the catalog's final pixel
         output_path (UPath): where to write the final catalog pixel data
         ra_column (str): where to find right ascension data in the dataframe
-        dec_column (str): where to find declation in the dataframe
+        dec_column (str): where to find declination in the dataframe
         sort_columns (str): column for survey identifier, or other sortable column
         use_healpix_29 (bool): should we use a pre-existing _healpix_29 column
             for position information.
