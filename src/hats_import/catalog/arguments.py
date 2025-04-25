@@ -45,6 +45,11 @@ class ImportArguments(RuntimeArguments):
     but the provided sorting will be used for any rows within the same higher-order pixel space."""
     add_healpix_29: bool = True
     """add the healpix-based hats spatial index field alongside the data"""
+    write_table_kwargs: dict | None = None
+    """additional keyword arguments to use when writing files to parquet (e.g. compression schemes)."""
+    row_group_kwargs: dict | None = None
+    """additional keyword arguments to use in creation of rowgroups when writing files to parquet."""
+
     use_schema_file: str | Path | UPath | None = None
     """path to a parquet file with schema metadata. this will be used for column
     metadata when writing the files, if specified"""
@@ -124,6 +129,14 @@ class ImportArguments(RuntimeArguments):
 
         # Basic checks complete - make more checks and create directories where necessary
         self.input_paths = find_input_paths(self.input_path, "**/*.*", self.input_file_list)
+
+        if self.write_table_kwargs is None:
+            self.write_table_kwargs = {}
+        if "compression" not in self.write_table_kwargs:
+            self.write_table_kwargs = self.write_table_kwargs | {
+                "compression": "ZSTD",
+                "compression_level": 15,
+            }
 
     def to_table_properties(
         self, total_rows: int, highest_order: int, moc_sky_fraction: float

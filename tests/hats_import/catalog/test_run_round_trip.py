@@ -25,7 +25,7 @@ from hats_import.catalog.file_readers import CsvReader, ParquetPyarrowReader, ge
 
 
 @pytest.mark.dask
-def test_import_source_table(
+def test_import_snappy_source_table(
     dask_client,
     small_sky_source_dir,
     tmp_path,
@@ -47,6 +47,8 @@ def test_import_source_table(
         highest_healpix_order=2,
         pixel_threshold=3_000,
         progress_bar=False,
+        # Sneak in a test of setting a non-default compression scheme.
+        write_table_kwargs={"compression": "SNAPPY"},
     )
 
     runner.run(args, dask_client)
@@ -58,6 +60,11 @@ def test_import_source_table(
     assert catalog.catalog_info.ra_column == "source_ra"
     assert catalog.catalog_info.dec_column == "source_dec"
     assert len(catalog.get_healpix_pixels()) == 14
+
+    output_file = os.path.join(args.catalog_path, "dataset", "Norder=1", "Dir=0", "Npix=47.parquet")
+    metadata = pq.read_metadata(output_file)
+    assert metadata.num_row_groups == 1
+    assert metadata.row_group(0).column(0).compression == "SNAPPY"
 
 
 @pytest.mark.dask

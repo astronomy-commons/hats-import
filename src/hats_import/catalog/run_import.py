@@ -115,6 +115,8 @@ def run(args, client):
                     use_schema_file=args.use_schema_file,
                     use_healpix_29=args.use_healpix_29,
                     delete_input_files=args.delete_intermediate_parquet_files,
+                    write_table_kwargs=args.write_table_kwargs,
+                    row_group_kwargs=args.row_group_kwargs,
                 )
             )
 
