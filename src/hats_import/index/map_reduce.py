@@ -70,7 +70,7 @@ def create_index(args, client):
     data = data.repartition(partition_size=args.compute_partition_size)
 
     # Now just write it out to leaf parquet files!
-    result = dd.DataFrame(data).to_parquet(
+    result = data.to_parquet(
         path=index_dir.path,
         engine="pyarrow",
         compute_kwargs={"partition_size": args.compute_partition_size},
