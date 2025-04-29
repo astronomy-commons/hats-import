@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import hats.pixel_math.healpix_shim as hp
 from hats.catalog.dataset.collection_properties import CollectionProperties
 from hats.io import file_io
 from hats.io.validation import is_valid_catalog
-import hats.pixel_math.healpix_shim as hp
 from upath import UPath
 
 from hats_import.catalog import ImportArguments
@@ -87,9 +87,8 @@ class CollectionArguments(RuntimeArguments):
         useful_kwargs.update(kwargs)
 
         if "output_artifact_name" not in kwargs:
-            useful_kwargs["output_artifact_name"] = (
-                f"{self.output_artifact_name}_{_pretty_print_angle(margin_threshold)}"
-            )
+            margin_suffix = _pretty_print_angle(margin_threshold)
+            useful_kwargs["output_artifact_name"] = f"{self.output_artifact_name}_{margin_suffix}"
         if "input_catalog_path" not in kwargs:
             useful_kwargs["input_catalog_path"] = self.new_catalog_path
 
@@ -179,7 +178,6 @@ class CollectionArguments(RuntimeArguments):
         margin_paths = [
             _maybe_relative(args.catalog_path, self.catalog_path) for args in self.get_margin_args()
         ]
-        print("margin_paths", margin_paths)
         if margin_paths:
             info["all_margins"] = margin_paths
 
@@ -189,21 +187,17 @@ class CollectionArguments(RuntimeArguments):
         }
         if index_paths:
             info["all_indexes"] = index_paths
-        print("index_paths", index_paths)
 
         info = info | self.extra_property_dict()
-        print("info", info)
         properties = CollectionProperties(**info)
-        print("properties", properties)
         return properties
 
 
 def _pretty_print_angle(arc_seconds):
     if arc_seconds >= 3600:
         return f"{int(arc_seconds / 3600)}deg"
-    elif arc_seconds >= 60:
+    if arc_seconds >= 60:
         return f"{int(arc_seconds/60)}arcmin"
-    elif arc_seconds >= 1:
+    if arc_seconds >= 1:
         return f"{int(arc_seconds)}arcs"
-    else:
-        return f"{int(arc_seconds * 1000)}msec"
+    return f"{int(arc_seconds * 1000)}msec"

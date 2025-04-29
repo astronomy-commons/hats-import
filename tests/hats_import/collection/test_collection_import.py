@@ -1,8 +1,8 @@
 import pytest
+from hats import read_hats
 
 from hats_import.collection.arguments import CollectionArguments
 from hats_import.collection.run_import import run
-from hats import read_hats
 
 
 @pytest.mark.dask
