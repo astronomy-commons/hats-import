@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from hats.catalog.dataset.collection_properties import CollectionProperties
 from hats.io import file_io
 from hats.io.validation import is_valid_catalog
 from upath import UPath
@@ -59,6 +60,13 @@ class CollectionArguments(RuntimeArguments):
         self.new_catalog_path = self.catalog_args.catalog_path
 
         return self
+
+    def get_catalog_args(self):
+        """Retrieve the catalog arguments, if a catalog must be created or resumed."""
+        if self.new_catalog_path is None:
+            raise ValueError("Must add catalog arguments before fetching catalog arguments")
+
+        return self.catalog_args
 
     def add_margin(self, **kwargs):
         """Add arguments for a margin catalog.
@@ -133,12 +141,45 @@ class CollectionArguments(RuntimeArguments):
         useful_kwargs = {
             "output_path": self.catalog_path,
             "addl_hats_properties": self.addl_hats_properties,
-            "tmp_dir": self.tmp_base_path,
+            "tmp_dir": self.tmp_path,
             "resume": self.resume,
             "progress_bar": self.progress_bar,
             "simple_progress_bar": self.simple_progress_bar,
-            "resume_tmp": self.resume_tmp,
             "delete_intermediate_parquet_files": self.delete_intermediate_parquet_files,
             "delete_resume_log_files": self.delete_resume_log_files,
         }
         return useful_kwargs
+
+    def to_collection_properties(self):
+        """Collection-specific dataset info."""
+        if self.new_catalog_path is None:
+            raise ValueError("Must add catalog arguments before collection properties")
+        info = {"obs_collection": self.output_artifact_name}
+
+        def _maybe_relative(artifact_path, collection_path):
+            if artifact_path.is_relative_to(collection_path):
+                return str(artifact_path.relative_to(collection_path))
+            return str(artifact_path)
+
+        info["hats_primary_table_url"] = _maybe_relative(self.new_catalog_path, self.catalog_path)
+
+        margin_paths = [
+            _maybe_relative(args.catalog_path, self.catalog_path) for args in self.get_margin_args()
+        ]
+        print("margin_paths", margin_paths)
+        if margin_paths:
+            info["all_margins"] = margin_paths
+
+        index_paths = {
+            args.indexing_column: _maybe_relative(args.catalog_path, self.catalog_path)
+            for args in self.get_index_args()
+        }
+        if index_paths:
+            info["all_indexes"] = index_paths
+        print("index_paths", index_paths)
+
+        info = info | self.extra_property_dict()
+        print("info", info)
+        properties = CollectionProperties(**info)
+        print("properties", properties)
+        return properties

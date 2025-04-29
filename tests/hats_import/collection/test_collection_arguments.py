@@ -103,9 +103,13 @@ def test_subcatalog_wrong_order(tmp_path, blank_data_dir):
         addl_hats_properties={"hats_cols_default": "id, mjd", "obs_regime": "Optical"},
     )
     with pytest.raises(ValueError, match="add catalog arguments"):
+        args.get_catalog_args()
+    with pytest.raises(ValueError, match="add catalog arguments"):
         args.get_margin_args()
     with pytest.raises(ValueError, match="add catalog arguments"):
         args.get_index_args()
+    with pytest.raises(ValueError, match="add catalog arguments"):
+        args.to_collection_properties()
 
 
 def test_subcatalog_existing_catalog(tmp_path, small_sky_object_catalog):
@@ -159,3 +163,45 @@ def test_index_bad_values(tmp_path, small_sky_object_catalog):
 
     with pytest.raises(ValueError, match="not in input catalog"):
         args.get_index_args()
+
+
+def test_collection_properties_basic(tmp_path, blank_data_dir):
+    args = CollectionArguments(
+        output_artifact_name="good_name",
+        output_path=tmp_path,
+        progress_bar=False,
+        addl_hats_properties={"obs_regime": "Optical"},
+    ).catalog(
+        input_path=blank_data_dir,
+        file_reader="csv",
+        addl_hats_properties={"hats_cols_default": "id, mjd"},
+    )
+
+    collection_info = args.to_collection_properties()
+    assert collection_info.name == "good_name"
+    assert collection_info.hats_primary_table_url == "good_name"
+    assert collection_info.all_margins is None
+    assert collection_info.all_indexes is None
+    assert collection_info.__pydantic_extra__["obs_regime"] == "Optical"
+
+
+def test_collection_properties_supplemental(tmp_path, small_sky_object_catalog):
+    args = (
+        CollectionArguments(
+            output_artifact_name="good_name2",
+            output_path=tmp_path,
+            progress_bar=False,
+            addl_hats_properties={"obs_regime": "Optical"},
+        )
+        .catalog(
+            catalog_path=small_sky_object_catalog,
+        )
+        .add_margin(margin_threshold=15.0)
+        .add_index(indexing_column="id")
+    )
+
+    collection_info = args.to_collection_properties()
+    assert collection_info.name == "good_name2"
+    assert len(collection_info.all_margins) == 1
+    assert len(collection_info.all_indexes) == 1
+    assert collection_info.__pydantic_extra__["obs_regime"] == "Optical"

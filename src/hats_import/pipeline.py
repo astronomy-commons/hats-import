@@ -6,11 +6,13 @@ from email.message import EmailMessage
 from dask.distributed import Client
 
 import hats_import.catalog.run_import as catalog_runner
+import hats_import.collection.run_import as collection_runner
 import hats_import.hipscat_conversion.run_conversion as conversion_runner
 import hats_import.index.run_index as index_runner
 import hats_import.margin_cache.margin_cache as margin_runner
 import hats_import.verification.run_verification as verification_runner
 from hats_import.catalog.arguments import ImportArguments
+from hats_import.collection.arguments import CollectionArguments
 from hats_import.hipscat_conversion.arguments import ConversionArguments
 from hats_import.index.arguments import IndexArguments
 from hats_import.margin_cache.margin_cache_arguments import MarginCacheArguments
@@ -46,6 +48,8 @@ def pipeline_with_client(args: RuntimeArguments, client: Client):
             index_runner.run(args, client)
         elif isinstance(args, MarginCacheArguments):
             margin_runner.generate_margin_cache(args, client)
+        elif isinstance(args, CollectionArguments):
+            collection_runner.run(args, client)
         elif isinstance(args, VerificationArguments):
             verification_runner.run(args)
         elif isinstance(args, ConversionArguments):
