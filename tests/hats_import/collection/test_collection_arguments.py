@@ -1,6 +1,6 @@
 import pytest
 
-from hats_import.collection.arguments import CollectionArguments
+from hats_import.collection.arguments import CollectionArguments, _pretty_print_angle
 
 
 def test_none():
@@ -205,3 +205,16 @@ def test_collection_properties_supplemental(tmp_path, small_sky_object_catalog):
     assert len(collection_info.all_margins) == 1
     assert len(collection_info.all_indexes) == 1
     assert collection_info.__pydantic_extra__["obs_regime"] == "Optical"
+
+    margin_args = args.get_margin_args()[0]
+    assert margin_args.output_artifact_name == "good_name2_15arcs"
+
+    index_args = args.get_index_args()[0]
+    assert index_args.output_artifact_name == "good_name2_id"
+
+
+def test_pretty_print_angle():
+    assert _pretty_print_angle(1) == "1arcs"
+    assert _pretty_print_angle(100) == "1arcmin"
+    assert _pretty_print_angle(10_000) == "2deg"
+    assert _pretty_print_angle(0.1) == "100msec"

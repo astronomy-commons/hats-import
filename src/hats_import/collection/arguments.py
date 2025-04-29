@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from hats.catalog.dataset.collection_properties import CollectionProperties
 from hats.io import file_io
 from hats.io.validation import is_valid_catalog
+import hats.pixel_math.healpix_shim as hp
 from upath import UPath
 
 from hats_import.catalog import ImportArguments
@@ -76,11 +77,19 @@ class CollectionArguments(RuntimeArguments):
         as the arguments cannot be validated until the catalog exists on disk."""
         if self.new_catalog_path is None:
             raise ValueError("Must add catalog arguments before adding margin arguments")
+
+        if "margin_threshold" not in kwargs and "margin_order" not in kwargs:
+            raise ValueError("Margin threshold required, either in arcseconds or HEALPix order.")
+
+        margin_threshold = kwargs["margin_threshold"] or hp.order2mindist(kwargs["margin_order"]) * 60
+
         useful_kwargs = self._get_subarg_dict()
         useful_kwargs.update(kwargs)
 
         if "output_artifact_name" not in kwargs:
-            useful_kwargs["output_artifact_name"] = f"{self.output_artifact_name}_margin"
+            useful_kwargs["output_artifact_name"] = (
+                f"{self.output_artifact_name}_{_pretty_print_angle(margin_threshold)}"
+            )
         if "input_catalog_path" not in kwargs:
             useful_kwargs["input_catalog_path"] = self.new_catalog_path
 
@@ -106,11 +115,15 @@ class CollectionArguments(RuntimeArguments):
         as the arguments cannot be validated until the catalog exists on disk."""
         if self.new_catalog_path is None:
             raise ValueError("Must add catalog arguments before adding index arguments")
+
+        if "indexing_column" not in kwargs:
+            raise ValueError("indexing_column is required")
+
         useful_kwargs = self._get_subarg_dict()
         useful_kwargs.update(kwargs)
 
         if "output_artifact_name" not in kwargs:
-            useful_kwargs["output_artifact_name"] = f"{self.output_artifact_name}_index"
+            useful_kwargs["output_artifact_name"] = f"{self.output_artifact_name}_{kwargs['indexing_column']}"
         if "input_catalog_path" not in kwargs:
             useful_kwargs["input_catalog_path"] = self.new_catalog_path
 
@@ -183,3 +196,14 @@ class CollectionArguments(RuntimeArguments):
         properties = CollectionProperties(**info)
         print("properties", properties)
         return properties
+
+
+def _pretty_print_angle(arc_seconds):
+    if arc_seconds >= 3600:
+        return f"{int(arc_seconds / 3600)}deg"
+    elif arc_seconds >= 60:
+        return f"{int(arc_seconds/60)}arcmin"
+    elif arc_seconds >= 1:
+        return f"{int(arc_seconds)}arcs"
+    else:
+        return f"{int(arc_seconds * 1000)}msec"
