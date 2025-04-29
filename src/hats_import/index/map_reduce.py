@@ -44,7 +44,7 @@ def create_index(args, client):
 
     index_dir = file_io.get_upath(args.catalog_path / "dataset" / "index")
 
-    data = dd.DataFrame(dd.from_map(
+    data = dd.from_map(
         read_leaf_file,
         [
             (
@@ -58,7 +58,7 @@ def create_index(args, client):
         drop_duplicates=args.drop_duplicates,
         schema=args.input_catalog.schema,
         include_order_pixel=args.include_order_pixel,
-    ))
+    )
 
     if args.division_hints is not None and len(args.division_hints) > 2:
         data = data.set_index(args.indexing_column, divisions=args.division_hints)
@@ -70,7 +70,7 @@ def create_index(args, client):
     data = data.repartition(partition_size=args.compute_partition_size)
 
     # Now just write it out to leaf parquet files!
-    result = data.to_parquet(
+    result = dd.DataFrame(data).to_parquet(
         path=index_dir.path,
         engine="pyarrow",
         compute_kwargs={"partition_size": args.compute_partition_size},
