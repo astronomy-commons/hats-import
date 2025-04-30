@@ -288,17 +288,31 @@ def reduce_pixel_shards(
                         merged_table[dec_column].to_numpy().astype(np.float64),
                     )
                 ],
-            ).sort_by(SPATIAL_INDEX_COLUMN)
-
-        merged_table = _split_to_row_groups(
-            merged_table, sort_columns, add_healpix_29 or use_healpix_29, row_group_kwargs
-        )
+            )
 
         if not write_table_kwargs:
             write_table_kwargs = {}
+        if not row_group_kwargs:
+            row_group_kwargs = {}
+
+        sorting_columns = sort_columns.split(",") if sort_columns is not None else []
+        if add_healpix_29 or use_healpix_29:
+            # Sort by healpix_29 first and then by the other sorting columns to resolve unambiguity
+            sorting_columns.insert(0, SPATIAL_INDEX_COLUMN)
+        if sorting_columns:
+            ordering = [(col_name, "ascending") for col_name in sorting_columns]
+            merged_table = merged_table.sort_by(ordering)
+            # For metadata purposes this needs to be of type pq.SortingColumn
+            row_group_kwargs["sorting_columns"] = pq.SortingColumn.from_ordering(
+                merged_table.schema, ordering
+            )
 
         pq.write_table(
-            merged_table, destination_file.path, filesystem=destination_file.fs, **write_table_kwargs
+            merged_table,
+            destination_file.path,
+            filesystem=destination_file.fs,
+            **write_table_kwargs,
+            **row_group_kwargs,
         )
         del merged_table
 
@@ -314,24 +328,3 @@ def reduce_pixel_shards(
             exception,
         )
         raise exception
-
-
-def _split_to_row_groups(table, sort_columns, has_healpix_29, row_group_kwargs):
-    if not row_group_kwargs:
-        row_group_kwargs = {"sort_column": sort_columns}
-
-    if "sort_column" in row_group_kwargs:
-        if sort_columns:
-            split_columns = sort_columns.split(",")
-            if len(split_columns) > 1:
-                table = table.sort_by([(col_name, "ascending") for col_name in split_columns])
-            else:
-                table = table.sort_by(sort_columns)
-        ## this is not ideal, but preserves current behavior.
-        if has_healpix_29:
-            table = table.sort_by(SPATIAL_INDEX_COLUMN)
-        return table
-    if "subtile_order_delta" in row_group_kwargs:
-        ## do it the other way
-        return table
-    return table

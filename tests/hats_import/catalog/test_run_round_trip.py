@@ -3,8 +3,9 @@
 Please add a brief description in the docstring of the features or specific
 regression the test case is exercising.
 """
-
+# pylint: disable=too-many-lines
 import glob
+import math
 import os
 from pathlib import Path
 
@@ -16,7 +17,7 @@ import pyarrow.dataset as pds
 import pyarrow.parquet as pq
 import pytest
 from hats import read_hats
-from hats.pixel_math.spatial_index import spatial_index_to_healpix
+from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, spatial_index_to_healpix
 from pyarrow import csv
 
 import hats_import.catalog.run_import as runner
@@ -65,6 +66,65 @@ def test_import_snappy_source_table(
     metadata = pq.read_metadata(output_file)
     assert metadata.num_row_groups == 1
     assert metadata.row_group(0).column(0).compression == "SNAPPY"
+
+    # Check that the pixels have been sorted by the default _healpix_29 values
+    pixel_data = pq.read_table(output_file)
+    sorting_columns = metadata.row_group(0).sorting_columns
+    ordering_tuples = pq.SortingColumn.to_ordering(pixel_data.schema, sorting_columns)[0]
+    assert ordering_tuples[0] == (SPATIAL_INDEX_COLUMN, "ascending")
+    assert pixel_data.equals(pixel_data.sort_by(SPATIAL_INDEX_COLUMN))
+
+
+@pytest.mark.dask
+def test_import_with_custom_row_groups(
+    dask_client,
+    small_sky_source_dir,
+    tmp_path,
+):
+    """The row group size will be specified using `row_group_kwargs`"""
+    args = ImportArguments(
+        output_artifact_name="small_sky_source_catalog.parquet",
+        input_path=small_sky_source_dir,
+        file_reader="csv",
+        catalog_type="source",
+        ra_column="source_ra",
+        dec_column="source_dec",
+        sort_columns="source_id",
+        output_path=tmp_path,
+        dask_tmp=tmp_path,
+        highest_healpix_order=2,
+        pixel_threshold=3_000,
+        progress_bar=False,
+        # Sneak in a test of custom row group size
+        row_group_kwargs={"row_group_size": 100},
+    )
+
+    runner.run(args, dask_client)
+
+    # Check that the catalog metadata file exists
+    catalog = read_hats(args.catalog_path)
+    assert catalog.on_disk
+    assert catalog.catalog_path == args.catalog_path
+    assert catalog.catalog_info.ra_column == "source_ra"
+    assert catalog.catalog_info.dec_column == "source_dec"
+    assert len(catalog.get_healpix_pixels()) == 14
+
+    output_file = os.path.join(args.catalog_path, "dataset", "Norder=1", "Dir=0", "Npix=47.parquet")
+
+    # Check that the number of row groups is the one expected
+    metadata = pq.read_metadata(output_file)
+    assert metadata.num_row_groups == math.ceil(metadata.num_rows / 100)
+    # The last row group has less number of rows, which is fine
+    assert all(metadata.row_group(i).num_rows == 100 for i in range(metadata.num_row_groups - 1))
+
+    # Check that the sorting columns were saved in the parquet metadata
+    pixel_data = pq.read_table(output_file)
+    sorting_columns = metadata.row_group(0).sorting_columns
+    ordering_tuples = pq.SortingColumn.to_ordering(pixel_data.schema, sorting_columns)[0]
+    assert ordering_tuples[0] == (SPATIAL_INDEX_COLUMN, "ascending")
+    assert ordering_tuples[1] == ("source_id", "ascending")
+    sorted_data = pixel_data.sort_by([(SPATIAL_INDEX_COLUMN, "ascending"), ("source_id", "ascending")])
+    assert pixel_data.equals(sorted_data)
 
 
 @pytest.mark.dask
