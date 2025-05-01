@@ -82,9 +82,9 @@ def test_import_with_num_row_groups(
     small_sky_source_dir,
     tmp_path,
 ):
-    """The row group size will be specified using `row_group_kwargs`"""
+    """The row group size will be specified in `row_group_kwargs`"""
     args = ImportArguments(
-        output_artifact_name="small_sky_source_catalog.parquet",
+        output_artifact_name="small_sky_source_catalog",
         input_path=small_sky_source_dir,
         file_reader="csv",
         catalog_type="source",
@@ -140,9 +140,9 @@ def test_import_with_subtile_row_groups(
     small_sky_source_dir,
     tmp_path,
 ):
-    """The row group size will be specified using `row_group_kwargs`"""
+    """The row group subtile splitting will be specified in `row_group_kwargs`"""
     args = ImportArguments(
-        output_artifact_name="small_sky_source_catalog.parquet",
+        output_artifact_name="small_sky_source_catalog",
         input_path=small_sky_source_dir,
         file_reader="csv",
         catalog_type="source",
@@ -154,7 +154,7 @@ def test_import_with_subtile_row_groups(
         highest_healpix_order=2,
         pixel_threshold=3_000,
         progress_bar=False,
-        # Sneak in a test of custom row group size
+        # Sneak in a test of custom subtile splitting
         row_group_kwargs={"subtile_order_delta": 2},
     )
 
