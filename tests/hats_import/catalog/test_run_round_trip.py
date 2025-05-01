@@ -17,6 +17,7 @@ import pyarrow.dataset as pds
 import pyarrow.parquet as pq
 import pytest
 from hats import read_hats
+from hats.pixel_math import HealpixPixel
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, spatial_index_to_healpix
 from pyarrow import csv
 
@@ -76,7 +77,7 @@ def test_import_snappy_source_table(
 
 
 @pytest.mark.dask
-def test_import_with_custom_row_groups(
+def test_import_with_num_row_groups(
     dask_client,
     small_sky_source_dir,
     tmp_path,
@@ -96,7 +97,64 @@ def test_import_with_custom_row_groups(
         pixel_threshold=3_000,
         progress_bar=False,
         # Sneak in a test of custom row group size
-        row_group_kwargs={"row_group_size": 100},
+        row_group_kwargs={"num_rows": 100},
+    )
+
+    runner.run(args, dask_client)
+
+    # Check that the catalog metadata file exists
+    catalog = read_hats(args.catalog_path)
+    assert catalog.on_disk
+    assert catalog.catalog_path == args.catalog_path
+    assert catalog.catalog_info.ra_column == "source_ra"
+    assert catalog.catalog_info.dec_column == "source_dec"
+    assert len(catalog.get_healpix_pixels()) == 14
+
+    output_file = os.path.join(args.catalog_path, "dataset", "Norder=1", "Dir=0", "Npix=47.parquet")
+    pixel = pq.ParquetFile(output_file)
+    data = pixel.read()
+    assert len(pixel.read()) == 2395
+
+    # Check that the number of row groups is the one expected
+    metadata = pixel.metadata
+    assert metadata.num_rows == 2395
+    assert metadata.num_row_groups == math.ceil(metadata.num_rows / 100)
+    # The last row group has fewer number of rows, which is fine
+    assert all(metadata.row_group(i).num_rows == 100 for i in range(metadata.num_row_groups - 1))
+
+    # Check that the sorting columns were saved in the parquet metadata
+    sorting_columns = metadata.row_group(0).sorting_columns
+    ordering_tuples = pq.SortingColumn.to_ordering(data.schema, sorting_columns)[0]
+    assert ordering_tuples[0] == (SPATIAL_INDEX_COLUMN, "ascending")
+    assert ordering_tuples[1] == ("source_id", "ascending")
+
+    # And that the data is indeed sorted
+    sorted_data = data.sort_by([(SPATIAL_INDEX_COLUMN, "ascending"), ("source_id", "ascending")])
+    assert data.equals(sorted_data)
+
+
+@pytest.mark.dask
+def test_import_with_subtile_row_groups(
+    dask_client,
+    small_sky_source_dir,
+    tmp_path,
+):
+    """The row group size will be specified using `row_group_kwargs`"""
+    args = ImportArguments(
+        output_artifact_name="small_sky_source_catalog.parquet",
+        input_path=small_sky_source_dir,
+        file_reader="csv",
+        catalog_type="source",
+        ra_column="source_ra",
+        dec_column="source_dec",
+        sort_columns="source_id",
+        output_path=tmp_path,
+        dask_tmp=tmp_path,
+        highest_healpix_order=2,
+        pixel_threshold=3_000,
+        progress_bar=False,
+        # Sneak in a test of custom row group size
+        row_group_kwargs={"subtile_order_delta": 2},
     )
 
     runner.run(args, dask_client)
@@ -111,20 +169,36 @@ def test_import_with_custom_row_groups(
 
     output_file = os.path.join(args.catalog_path, "dataset", "Norder=1", "Dir=0", "Npix=47.parquet")
 
-    # Check that the number of row groups is the one expected
-    metadata = pq.read_metadata(output_file)
-    assert metadata.num_row_groups == math.ceil(metadata.num_rows / 100)
-    # The last row group has less number of rows, which is fine
-    assert all(metadata.row_group(i).num_rows == 100 for i in range(metadata.num_row_groups - 1))
+    pixel = pq.ParquetFile(output_file)
+    assert len(pixel.read()) == 2395
 
-    # Check that the sorting columns were saved in the parquet metadata
-    pixel_data = pq.read_table(output_file)
-    sorting_columns = metadata.row_group(0).sorting_columns
-    ordering_tuples = pq.SortingColumn.to_ordering(pixel_data.schema, sorting_columns)[0]
-    assert ordering_tuples[0] == (SPATIAL_INDEX_COLUMN, "ascending")
-    assert ordering_tuples[1] == ("source_id", "ascending")
-    sorted_data = pixel_data.sort_by([(SPATIAL_INDEX_COLUMN, "ascending"), ("source_id", "ascending")])
-    assert pixel_data.equals(sorted_data)
+    # Check that the number of row groups is the one expected
+    metadata = pixel.metadata
+    assert metadata.num_rows == 2395
+    child_pixels = HealpixPixel(1, 47).convert_to_higher_order(delta_order=2)
+    # The empty sub-tiles are not kept
+    assert pixel.num_row_groups <= len(child_pixels)
+
+    seen_pixels = []
+
+    for i in range(metadata.num_row_groups):
+        row_group = metadata.row_group(i)
+
+        # Check that the row group statistics are correct
+        assert row_group.num_rows > 0
+        min_healpix29 = row_group.column(0).statistics.min
+        max_healpix29 = row_group.column(0).statistics.max
+        pixel_min, pixel_max = spatial_index_to_healpix([min_healpix29, max_healpix29], target_order=3)
+        assert pixel_min == pixel_max and HealpixPixel(3, pixel_min) in child_pixels
+
+        # The row group contains data that does in fact belong to the pixel
+        row_group_healpix29 = pixel.read_row_group(i)[SPATIAL_INDEX_COLUMN].to_numpy()
+        assert all(row_group_healpix29 >= min_healpix29)
+        assert all(row_group_healpix29 <= max_healpix29)
+        seen_pixels.append(pixel_min)
+
+    # Make sure there was no overlap between row group pixels
+    assert list(set(seen_pixels)) == seen_pixels
 
 
 @pytest.mark.dask

@@ -303,22 +303,25 @@ def reduce_pixel_shards(
             ordering = [(col_name, "ascending") for col_name in sorting_columns]
             merged_table = merged_table.sort_by(ordering)
             # For metadata purposes this needs to be of type pq.SortingColumn
-            row_group_kwargs["sorting_columns"] = pq.SortingColumn.from_ordering(
+            write_table_kwargs["sorting_columns"] = pq.SortingColumn.from_ordering(
                 merged_table.schema, ordering
             )
 
-        pq.write_table(
-            merged_table,
+        # Obtain the row groups for the target file
+        rowgroup_tables = _split_to_row_groups(merged_table, row_group_kwargs, destination_pixel_order)
+
+        with pq.ParquetWriter(
             destination_file.path,
+            merged_table.schema,
             filesystem=destination_file.fs,
             **write_table_kwargs,
-            **row_group_kwargs,
-        )
-        del merged_table
+        ) as writer:
+            for table in rowgroup_tables:
+                writer.write_table(table)
+        del merged_table, rowgroup_tables
 
         if delete_input_files:
             pixel_dir = get_pixel_cache_directory(cache_shard_path, healpix_pixel)
-
             file_io.remove_directory(pixel_dir, ignore_errors=True)
 
         ResumePlan.reducing_key_done(tmp_path=resume_path, reducing_key=reducing_key)
@@ -328,3 +331,21 @@ def reduce_pixel_shards(
             exception,
         )
         raise exception
+
+
+def _split_to_row_groups(table, row_group_kwargs, pixel_order):
+    """Split the pixel table into its row group chunks according to the specified splitting strategy."""
+    if "num_rows" in row_group_kwargs:
+        chunk_size = row_group_kwargs["num_rows"]
+        return [table.slice(i, chunk_size) for i in range(0, len(table), chunk_size)]
+    if "subtile_order_delta" in row_group_kwargs:
+        split_tables = []
+        parent_pixels = table[SPATIAL_INDEX_COLUMN].to_numpy()
+        target_order = row_group_kwargs["subtile_order_delta"] + pixel_order
+        child_pixs = spatial_index_to_healpix(parent_pixels, target_order=target_order)
+        for child_pix in np.unique(child_pixs):
+            indices = np.where(child_pixs == child_pix)[0]
+            row_group = table.take(pa.array(indices))
+            split_tables.append(row_group)
+        return split_tables
+    return [table]
