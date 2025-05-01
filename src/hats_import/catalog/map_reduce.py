@@ -247,6 +247,7 @@ def reduce_pixel_shards(
             writing files to parquet (e.g. compression schemes)
         row_group_kwargs (dict): additional keyword arguments to use in
             creation of rowgroups when writing files to parquet.
+        npix_suffix (str): suffix for Npix files. Defaults to ".parquet".
 
     Raises:
         ValueError: if the number of rows written doesn't equal provided
