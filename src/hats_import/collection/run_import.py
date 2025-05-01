@@ -27,7 +27,7 @@ def run(args, client):
 
     ## Finishing collection
     with print_progress(
-        total=3,
+        total=2,
         stage_name="Finishing",
         use_progress_bar=args.progress_bar,
         simple_progress_bar=args.simple_progress_bar,

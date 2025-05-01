@@ -1,10 +1,9 @@
-"""Utility to hold all arguments required throughout partitioning"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
 import hats.pixel_math.healpix_shim as hp
+from hats import read_hats
 from hats.catalog.dataset.collection_properties import CollectionProperties
 from hats.io import file_io
 from hats.io.validation import is_valid_catalog
@@ -18,14 +17,25 @@ from hats_import.runtime_arguments import RuntimeArguments
 
 @dataclass
 class CollectionArguments(RuntimeArguments):
-    """Container class for holding partitioning arguments"""
+    """Container class for building arguments for importing catalog as a collection."""
 
     new_catalog_path: UPath | None = None
+    """Constructed path for the new catalog, relative to the collection."""
+    new_catalog_name: str | None = None
+    """Name for the new catalog that will be created. Taken from the ``output_artifact_name`` of
+    catalog kwargs. Used to construct names of the supplemental catalogs, if their own
+    ``output_artifact_name`` isn't specified."""
     catalog_args: ImportArguments | None = None
+    """Constructed arguments for catalog import."""
     margin_kwargs: list[dict] = field(default_factory=list)
+    """List of all argument dictionaries passed to this builder, for creating margins."""
+    default_margin_name: str | None = None
     index_kwargs: list[dict] = field(default_factory=list)
+    """List of all argument dictionaries passed to this builder, for creating indexes."""
     margin_args: list[dict] = field(default_factory=list)
+    """Constructed arguments for creating margins."""
     index_args: list[dict] = field(default_factory=list)
+    """Constructed arguments for creating indexes."""
 
     def catalog(self, **kwargs):
         """Set the primary catalog for the collection.
@@ -54,11 +64,14 @@ class CollectionArguments(RuntimeArguments):
         if is_valid_catalog(new_catalog_path):
             ## There is already a valid catalog (either from resume or pre-existing).
             ## Leave it alone and write the remainder of the collection contents.
-            self.new_catalog_path = new_catalog_path
+            catalog = read_hats(new_catalog_path)
+            self.new_catalog_path = catalog.catalog_path
+            self.new_catalog_name = catalog.catalog_name
             return self
 
         self.catalog_args = ImportArguments(**useful_kwargs)
         self.new_catalog_path = self.catalog_args.catalog_path
+        self.new_catalog_name = self.catalog_args.output_artifact_name
 
         return self
 
@@ -69,12 +82,18 @@ class CollectionArguments(RuntimeArguments):
 
         return self.catalog_args
 
-    def add_margin(self, **kwargs):
+    def add_margin(self, is_default=False, **kwargs):
         """Add arguments for a margin catalog.
 
         NB: This can be called 0, 1, or many times for a single collection.
         This method will only stash the provided arguments for later use,
-        as the arguments cannot be validated until the catalog exists on disk."""
+        as the arguments cannot be validated until the catalog exists on disk.
+
+        Args:
+            is_default(bool): If True, this margin will be set as the default on the
+                catalog collection's properties.
+            kwargs (dict): arguments passed to ``MarginCacheArguments`` constructor.
+        """
         if self.new_catalog_path is None:
             raise ValueError("Must add catalog arguments before adding margin arguments")
 
@@ -88,7 +107,16 @@ class CollectionArguments(RuntimeArguments):
 
         if "output_artifact_name" not in kwargs:
             margin_suffix = _pretty_print_angle(margin_threshold)
-            useful_kwargs["output_artifact_name"] = f"{self.output_artifact_name}_{margin_suffix}"
+            useful_kwargs["output_artifact_name"] = f"{self.new_catalog_name}_{margin_suffix}"
+        if is_default:
+            default_name = useful_kwargs["output_artifact_name"]
+            if self.default_margin_name:
+                raise ValueError(
+                    "Only one margin catalog may be the default "
+                    f"({self.default_margin_name} already set, trying to add {default_name})"
+                )
+            self.default_margin_name = default_name
+
         if "input_catalog_path" not in kwargs:
             useful_kwargs["input_catalog_path"] = self.new_catalog_path
 
@@ -122,7 +150,7 @@ class CollectionArguments(RuntimeArguments):
         useful_kwargs.update(kwargs)
 
         if "output_artifact_name" not in kwargs:
-            useful_kwargs["output_artifact_name"] = f"{self.output_artifact_name}_{kwargs['indexing_column']}"
+            useful_kwargs["output_artifact_name"] = f"{self.new_catalog_name}_{kwargs['indexing_column']}"
         if "input_catalog_path" not in kwargs:
             useful_kwargs["input_catalog_path"] = self.new_catalog_path
 
@@ -180,6 +208,8 @@ class CollectionArguments(RuntimeArguments):
         ]
         if margin_paths:
             info["all_margins"] = margin_paths
+        if self.default_margin_name:
+            info["default_margin"] = self.default_margin_name
 
         index_paths = {
             args.indexing_column: _maybe_relative(args.catalog_path, self.catalog_path)

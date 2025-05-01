@@ -5,7 +5,20 @@ from hats_import.collection.arguments import CollectionArguments
 from hats_import.collection.run_import import run
 
 
-@pytest.mark.dask
+def test_empty_args():
+    """Runner should fail with empty arguments"""
+    with pytest.raises(TypeError, match="CollectionArguments"):
+        run(None, None)
+
+
+def test_bad_args():
+    """Runner should fail with mis-typed arguments"""
+    args = {"output_artifact_name": "bad_arg_type"}
+    with pytest.raises(TypeError, match="CollectionArguments"):
+        run(args, None)
+
+
+@pytest.mark.dask(timeout=150)
 def test_import_collection(
     dask_client,
     small_sky_source_dir,
