@@ -5,6 +5,7 @@ from __future__ import annotations
 import pickle
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import hats.pixel_math.healpix_shim as hp
 import numpy as np
@@ -33,11 +34,13 @@ class ResumePlan(PipelineResumePlan):
     should_run_mapping: bool = True
     should_run_splitting: bool = True
     should_run_reducing: bool = True
+    should_run_thumbnail: bool = True
     should_run_finishing: bool = True
 
     MAPPING_STAGE = "mapping"
     SPLITTING_STAGE = "splitting"
     REDUCING_STAGE = "reducing"
+    THUMBNAIL_STAGE = "thumbnail"
 
     HISTOGRAM_BINARY_FILE = "mapping_histogram.npz"
     HISTOGRAMS_DIR = "histograms"
@@ -49,7 +52,9 @@ class ResumePlan(PipelineResumePlan):
         resume: bool = True,
         progress_bar: bool = True,
         simple_progress_bar: bool = False,
-        input_paths=None,
+        input_paths: list[str | Path | UPath] | None = None,
+        output_path: UPath | None = None,
+        output_artifact_name: str = "",
         tmp_path=None,
         tmp_base_path: UPath | None = None,
         delete_resume_log_files: bool = True,
@@ -62,6 +67,8 @@ class ResumePlan(PipelineResumePlan):
             if import_args.debug_stats_only:
                 run_stages = ["mapping", "finishing"]
             self.input_paths = import_args.input_paths
+            self.output_path = import_args.output_path
+            self.output_artifact_name = import_args.output_artifact_name
         else:
             super().__init__(
                 resume=resume,
@@ -87,6 +94,7 @@ class ResumePlan(PipelineResumePlan):
             mapping_done = self.done_file_exists(self.MAPPING_STAGE)
             splitting_done = self.done_file_exists(self.SPLITTING_STAGE)
             reducing_done = self.done_file_exists(self.REDUCING_STAGE)
+            thumbnail_done = self.done_file_exists(self.THUMBNAIL_STAGE)
 
             if reducing_done and (not mapping_done or not splitting_done):
                 raise ValueError("mapping and splitting must be complete before reducing")
@@ -98,12 +106,14 @@ class ResumePlan(PipelineResumePlan):
             self.should_run_mapping = not mapping_done
             self.should_run_splitting = not splitting_done
             self.should_run_reducing = not reducing_done
+            self.should_run_thumbnail = not thumbnail_done
             self.should_run_finishing = True
 
             if run_stages:
                 self.should_run_mapping &= self.MAPPING_STAGE in run_stages
                 self.should_run_splitting &= self.SPLITTING_STAGE in run_stages
                 self.should_run_reducing &= self.REDUCING_STAGE in run_stages
+                self.should_run_thumbnail &= self.THUMBNAIL_STAGE in run_stages
                 self.should_run_finishing = "finishing" in run_stages
 
             ## Validate that we're operating on the same file set as the previous instance.
@@ -351,3 +361,8 @@ class ResumePlan(PipelineResumePlan):
         if len(remaining_reduce_items) > 0:
             raise RuntimeError(f"{len(remaining_reduce_items)} reduce stages did not complete successfully.")
         self.touch_stage_done_file(self.REDUCING_STAGE)
+
+    def wait_for_thumbnail(self, futures):
+        """Wait for data thumbnail creation futures to complete."""
+        self.wait_for_futures(futures, self.THUMBNAIL_STAGE, fail_fast=True)
+        self.touch_stage_done_file(self.THUMBNAIL_STAGE)

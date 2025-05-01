@@ -8,8 +8,10 @@ import os
 import pickle
 
 import hats.io.file_io as io
+import pandas as pd
 from hats.catalog import PartitionInfo
 from hats.io import paths
+from hats.io.file_io.file_pointer import get_upath
 from hats.io.parquet_metadata import write_parquet_metadata
 from hats.io.validation import is_valid_catalog
 
@@ -123,6 +125,10 @@ def run(args, client):
 
         resume_plan.wait_for_reducing(futures)
 
+    # Gather first rows for data thumbnail
+    if resume_plan.should_run_thumbnail:
+        create_data_thumbnail(args, client, resume_plan)
+
     # All done - write out the metadata
     if resume_plan.should_run_finishing:
         with resume_plan.print_progress(total=5, stage_name="Finishing") as step_progress:
@@ -148,3 +154,23 @@ def run(args, client):
             step_progress.update(1)
             assert is_valid_catalog(args.catalog_path)
             step_progress.update(1)
+
+
+def create_data_thumbnail(args, client, resume_plan):
+    """Create a thumbnail of the data in the catalog, top row from each partition."""
+    output_catalog_path = get_upath(args.catalog_path)
+    dataset_subdir = output_catalog_path / "dataset"
+    _, dataset = io.read_parquet_dataset(
+        dataset_subdir,
+        ignore_prefixes=["intermediate", "_common_metadata", "_metadata"],
+        exclude_invalid_files=True,
+    )
+    futures = [
+        client.submit(lambda pq_path: pd.read_parquet(pq_path, engine="pyarrow").head(1), p)
+        for p in dataset.files
+    ]
+    resume_plan.wait_for_thumbnail(futures)
+    if futures:
+        thumbnail = pd.concat(client.gather(futures), ignore_index=True)
+        thumbnail_file = output_catalog_path / "data_thumbnail.parquet"
+        thumbnail.to_parquet(thumbnail_file, index=False)

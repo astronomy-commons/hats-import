@@ -494,6 +494,7 @@ def assert_stage_level_files_exist(base_intermediate_dir):
         "reducing_done",  # stage-level done file
         "splitting",  # directory containing task-level done files
         "splitting_done",  # stage-level done file
+        "thumbnail_done",  # stage-level done file
     ]
     assert_directory_contains(base_intermediate_dir, expected_contents)
 
