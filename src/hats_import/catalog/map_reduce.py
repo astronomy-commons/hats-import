@@ -215,6 +215,7 @@ def reduce_pixel_shards(
     use_schema_file="",
     write_table_kwargs=None,
     row_group_kwargs=None,
+    npix_suffix=".parquet",
 ):
     """Reduce sharded source pixels into destination pixels.
 
@@ -258,7 +259,7 @@ def reduce_pixel_shards(
         file_io.make_directory(destination_dir, exist_ok=True)
 
         healpix_pixel = HealpixPixel(destination_pixel_order, destination_pixel_number)
-        destination_file = paths.pixel_catalog_file(output_path, healpix_pixel)
+        destination_file = paths.pixel_catalog_file(output_path, healpix_pixel, npix_suffix=npix_suffix)
 
         schema = None
         if use_schema_file:

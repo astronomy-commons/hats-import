@@ -117,6 +117,7 @@ def run(args, client):
                     delete_input_files=args.delete_intermediate_parquet_files,
                     write_table_kwargs=args.write_table_kwargs,
                     row_group_kwargs=args.row_group_kwargs,
+                    npix_suffix=args.npix_suffix,
                 )
             )
 
