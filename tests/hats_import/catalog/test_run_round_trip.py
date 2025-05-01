@@ -5,7 +5,6 @@ regression the test case is exercising.
 """
 # pylint: disable=too-many-lines
 import glob
-import math
 import os
 from pathlib import Path
 
