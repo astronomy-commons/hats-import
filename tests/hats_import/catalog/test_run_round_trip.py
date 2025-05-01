@@ -758,6 +758,8 @@ def test_import_healpix_29_pyarrow_table_parquet(
         highest_healpix_order=2,
         pixel_threshold=3_000,
         progress_bar=False,
+        ## Sneak in a test for custom extension
+        npix_suffix=".pq",
     )
 
     runner.run(args, dask_client)
@@ -770,7 +772,7 @@ def test_import_healpix_29_pyarrow_table_parquet(
     assert len(catalog.get_healpix_pixels()) == 1
 
     # Check that the catalog parquet file exists and contains correct object IDs
-    output_file = args.catalog_path / "dataset" / "Norder=0" / "Dir=0" / "Npix=11.parquet"
+    output_file = args.catalog_path / "dataset" / "Norder=0" / "Dir=0" / "Npix=11.pq"
 
     expected_ids = [*range(700, 831)]
     assert_parquet_file_ids(output_file, "id", expected_ids)

@@ -45,6 +45,8 @@ class ImportArguments(RuntimeArguments):
     but the provided sorting will be used for any rows within the same higher-order pixel space."""
     add_healpix_29: bool = True
     """add the healpix-based hats spatial index field alongside the data"""
+    npix_suffix: str = ".parquet"
+    """Suffix for Npix files."""
     write_table_kwargs: dict | None = None
     """additional keyword arguments to use when writing files to parquet (e.g. compression schemes)."""
     row_group_kwargs: dict | None = None
@@ -152,6 +154,7 @@ class ImportArguments(RuntimeArguments):
             "hats_max_rows": self.pixel_threshold,
             "hats_order": highest_order,
             "moc_sky_fraction": f"{moc_sky_fraction:0.5f}",
+            "hats_npix_suffix": self.npix_suffix,
         }
         return TableProperties(**info)
 
