@@ -102,14 +102,14 @@ class RuntimeArguments:
             self.tmp_path = file_io.append_paths_to_pointer(
                 self.tmp_dir, self.output_artifact_name, "intermediate"
             )
-            self.tmp_base_path = self.tmp_dir
+            self.tmp_base_path = file_io.append_paths_to_pointer(self.tmp_dir, self.output_artifact_name)
         elif self.dask_tmp and str(self.dask_tmp) != str(self.output_path):
             if not file_io.does_file_or_directory_exist(self.dask_tmp):
                 raise FileNotFoundError(f"dask_tmp ({self.dask_tmp}) not found on local storage")
             self.tmp_path = file_io.append_paths_to_pointer(
                 self.dask_tmp, self.output_artifact_name, "intermediate"
             )
-            self.tmp_base_path = self.dask_tmp
+            self.tmp_base_path = file_io.append_paths_to_pointer(self.dask_tmp, self.output_artifact_name)
         else:
             self.tmp_path = file_io.append_paths_to_pointer(self.catalog_path, "intermediate")
         file_io.make_directory(self.tmp_path, exist_ok=True)
