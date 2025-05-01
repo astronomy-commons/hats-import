@@ -118,7 +118,8 @@ def test_import_with_num_row_groups(
     # Check that the number of row groups is the one expected
     metadata = pixel.metadata
     assert metadata.num_rows == 2395
-    assert metadata.num_row_groups == math.ceil(metadata.num_rows / 100)
+    # 24 = math.ceil(metadata.num_rows / 100)
+    assert metadata.num_row_groups == 24
     # The last row group has fewer number of rows, which is fine
     assert all(metadata.row_group(i).num_rows == 100 for i in range(metadata.num_row_groups - 1))
 
