@@ -5,7 +5,6 @@ from __future__ import annotations
 import pickle
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
 
 import hats.pixel_math.healpix_shim as hp
 import numpy as np
@@ -52,7 +51,7 @@ class ResumePlan(PipelineResumePlan):
         resume: bool = True,
         progress_bar: bool = True,
         simple_progress_bar: bool = False,
-        input_paths: list[str | Path | UPath] | None = None,
+        input_paths: list[UPath] | None = None,
         output_path: UPath | None = None,
         output_artifact_name: str = "",
         tmp_path=None,
