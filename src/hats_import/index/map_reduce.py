@@ -16,7 +16,6 @@ def read_leaf_file(
     data = file_io.read_parquet_file_to_pandas(
         input_file,
         columns=include_columns,
-        engine="pyarrow",
         schema=schema,
     )
 

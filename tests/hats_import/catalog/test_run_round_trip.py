@@ -229,7 +229,6 @@ def test_import_mixed_schema_csv(
             "csv",
             chunksize=1,
             schema_file=Path(mixed_schema_csv_parquet),
-            parquet_kwargs={"dtype_backend": "numpy_nullable"},
         ),
         progress_bar=False,
     )
