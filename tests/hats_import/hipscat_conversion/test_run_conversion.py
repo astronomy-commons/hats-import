@@ -86,11 +86,7 @@ def test_run_conversion_object(
     assert schema.equals(expected_parquet_schema)
     assert schema.metadata is None
 
-    data = file_io.read_parquet_file_to_pandas(
-        output_file,
-        columns=["id", "ra", "dec", "_healpix_29"],
-        engine="pyarrow",
-    )
+    data = file_io.read_parquet_file_to_pandas(output_file, columns=["id", "ra", "dec", "_healpix_29"])
     assert "_healpix_29" in data.columns
     assert data.index.name is None
 
@@ -132,9 +128,6 @@ def test_run_conversion_source(
         "object_id",
         "object_ra",
         "object_dec",
-        "Norder",
-        "Dir",
-        "Npix",
     ]
     schema = pq.read_metadata(output_file).schema
     npt.assert_array_equal(schema.names, source_columns)

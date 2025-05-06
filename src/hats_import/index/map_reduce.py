@@ -13,12 +13,7 @@ def read_leaf_file(
 
     Reads the leaf parquet file, and returns with appropriate columns and duplicates dropped."""
     input_file, input_pixel = input_file_and_pixel
-    data = file_io.read_parquet_file_to_pandas(
-        input_file,
-        columns=include_columns,
-        engine="pyarrow",
-        schema=schema,
-    )
+    data = file_io.read_parquet_file_to_pandas(input_file, columns=include_columns, schema=schema)
 
     if data.index.name == SPATIAL_INDEX_COLUMN:
         data = data.reset_index()
@@ -73,7 +68,6 @@ def create_index(args, client):
     # Now just write it out to leaf parquet files!
     result = data.to_parquet(
         path=index_dir.path,
-        engine="pyarrow",
         compute_kwargs={"partition_size": args.compute_partition_size},
         filesystem=index_dir.fs,
     )

@@ -3,6 +3,7 @@
 Please add a brief description in the docstring of the features or specific
 regression the test case is exercising.
 """
+
 # pylint: disable=too-many-lines
 import glob
 import os
@@ -229,7 +230,6 @@ def test_import_mixed_schema_csv(
             "csv",
             chunksize=1,
             schema_file=Path(mixed_schema_csv_parquet),
-            parquet_kwargs={"dtype_backend": "numpy_nullable"},
         ),
         progress_bar=False,
     )

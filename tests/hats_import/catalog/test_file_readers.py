@@ -118,20 +118,16 @@ def test_csv_reader_parquet_metadata(small_sky_single_file, tmp_path):
         schema_file,
     )
 
-    frame = next(
-        CsvReader(schema_file=schema_file, parquet_kwargs={"dtype_backend": "numpy_nullable"}).read(
-            small_sky_single_file
-        )
-    )
+    frame = next(CsvReader(schema_file=schema_file).read(small_sky_single_file))
     assert len(frame) == 131
 
     column_types = frame.dtypes.to_dict()
     expected_column_types = {
-        "id": pd.Int64Dtype(),
-        "ra": pd.Float64Dtype(),
-        "dec": pd.Float64Dtype(),
-        "ra_error": pd.Float64Dtype(),
-        "dec_error": pd.Float64Dtype(),
+        "id": "int64[pyarrow]",
+        "ra": "double[pyarrow]",
+        "dec": "double[pyarrow]",
+        "ra_error": "double[pyarrow]",
+        "dec_error": "double[pyarrow]",
     }
     assert np.all(column_types == expected_column_types)
 
@@ -211,20 +207,16 @@ def test_csv_reader_pipe_delimited(formats_pipe_csv, tmp_path):
     schema_file = tmp_path / "metadata.parquet"
     pq.write_metadata(parquet_schema_types, schema_file)
 
-    frame = next(
-        CsvReader(
-            schema_file=schema_file, header=None, sep="|", parquet_kwargs={"dtype_backend": "numpy_nullable"}
-        ).read(formats_pipe_csv)
-    )
+    frame = next(CsvReader(schema_file=schema_file, header=None, sep="|").read(formats_pipe_csv))
 
     assert len(frame) == 3
     assert np.all(frame["letters"] == ["AA", "BB", "CC"])
     column_types = frame.dtypes.to_dict()
     expected_column_types = {
-        "letters": pd.StringDtype(),
-        "ints": pd.Int64Dtype(),
-        "empty": pd.Int64Dtype(),
-        "numeric": pd.Int64Dtype(),
+        "letters": "string[pyarrow]",
+        "ints": "int64[pyarrow]",
+        "empty": "int64[pyarrow]",
+        "numeric": "int64[pyarrow]",
     }
     assert np.all(column_types == expected_column_types)
 
