@@ -6,14 +6,16 @@ The actual logic of the map reduce is in the `map_reduce.py` file.
 
 import os
 import pickle
+import random
 
 import hats.io.file_io as io
-import pandas as pd
+import pyarrow as pa
 from hats.catalog import PartitionInfo
 from hats.io import paths
 from hats.io.file_io.file_pointer import get_upath
 from hats.io.parquet_metadata import write_parquet_metadata
 from hats.io.validation import is_valid_catalog
+from pyarrow import parquet as pq
 
 import hats_import.catalog.map_reduce as mr
 from hats_import.catalog.arguments import ImportArguments
@@ -165,12 +167,19 @@ def create_data_thumbnail(args, client, resume_plan):
         ignore_prefixes=["intermediate", "_common_metadata", "_metadata"],
         exclude_invalid_files=True,
     )
+    # The pixel threshold is the maximum number of Parquet rows per pixel,
+    # used to prevent memory issues.  It doesn't make sense for the thumbnail
+    # to have more rows than this.  If it does, randomly sample those available.
+    pixel_threshold = args.pixel_threshold
+    row_limit = min(len(dataset.files), pixel_threshold) if pixel_threshold else len(dataset.files)
+    pq_file_list = random.sample(dataset.files, row_limit)
     futures = [
-        client.submit(lambda pq_path: pd.read_parquet(pq_path, engine="pyarrow").head(1), p)
-        for p in dataset.files
+        client.submit(lambda p: pq.read_table(p, columns=None, partitioning=None).slice(0, 1), pq_file)
+        for pq_file in pq_file_list
     ]
     resume_plan.wait_for_thumbnail(futures)
     if futures:
-        thumbnail = pd.concat(client.gather(futures), ignore_index=True)
+        thumbnail = pa.concat_tables(client.gather(futures))
         thumbnail_file = output_catalog_path / "data_thumbnail.parquet"
-        thumbnail.to_parquet(thumbnail_file, index=False)
+        with thumbnail_file.open("wb") as f_out:
+            pq.write_table(thumbnail, f_out)
