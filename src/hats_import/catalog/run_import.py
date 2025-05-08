@@ -180,6 +180,8 @@ def create_data_thumbnail(args, client, resume_plan):
     resume_plan.wait_for_thumbnail(futures)
     if futures:
         thumbnail = pa.concat_tables(client.gather(futures))
+        if "_healpix_29" in thumbnail.column_names:
+            thumbnail = thumbnail.sort_by("_healpix_29")
         thumbnail_file = output_catalog_path / "data_thumbnail.parquet"
         with thumbnail_file.open("wb") as f_out:
             pq.write_table(thumbnail, f_out)
