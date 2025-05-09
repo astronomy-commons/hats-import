@@ -89,7 +89,7 @@ def run(args: ConversionArguments, client):
 
     thumbnail_kwargs = {
         "create_thumbnail": catalog_type in (CatalogType.OBJECT, CatalogType.SOURCE),
-        "thumbnail_threshold": getattr(properties, "hats_max_rows", 1_000_000),
+        "thumbnail_threshold": int(getattr(properties, "hats_max_rows", 1_000_000)),
     }
 
     with print_progress(
