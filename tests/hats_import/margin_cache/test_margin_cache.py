@@ -57,6 +57,10 @@ def test_margin_cache_gen(small_sky_source_catalog, tmp_path, dask_client):
     assert catalog.on_disk
     assert catalog.catalog_path == args.catalog_path
 
+    # Check that the data thumbnail does not exist. It should only exist for
+    # main object/source catalogs.
+    assert not (args.catalog_path / "dataset" / "data_thumbnail.parquet").exists()
+
 
 @pytest.mark.dask(timeout=150)
 def test_margin_cache_gen_negative_pixels(small_sky_source_catalog, tmp_path, dask_client):

@@ -93,6 +93,9 @@ def test_run_conversion_object(
     assert "_healpix_29" in data.columns
     assert data.index.name is None
 
+    # Check that the data thumbnail exists
+    assert (args.catalog_path / "dataset" / "data_thumbnail.parquet").exists()
+
 
 @pytest.mark.skipif(not HAVE_HEALPY, reason="healpy is not installed")
 @pytest.mark.dask
@@ -141,3 +144,6 @@ def test_run_conversion_source(
     schema = pq.read_metadata(args.catalog_path / "dataset" / "_common_metadata").schema
     npt.assert_array_equal(schema.names, source_columns)
     assert schema.to_arrow_schema().metadata is None
+
+    # Check that the data thumbnail exists
+    assert (args.catalog_path / "dataset" / "data_thumbnail.parquet").exists()
