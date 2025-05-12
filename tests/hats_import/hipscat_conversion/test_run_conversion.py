@@ -6,6 +6,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 from hats.io.file_io import file_io
+from pyarrow.parquet import ParquetFile
 
 import hats_import.hipscat_conversion.run_conversion as runner
 from hats_import.hipscat_conversion.arguments import ConversionArguments
@@ -57,6 +58,7 @@ def test_run_conversion_object(
     catalog = hats.read_hats(args.catalog_path)
     assert catalog.on_disk
     assert catalog.catalog_path == args.catalog_path
+    assert len(catalog.get_healpix_pixels()) == 1
     assert int(catalog.catalog_info.__pydantic_extra__["hats_estsize"]) > 0
 
     # Check that the catalog parquet file exists and contains correct object IDs
@@ -94,7 +96,13 @@ def test_run_conversion_object(
     assert data.index.name is None
 
     # Check that the data thumbnail exists
-    assert (args.catalog_path / "dataset" / "data_thumbnail.parquet").exists()
+    data_thumbnail_pointer = args.catalog_path / "dataset" / "data_thumbnail.parquet"
+    assert data_thumbnail_pointer.exists()
+    thumbnail = ParquetFile(data_thumbnail_pointer)
+    thumbnail_schema = thumbnail.metadata.schema.to_arrow_schema()
+    assert thumbnail_schema.equals(expected_parquet_schema)
+    # The thumbnail has 1 row because the catalog has only 1 pixel
+    assert len(thumbnail.read()) == 1
 
 
 @pytest.mark.skipif(not HAVE_HEALPY, reason="healpy is not installed")
@@ -120,6 +128,7 @@ def test_run_conversion_source(
     catalog = hats.read_hats(args.catalog_path)
     assert catalog.on_disk
     assert catalog.catalog_path == args.catalog_path
+    assert len(catalog.get_healpix_pixels()) == 14
 
     output_file = args.catalog_path / "dataset" / "Norder=2" / "Dir=0" / "Npix=185.parquet"
 
@@ -146,4 +155,10 @@ def test_run_conversion_source(
     assert schema.to_arrow_schema().metadata is None
 
     # Check that the data thumbnail exists
-    assert (args.catalog_path / "dataset" / "data_thumbnail.parquet").exists()
+    data_thumbnail_pointer = args.catalog_path / "dataset" / "data_thumbnail.parquet"
+    assert data_thumbnail_pointer.exists()
+    thumbnail = ParquetFile(data_thumbnail_pointer)
+    thumbnail_schema = thumbnail.metadata.schema.to_arrow_schema()
+    assert thumbnail_schema.equals(schema.to_arrow_schema())
+    # The thumbnail has 14 rows because the catalog has 14 pixels
+    assert len(thumbnail.read()) == 14
