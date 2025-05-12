@@ -93,7 +93,11 @@ def run(args: ConversionArguments, client):
         use_progress_bar=args.progress_bar,
         simple_progress_bar=args.simple_progress_bar,
     ) as step_progress:
-        total_rows = parquet_metadata.write_parquet_metadata(args.catalog_path)
+        total_rows = parquet_metadata.write_parquet_metadata(
+            args.catalog_path,
+            create_thumbnail=(catalog_type in (CatalogType.OBJECT, CatalogType.SOURCE)),
+            thumbnail_threshold=int(getattr(properties, "hats_max_rows", 1_000_000)),
+        )
         if total_rows != properties.total_rows:
             raise ValueError(
                 f"Unexpected number of rows (original: {properties.total_rows}"
