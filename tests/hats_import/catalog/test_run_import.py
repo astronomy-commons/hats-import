@@ -11,6 +11,7 @@ import pyarrow.parquet as pq
 import pytest
 from hats import read_hats
 from hats.pixel_math.sparse_histogram import SparseHistogram
+from pyarrow.parquet import ParquetFile
 
 import hats_import.catalog.run_import as runner
 from hats_import.catalog.arguments import ImportArguments
@@ -309,6 +310,15 @@ def test_dask_runner(
     )
     assert data_frame.dtypes.equals(expected_dtypes)
     assert data_frame.index.dtype == np.int64
+
+    # Check that the data thumbnail exists
+    data_thumbnail_pointer = args.catalog_path / "dataset" / "data_thumbnail.parquet"
+    assert data_thumbnail_pointer.exists()
+    thumbnail = ParquetFile(data_thumbnail_pointer)
+    thumbnail_schema = thumbnail.metadata.schema.to_arrow_schema()
+    assert thumbnail_schema.equals(expected_parquet_schema)
+    # The thumbnail has 1 row because the catalog has only 1 pixel
+    assert len(thumbnail.read()) == 1
 
 
 @pytest.mark.dask
