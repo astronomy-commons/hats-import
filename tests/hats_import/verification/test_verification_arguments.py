@@ -10,12 +10,8 @@ def test_invalid_paths(tmp_path, small_sky_object_catalog):
     ## Prove that it works with required args
     VerificationArguments(input_catalog_path=small_sky_object_catalog, output_path=tmp_path)
 
-    ## Input path is not an existing directory
-    with pytest.raises(ValueError, match="input_catalog_path must be an existing directory"):
-        VerificationArguments(input_catalog_path="path", output_path=f"{tmp_path}/path")
-
     # Truth schema is not an existing file
-    with pytest.raises(ValueError, match="truth_schema must be an existing file or directory"):
+    with pytest.raises(FileNotFoundError, match="truth_schema must be an existing file or directory"):
         VerificationArguments(
             input_catalog_path=small_sky_object_catalog, output_path=tmp_path, truth_schema="path"
         )
