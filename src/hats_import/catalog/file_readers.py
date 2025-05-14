@@ -4,8 +4,6 @@ import abc
 
 import pandas as pd
 import pyarrow as pa
-import pyarrow.dataset
-import pyarrow.parquet as pq
 from astropy.io import ascii as ascii_reader
 from astropy.table import Table
 from hats.io import file_io
@@ -509,11 +507,11 @@ class IndexedParquetReader(InputReader):
             if nrows + batch.num_rows > self.chunksize:
                 # We've hit the chunksize so load to a DataFrame and yield.
                 # There should always be at least one batch in here since batch_size == self.chunksize above.
-                yield pyarrow.Table.from_batches(batches).replace_schema_metadata()
+                yield pa.Table.from_batches(batches).replace_schema_metadata()
                 batches, nrows = [], 0
 
             batches.append(batch)
             nrows += batch.num_rows
 
         if len(batches) > 0:
-            yield pyarrow.Table.from_batches(batches).replace_schema_metadata()
+            yield pa.Table.from_batches(batches).replace_schema_metadata()
