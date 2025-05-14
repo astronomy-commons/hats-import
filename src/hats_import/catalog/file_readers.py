@@ -105,10 +105,12 @@ class InputReader(abc.ABC):
         Raises:
             FileNotFoundError: if nothing exists at path, or directory found.
         """
+        input_file = file_io.get_upath(input_file)
         if not file_io.does_file_or_directory_exist(input_file):
             raise FileNotFoundError(f"File not found at path: {input_file}")
         if not file_io.is_regular_file(input_file):
             raise FileNotFoundError(f"Directory found at path - requires regular file: {input_file}")
+        return input_file
 
     def read_index_file(self, input_file, upath_kwargs=None, **kwargs):
         """Read an "indexed" file.
@@ -123,8 +125,7 @@ class InputReader(abc.ABC):
         Raises:
             FileNotFoundError: if nothing exists at path, or directory found.
         """
-        input_file = file_io.get_upath(input_file)
-        self.regular_file_exists(input_file, **kwargs)
+        input_file = self.regular_file_exists(input_file, **kwargs)
         file_names = file_io.load_text_file(input_file)
         file_names = [f.strip() for f in file_names]
         if upath_kwargs is None:
@@ -198,7 +199,7 @@ class CsvReader(InputReader):
             self.kwargs["dtype"] = schema_parquet.dtypes.to_dict()
 
     def read(self, input_file, read_columns=None):
-        self.regular_file_exists(input_file, **self.kwargs)
+        input_file = self.regular_file_exists(input_file, **self.kwargs)
 
         if read_columns:
             self.kwargs["usecols"] = read_columns
@@ -261,7 +262,7 @@ class CsvPyarrowReader(InputReader):
                 self.read_options.skip_rows = 1
 
     def read(self, input_file, read_columns=None):
-        self.regular_file_exists(input_file, **self.kwargs)
+        input_file = self.regular_file_exists(input_file, **self.kwargs)
 
         # If we only want to read some columns (e.g. radec), we must specify
         # in the convert_options argument
@@ -369,7 +370,7 @@ class FitsReader(InputReader):
         self.kwargs = kwargs
 
     def read(self, input_file, read_columns=None):
-        self.regular_file_exists(input_file, **self.kwargs)
+        input_file = self.regular_file_exists(input_file, **self.kwargs)
         with input_file.open("rb") as file_handle:
             table = Table.read(file_handle, memmap=True, **self.kwargs)
             if read_columns:
@@ -417,7 +418,7 @@ class ParquetReader(InputReader):
         self.kwargs = kwargs
 
     def read(self, input_file, read_columns=None):
-        self.regular_file_exists(input_file, **self.kwargs)
+        input_file = self.regular_file_exists(input_file, **self.kwargs)
         columns = read_columns or self.column_names
         parquet_file = file_io.read_parquet_file(input_file, **self.kwargs)
         for smaller_table in parquet_file.iter_batches(
@@ -445,7 +446,7 @@ class ParquetPyarrowReader(InputReader):
         self.kwargs = kwargs
 
     def read(self, input_file, read_columns=None):
-        self.regular_file_exists(input_file, **self.kwargs)
+        input_file = self.regular_file_exists(input_file, **self.kwargs)
         columns = read_columns or self.column_names
         parquet_file = file_io.read_parquet_file(input_file, **self.kwargs)
         for smaller_table in parquet_file.iter_batches(batch_size=self.chunksize, columns=columns):
