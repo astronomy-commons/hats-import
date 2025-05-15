@@ -257,6 +257,8 @@ class CsvPyarrowReader(InputReader):
                 self.convert_options.column_types = schema
             if not self.read_options.column_names:
                 self.read_options.column_names = schema.names
+                # Set skip_rows here to skip parsing the header row with column names.
+                # See https://arrow.apache.org/docs/python/generated/pyarrow.csv.ReadOptions.html
                 self.read_options.skip_rows = 1
 
     def read(self, input_file, read_columns=None):
