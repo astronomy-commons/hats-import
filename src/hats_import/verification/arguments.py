@@ -44,12 +44,9 @@ class VerificationArguments:
 
     def __post_init__(self) -> None:
         self.input_catalog_path = file_io.get_upath(self.input_catalog_path)
-        if not self.input_catalog_path.is_dir():
-            raise ValueError("input_catalog_path must be an existing directory")
-
         self.output_path = file_io.get_upath(self.output_path)
 
         if self.truth_schema is not None:
             self.truth_schema = file_io.append_paths_to_pointer(self.truth_schema)
             if not self.truth_schema.exists():
-                raise ValueError("truth_schema must be an existing file or directory")
+                raise FileNotFoundError("truth_schema must be an existing file or directory")
