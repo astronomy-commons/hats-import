@@ -8,6 +8,7 @@ import pytest
 from hats.catalog import TableProperties
 
 from hats_import.catalog.file_readers import (
+    CsvPyarrowReader,
     CsvReader,
     FitsReader,
     IndexedCsvReader,
@@ -219,6 +220,26 @@ def test_csv_reader_pipe_delimited(formats_pipe_csv, tmp_path):
         "numeric": pd.ArrowDtype(pa.int64()),
     }
     assert np.all(column_types == expected_column_types)
+
+
+def test_csv_pyarrow_reader_parquet_metadata(small_sky_single_file, tmp_path):
+    """Verify we can read the csv file without a header row."""
+    small_sky_schema = pa.schema(
+        [
+            pa.field("id", pa.int64()),
+            pa.field("ra", pa.float64()),
+            pa.field("dec", pa.float64()),
+            pa.field("ra_error", pa.float64()),
+            pa.field("dec_error", pa.float64()),
+        ]
+    )
+    schema_file = tmp_path / "metadata.parquet"
+    pq.write_metadata(small_sky_schema, schema_file)
+
+    frame = next(CsvPyarrowReader(schema_file=schema_file).read(small_sky_single_file))
+    assert len(frame) == 131
+
+    assert frame.schema.equals(small_sky_schema)
 
 
 def test_indexed_csv_reader(indexed_files_dir):

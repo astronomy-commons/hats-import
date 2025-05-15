@@ -23,7 +23,12 @@ from pyarrow import csv
 
 import hats_import.catalog.run_import as runner
 from hats_import.catalog.arguments import ImportArguments
-from hats_import.catalog.file_readers import CsvReader, ParquetPyarrowReader, get_file_reader
+from hats_import.catalog.file_readers import (
+    CsvPyarrowReader,
+    CsvReader,
+    ParquetPyarrowReader,
+    get_file_reader,
+)
 
 
 @pytest.mark.dask
@@ -230,6 +235,66 @@ def test_import_mixed_schema_csv(
             "csv",
             chunksize=1,
             schema_file=Path(mixed_schema_csv_parquet),
+        ),
+        progress_bar=False,
+    )
+
+    runner.run(args, dask_client)
+
+    # Check that the catalog parquet file exists
+    output_file = os.path.join(args.catalog_path, "dataset", "Norder=0", "Dir=0", "Npix=11.parquet")
+
+    assert_parquet_file_ids(output_file, "id", [*range(700, 708)])
+
+    # Check that the schema is correct for leaf parquet and _metadata files
+    expected_parquet_schema = pa.schema(
+        [
+            pa.field("_healpix_29", pa.int64()),
+            pa.field("id", pa.int64()),
+            pa.field("ra", pa.float64()),
+            pa.field("dec", pa.float64()),
+            pa.field("ra_error", pa.int64()),
+            pa.field("dec_error", pa.int64()),
+            pa.field("comment", pa.string()),
+            pa.field("code", pa.string()),
+        ]
+    )
+    schema = pq.read_metadata(output_file).schema.to_arrow_schema()
+    assert schema.equals(expected_parquet_schema)
+    schema = pq.read_metadata(args.catalog_path / "dataset" / "_metadata").schema.to_arrow_schema()
+    assert schema.equals(expected_parquet_schema)
+
+
+@pytest.mark.dask
+def test_import_mixed_schema_csv_pyarrow(
+    dask_client,
+    mixed_schema_csv_dir,
+    mixed_schema_csv_parquet,
+    assert_parquet_file_ids,
+    tmp_path,
+):
+    """Test basic execution, with a mixed schema, reading with pyarrow's CSV reader.
+    - the two input files in `mixed_schema_csv_dir` have different *implied* schemas
+        when parsed by pandas. this verifies that they end up with the same schema
+        and can be combined into a single parquet file.
+    - this additionally uses pathlib.Path for all path inputs.
+    """
+    input_files = list(Path(mixed_schema_csv_dir).glob("*.csv"))
+    input_files.sort()
+    args = ImportArguments(
+        output_artifact_name="mixed_csv_bad",
+        # Pyarrow CSV reader isn't happy about empty files.
+        # See https://github.com/apache/arrow/discussions/46429
+        input_file_list=input_files[0:2],
+        output_path=tmp_path,
+        dask_tmp=tmp_path,
+        highest_healpix_order=1,
+        file_reader=CsvPyarrowReader(
+            schema_file=mixed_schema_csv_parquet,
+            read_options=csv.ReadOptions(
+                column_names=["id", "ra", "dec", "ra_error", "dec_error", "comment", "code"],
+                skip_rows=1,
+            ),
         ),
         progress_bar=False,
     )
@@ -690,14 +755,6 @@ def test_import_pyarrow_types(
     assert schema.equals(expected_parquet_schema)
 
 
-class SimplePyarrowCsvReader(CsvReader):
-    """Use pyarrow for CSV reading, and force some pyarrow dtypes.
-    Return a pyarrow table instead of pd.DataFrame."""
-
-    def read(self, input_file, read_columns=None):
-        yield csv.read_csv(input_file)
-
-
 @pytest.mark.dask
 def test_import_healpix_29_pyarrow_table_csv(
     dask_client,
@@ -705,11 +762,11 @@ def test_import_healpix_29_pyarrow_table_csv(
     assert_parquet_file_ids,
     tmp_path,
 ):
-    """Should be identical to the above test, but uses the ParquetPyarrowReader."""
+    """Should be identical to the above test, but uses the CsvPyarrowReader."""
     args = ImportArguments(
         output_artifact_name="small_sky_pyarrow",
         input_file_list=[small_sky_single_file],
-        file_reader=SimplePyarrowCsvReader(),
+        file_reader=CsvPyarrowReader(),
         output_path=tmp_path,
         dask_tmp=tmp_path,
         highest_healpix_order=2,

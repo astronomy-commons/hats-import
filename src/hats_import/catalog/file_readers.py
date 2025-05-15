@@ -4,14 +4,13 @@ import abc
 
 import pandas as pd
 import pyarrow as pa
-import pyarrow.dataset
-import pyarrow.parquet as pq
 from astropy.io import ascii as ascii_reader
 from astropy.table import Table
 from hats.io import file_io
+from pyarrow import csv
 from upath import UPath
 
-# pylint: disable=too-few-public-methods,too-many-arguments
+# pylint: disable=too-few-public-methods,too-many-arguments,too-many-lines
 
 
 def get_file_reader(
@@ -104,10 +103,12 @@ class InputReader(abc.ABC):
         Raises:
             FileNotFoundError: if nothing exists at path, or directory found.
         """
+        input_file = file_io.get_upath(input_file)
         if not file_io.does_file_or_directory_exist(input_file):
             raise FileNotFoundError(f"File not found at path: {input_file}")
         if not file_io.is_regular_file(input_file):
             raise FileNotFoundError(f"Directory found at path - requires regular file: {input_file}")
+        return input_file
 
     def read_index_file(self, input_file, upath_kwargs=None, **kwargs):
         """Read an "indexed" file.
@@ -122,8 +123,7 @@ class InputReader(abc.ABC):
         Raises:
             FileNotFoundError: if nothing exists at path, or directory found.
         """
-        input_file = file_io.get_upath(input_file)
-        self.regular_file_exists(input_file, **kwargs)
+        input_file = self.regular_file_exists(input_file, **kwargs)
         file_names = file_io.load_text_file(input_file)
         file_names = [f.strip() for f in file_names]
         if upath_kwargs is None:
@@ -197,7 +197,7 @@ class CsvReader(InputReader):
             self.kwargs["dtype"] = schema_parquet.dtypes.to_dict()
 
     def read(self, input_file, read_columns=None):
-        self.regular_file_exists(input_file, **self.kwargs)
+        input_file = self.regular_file_exists(input_file, **self.kwargs)
 
         if read_columns:
             self.kwargs["usecols"] = read_columns
@@ -208,6 +208,76 @@ class CsvReader(InputReader):
             header=self.header,
             **self.kwargs,
         )
+
+
+class CsvPyarrowReader(InputReader):
+    """CSV reader that uses the pyarrow library for reading.
+
+    This *can* be faster than the pandas reader, and *can* have different handling of
+    data types.
+
+    Attributes:
+        chunksize (int): number of BYTES of the file to process at once.
+            This is different from chunksize seen in other readers!!
+            For large files, this can prevent loading the entire file
+            into memory at once.
+        column_names (list[str] or None): Names of columns to use from the input dataset.
+            If None, use all columns.
+        schema_file (str): path to a parquet schema file. if provided, column names and types
+            will match those of the schema.
+        read_options (csv.ReadOptions): options for reading CSV files using pyarrow.
+            We will set the ``block_size`` argument based on the value for ``chunksize``.
+            See https://arrow.apache.org/docs/python/generated/pyarrow.csv.ReadOptions.html
+        convert_options (csv.ConvertOptions): options for converting CSV data to pyarrow Table.
+            We will pass the pyarrow schema from ``schema_file`` to the ``column_types`` property.
+            See https://arrow.apache.org/docs/python/generated/pyarrow.csv.ConvertOptions.html
+        kwargs: arguments to pass along to pyarrow.parquet.ParquetFile.
+            See https://arrow.apache.org/docs/python/generated/pyarrow.parquet.ParquetFile.html
+    """
+
+    def __init__(
+        self,
+        *,
+        chunksize=10 * 1024**2,
+        compression=None,
+        column_names=None,
+        schema_file=None,
+        read_options=None,
+        convert_options=None,
+        **kwargs,
+    ):
+        self.kwargs = kwargs
+        self.column_names = column_names
+        self.read_options = read_options or csv.ReadOptions(block_size=chunksize)
+        self.convert_options = convert_options or csv.ConvertOptions()
+        self.compression = compression
+        if schema_file:
+            schema = file_io.read_parquet_metadata(schema_file).schema.to_arrow_schema()
+            if not self.convert_options.column_types:
+                self.convert_options.column_types = schema
+            if not self.read_options.column_names:
+                self.read_options.column_names = schema.names
+                # Set skip_rows here to skip parsing the header row with column names.
+                # See https://arrow.apache.org/docs/python/generated/pyarrow.csv.ReadOptions.html
+                self.read_options.skip_rows = 1
+
+    def read(self, input_file, read_columns=None):
+        input_file = self.regular_file_exists(input_file, **self.kwargs)
+
+        # If we only want to read some columns (e.g. radec), we must specify
+        # in the convert_options argument
+        read_columns = read_columns or self.column_names
+        convert_options = self.convert_options
+        if read_columns:
+            convert_options.include_columns = read_columns
+        with input_file.open(mode="rb", compression=self.compression) as file_handle:
+            with csv.open_csv(
+                file_handle, convert_options=convert_options, read_options=self.read_options, **self.kwargs
+            ) as reader:
+                for next_chunk in reader:
+                    table = pa.Table.from_batches([next_chunk])
+                    table = table.replace_schema_metadata()
+                    yield table
 
 
 class IndexedCsvReader(CsvReader):
@@ -300,32 +370,33 @@ class FitsReader(InputReader):
         self.kwargs = kwargs
 
     def read(self, input_file, read_columns=None):
-        self.regular_file_exists(input_file, **self.kwargs)
-        table = Table.read(input_file, memmap=True, **self.kwargs)
-        if read_columns:
-            table.keep_columns(read_columns)
-        elif self.column_names:
-            table.keep_columns(self.column_names)
-        elif self.skip_column_names:
-            table.remove_columns(self.skip_column_names)
+        input_file = self.regular_file_exists(input_file, **self.kwargs)
+        with input_file.open("rb") as file_handle:
+            table = Table.read(file_handle, memmap=True, **self.kwargs)
+            if read_columns:
+                table.keep_columns(read_columns)
+            elif self.column_names:
+                table.keep_columns(self.column_names)
+            elif self.skip_column_names:
+                table.remove_columns(self.skip_column_names)
 
-        total_rows = len(table)
-        read_rows = 0
+            total_rows = len(table)
+            read_rows = 0
 
-        while read_rows < total_rows:
-            df_chunk = table[read_rows : read_rows + self.chunksize].to_pandas()
-            for column in df_chunk.columns:
-                if (
-                    df_chunk[column].dtype == object
-                    and df_chunk[column].apply(lambda x: isinstance(x, bytes)).any()
-                ):
-                    df_chunk[column] = df_chunk[column].apply(
-                        lambda x: x.decode("utf-8") if isinstance(x, bytes) else x
-                    )
+            while read_rows < total_rows:
+                df_chunk = table[read_rows : read_rows + self.chunksize].to_pandas()
+                for column in df_chunk.columns:
+                    if (
+                        df_chunk[column].dtype == object
+                        and df_chunk[column].apply(lambda x: isinstance(x, bytes)).any()
+                    ):
+                        df_chunk[column] = df_chunk[column].apply(
+                            lambda x: x.decode("utf-8") if isinstance(x, bytes) else x
+                        )
 
-            yield df_chunk
+                yield df_chunk
 
-            read_rows += self.chunksize
+                read_rows += self.chunksize
 
 
 class ParquetReader(InputReader):
@@ -347,9 +418,9 @@ class ParquetReader(InputReader):
         self.kwargs = kwargs
 
     def read(self, input_file, read_columns=None):
-        self.regular_file_exists(input_file, **self.kwargs)
+        input_file = self.regular_file_exists(input_file, **self.kwargs)
         columns = read_columns or self.column_names
-        parquet_file = pq.ParquetFile(input_file, **self.kwargs)
+        parquet_file = file_io.read_parquet_file(input_file, **self.kwargs)
         for smaller_table in parquet_file.iter_batches(
             batch_size=self.chunksize, columns=columns, use_pandas_metadata=True
         ):
@@ -375,9 +446,9 @@ class ParquetPyarrowReader(InputReader):
         self.kwargs = kwargs
 
     def read(self, input_file, read_columns=None):
-        self.regular_file_exists(input_file, **self.kwargs)
+        input_file = self.regular_file_exists(input_file, **self.kwargs)
         columns = read_columns or self.column_names
-        parquet_file = pq.ParquetFile(input_file, **self.kwargs)
+        parquet_file = file_io.read_parquet_file(input_file, **self.kwargs)
         for smaller_table in parquet_file.iter_batches(batch_size=self.chunksize, columns=columns):
             table = pa.Table.from_batches([smaller_table])
             table = table.replace_schema_metadata()
@@ -438,11 +509,11 @@ class IndexedParquetReader(InputReader):
             if nrows + batch.num_rows > self.chunksize:
                 # We've hit the chunksize so load to a DataFrame and yield.
                 # There should always be at least one batch in here since batch_size == self.chunksize above.
-                yield pyarrow.Table.from_batches(batches).replace_schema_metadata()
+                yield pa.Table.from_batches(batches).replace_schema_metadata()
                 batches, nrows = [], 0
 
             batches.append(batch)
             nrows += batch.num_rows
 
         if len(batches) > 0:
-            yield pyarrow.Table.from_batches(batches).replace_schema_metadata()
+            yield pa.Table.from_batches(batches).replace_schema_metadata()
