@@ -238,7 +238,7 @@ class CsvPyarrowReader(InputReader):
     def __init__(
         self,
         *,
-        chunksize=10_485_760,
+        chunksize=10 * 1024**2,
         compression=None,
         column_names=None,
         schema_file=None,
