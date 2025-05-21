@@ -1,8 +1,6 @@
-import pandas as pd
 import pytest
 
 import hats_import
-from email.message import EmailMessage
 
 
 def test_runner(small_sky_object_catalog, tmp_path):

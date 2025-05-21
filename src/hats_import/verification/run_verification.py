@@ -4,7 +4,6 @@ import datetime
 import re
 from dataclasses import dataclass, field
 from time import perf_counter
-from typing import Literal
 from urllib.parse import unquote
 
 import hats
