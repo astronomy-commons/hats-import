@@ -23,19 +23,13 @@ from hats_import.verification.arguments import VerificationArguments
 
 
 # pylint: disable=too-many-lines
-def run(
-    args: VerificationArguments, check_metadata: bool = False, write_mode: Literal["a", "w", "x"] = "a"
-) -> "Verifier":
+def run(args: VerificationArguments) -> "Verifier":
     """Create a `Verifier` using `args`, run all tests, and write a verification report.
 
     Parameters
     ----------
     args : VerificationArguments
         Arguments to construct the Verifier.
-    check_metadata : bool, optional
-        Whether to check the metadata along with the schema. Default is False.
-    write_mode : Literal["a", "w", "x"], optional
-        Mode to be used when writing output files. Default is "a" (append).
 
     Returns
     -------
@@ -55,7 +49,7 @@ def run(
 
     start = perf_counter()
     verifier = Verifier.from_args(args)
-    verifier.run(write_mode=write_mode, check_metadata=check_metadata)
+    verifier.run()
 
     if args.verbose:
         print(f"Elapsed time (seconds): {perf_counter()-start:.2f}")
@@ -166,23 +160,16 @@ class Verifier:
         """Simple pass/fail if all of the test results have passed."""
         return np.all([res.passed for res in self.results])
 
-    def run(self, write_mode: Literal["a", "w", "x"] = "a", check_metadata: bool = False) -> None:
+    def run(self) -> None:
         """Run all tests and write a verification report. See `results_df` property or
         written report for results.
-
-        Parameters
-        ----------
-        write_mode : Literal["a", "w", "x"], optional
-            Mode to be used when writing output files.
-        check_metadata : bool, optional
-            Whether to check the metadata as well as the schema.
         """
         self.test_is_valid_catalog()
         self.test_file_sets()
         self.test_num_rows()
-        self.test_schemas(check_metadata=check_metadata)
+        self.test_schemas()
 
-        self.write_results(write_mode=write_mode)
+        self.write_results()
 
     def test_is_valid_catalog(self) -> bool:
         """Test if the provided catalog is a valid HATS catalog. Add one `Result` to `results`.
@@ -316,7 +303,7 @@ class Verifier:
         nrows_df = nrows_df.set_index("frag_path").sort_index()
         return nrows_df
 
-    def test_schemas(self, check_metadata: bool = False) -> bool:
+    def test_schemas(self) -> bool:
         """Test the equality of schemas. Add `Result`s to `results`.
 
         This performs three tests:
@@ -324,23 +311,18 @@ class Verifier:
         2. `metadata_ds.schema` vs `constructed_truth_schema`.
         3. File footers vs `constructed_truth_schema`.
 
-        Parameters
-        ----------
-        check_metadata : bool, optional
-            Whether to check the metadata as well as the schema.
-
         Returns
         -------
         bool: True if all tests pass, else False.
         """
         # info for the report
-        _include_md = "including metadata" if check_metadata else "excluding metadata"
+        _include_md = "including metadata" if self.args.check_metadata else "excluding metadata"
         test_info = {"test": "schema", "description": f"Test that schemas are equal, {_include_md}."}
         self.print_if_verbose(f"\nStarting: {test_info['description']}")
 
-        passed_cm = self._test_schema__common_metadata(test_info, check_metadata=check_metadata)
-        passed_md = self._test_schema__metadata(test_info, check_metadata=check_metadata)
-        passed_ff = self._test_schema_file_footers(test_info, check_metadata=check_metadata)
+        passed_cm = self._test_schema__common_metadata(test_info)
+        passed_md = self._test_schema__metadata(test_info)
+        passed_ff = self._test_schema_file_footers(test_info)
 
         all_passed = all([passed_cm, passed_md, passed_ff])
         self.print_if_verbose(f"Result: {'PASSED' if all_passed else 'FAILED'}")
@@ -380,15 +362,13 @@ class Verifier:
         constructed_schema = pa.schema(constructed_fields).with_metadata(input_truth_schema.metadata)
         return constructed_schema
 
-    def _test_schema__common_metadata(self, test_info: dict, check_metadata: bool = False) -> bool:
+    def _test_schema__common_metadata(self, test_info: dict) -> bool:
         """Test `common_metadata_schema` against `constructed_truth_schema`.
 
         Parameters
         ----------
         test_info : dict
             Information about this test for the reported results.
-        check_metadata : bool, optional
-            Whether to check the metadata as well as the schema.
 
         Returns
         -------
@@ -397,7 +377,7 @@ class Verifier:
         targets = "_common_metadata vs truth"
         self.print_if_verbose(f"\t{targets}")
         passed = self.common_metadata_schema.equals(
-            self.constructed_truth_schema, check_metadata=check_metadata
+            self.constructed_truth_schema, check_metadata=self.args.check_metadata
         )
         self.results.append(
             Result(
@@ -406,15 +386,13 @@ class Verifier:
         )
         return passed
 
-    def _test_schema__metadata(self, test_info: dict, check_metadata: bool = False) -> bool:
+    def _test_schema__metadata(self, test_info: dict) -> bool:
         """Test _metadata schema against the truth schema.
 
         Parameters
         ----------
         test_info : dict
             Information about this test for the reported results.
-        check_metadata : bool, optional
-            Whether to check the metadata as well as the schema.
 
         Returns
         -------
@@ -422,7 +400,9 @@ class Verifier:
         """
         targets = "_metadata vs truth"
         self.print_if_verbose(f"\t{targets}")
-        passed = self.metadata_ds.schema.equals(self.constructed_truth_schema, check_metadata=check_metadata)
+        passed = self.metadata_ds.schema.equals(
+            self.constructed_truth_schema, check_metadata=self.args.check_metadata
+        )
         self.results.append(
             Result(
                 passed=passed, target=targets, test=test_info["test"], description=test_info["description"]
@@ -430,15 +410,13 @@ class Verifier:
         )
         return passed
 
-    def _test_schema_file_footers(self, test_info: dict, check_metadata: bool = False) -> bool:
+    def _test_schema_file_footers(self, test_info: dict) -> bool:
         """Test the file footers schema and metadata against the truth schema.
 
         Parameters
         ----------
         test_info : dict
             Information about this test for the reported results.
-        check_metadata : bool, optional
-            Whether to check the metadata as well as the schema.
 
         Returns
         -------
@@ -449,7 +427,9 @@ class Verifier:
 
         bad_files = []
         for frag in self.files_ds.get_fragments():
-            if not frag.physical_schema.equals(self.constructed_truth_schema, check_metadata=check_metadata):
+            if not frag.physical_schema.equals(
+                self.constructed_truth_schema, check_metadata=self.args.check_metadata
+            ):
                 bad_files.append(frag.path)
         bad_files = self._relative_paths(bad_files)
 
@@ -472,20 +452,11 @@ class Verifier:
         relative_paths = [str(relative_path_pattern.match(file).group(1)) or file for file in absolute_paths]
         return relative_paths
 
-    def write_results(self, *, write_mode: Literal["a", "w", "x"] = "a") -> None:
-        """Write the verification results to file at `args.output_path` / `args.output_filename`.
-
-        Parameters
-        ----------
-        write_mode : Literal["a", "w", "x"], optional
-            Mode to be used when writing the output file. Options have the typical meanings:
-                - 'w': truncate the file first
-                - 'x': exclusive creation, failing if the file already exists
-                - 'a': append to the end of file if it exists
-        """
+    def write_results(self) -> None:
+        """Write the verification results to file at `args.output_path` / `args.output_filename`."""
         self.args.output_file_path.parent.mkdir(exist_ok=True, parents=True)
         # Write provenance info
-        with open(self.args.output_file_path, write_mode, encoding="utf8") as fout:
+        with open(self.args.output_file_path, self.args.write_mode, encoding="utf8") as fout:
             fout.writelines(
                 [
                     "# HATS verification results for\n",

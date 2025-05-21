@@ -107,8 +107,7 @@ def test_reimport_arguments_catalog_collection(test_data_dir, small_sky_object_c
     assert args.dec_column == catalog.catalog_info.dec_column
 
 
-@pytest.mark.timeout(10)
-@pytest.mark.dask
+@pytest.mark.dask(timeout=10)
 def test_run_reimport(
     dask_client,
     small_sky_object_catalog,
