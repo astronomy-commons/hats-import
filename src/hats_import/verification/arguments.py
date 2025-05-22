@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 import hats.io.paths
 from hats.io import file_io
@@ -31,6 +32,13 @@ class VerificationArguments:
     string or path object."""
     verbose: bool = True
     """Should we output progress and results to standard out?"""
+    write_mode: Literal["a", "w", "x"] = "a"
+    """Mode to be used when writing the output file. Options have the typical meanings:
+        - 'w': truncate the file first
+        - 'x': exclusive creation, failing if the file already exists
+        - 'a': append to the end of file if it exists"""
+    check_metadata: bool = False
+    """Whether to check the metadata as well as the schema."""
 
     @property
     def input_dataset_path(self) -> UPath:

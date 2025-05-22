@@ -20,17 +20,17 @@ def test_runner(small_sky_object_catalog, wrong_files_and_rows_dir, tmp_path):
     result_cols = ["datetime", "passed", "test", "target"]
 
     args = VerificationArguments(
-        input_catalog_path=small_sky_object_catalog, output_path=tmp_path, verbose=False
+        input_catalog_path=small_sky_object_catalog, output_path=tmp_path, verbose=False, write_mode="w"
     )
-    verifier = runner.run(args, write_mode="w")
+    verifier = runner.run(args)
     assert verifier.all_tests_passed, "good catalog failed"
     written_results = pd.read_csv(args.output_path / args.output_filename, comment="#")
     assert written_results[result_cols].equals(verifier.results_df[result_cols]), "report failed"
 
     args = VerificationArguments(
-        input_catalog_path=wrong_files_and_rows_dir, output_path=tmp_path, verbose=False
+        input_catalog_path=wrong_files_and_rows_dir, output_path=tmp_path, verbose=False, write_mode="w"
     )
-    verifier = runner.run(args, write_mode="w")
+    verifier = runner.run(args)
     assert not verifier.all_tests_passed, "bad catalog passed"
     written_results = pd.read_csv(args.output_path / args.output_filename, comment="#")
     assert written_results[result_cols].equals(verifier.results_df[result_cols]), "report failed"
@@ -115,9 +115,10 @@ def test_test_schemas(small_sky_object_catalog, bad_schemas_dir, tmp_path, check
         output_path=tmp_path,
         truth_schema=small_sky_object_catalog / "dataset/_common_metadata",
         verbose=False,
+        check_metadata=check_metadata,
     )
     verifier = runner.Verifier.from_args(args)
-    verifier.test_schemas(check_metadata=check_metadata)
+    verifier.test_schemas()
     assert verifier.all_tests_passed, "good catalog failed"
 
     # Show that bad schemas fail.
@@ -126,9 +127,10 @@ def test_test_schemas(small_sky_object_catalog, bad_schemas_dir, tmp_path, check
         output_path=tmp_path,
         truth_schema=bad_schemas_dir / "dataset/_common_metadata.import_truth",
         verbose=False,
+        check_metadata=check_metadata,
     )
     verifier = runner.Verifier.from_args(args)
-    verifier.test_schemas(check_metadata=check_metadata)
+    verifier.test_schemas()
     results = verifier.results_df
 
     # Expecting _common_metadata and some file footers to always fail

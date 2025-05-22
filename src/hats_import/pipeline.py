@@ -24,6 +24,9 @@ from hats_import.verification.arguments import VerificationArguments
 
 def pipeline(args: RuntimeArguments):
     """Pipeline that creates its own client from the provided runtime arguments"""
+    if isinstance(args, VerificationArguments):
+        verification_runner.run(args)
+        return
     with Client(
         local_directory=args.dask_tmp,
         n_workers=args.dask_n_workers,
@@ -36,8 +39,11 @@ def pipeline_with_client(args: RuntimeArguments, client: Client):
     """Pipeline that is run using an existing client.
 
     This can be useful in tests, or when a dask client requires some more complex
-    configuraion.
+    configuration.
     """
+    if isinstance(args, VerificationArguments):
+        verification_runner.run(args)
+        return
     try:
         if not args:
             raise ValueError("args is required and should be subclass of RuntimeArguments")
