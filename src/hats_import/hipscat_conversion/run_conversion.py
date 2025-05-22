@@ -12,7 +12,7 @@ from dask.distributed import print as dask_print
 from hats.catalog import CatalogType, PartitionInfo, TableProperties
 from hats.io import file_io, parquet_metadata, paths
 
-import hats_import
+from hats_import._version import __version__ as build_version
 from hats_import.hipscat_conversion.arguments import ConversionArguments
 from hats_import.pipeline_resume_plan import print_progress
 from hats_import.runtime_arguments import _estimate_dir_size
@@ -53,7 +53,7 @@ def run(args: ConversionArguments, client):
             + " v"
             + provenance_info["tool_args"]["version"]
             + " hats-importer conversion v"
-            + hats_import.__version__
+            + build_version
         )
         catalog_info["hats_builder"] = builder_str
         if runtime_args := provenance_info["tool_args"].get("runtime_args"):
