@@ -14,7 +14,8 @@ from hats.io.validation import is_valid_catalog
 from hats.pixel_math import spatial_index
 from upath import UPath
 
-from hats_import.catalog.file_readers import InputReader, ParquetPyarrowReader, get_file_reader
+from hats_import.catalog.file_readers import InputReader, get_file_reader
+from hats_import.catalog.file_readers.parquet import ParquetPyarrowReader
 from hats_import.runtime_arguments import RuntimeArguments, find_input_paths
 
 # pylint: disable=too-many-locals,too-many-arguments,too-many-instance-attributes,too-many-branches,too-few-public-methods

@@ -8,7 +8,6 @@ import pytest
 from hats.catalog import TableProperties
 
 from hats_import.catalog.file_readers import (
-    CsvPyarrowReader,
     CsvReader,
     FitsReader,
     IndexedCsvReader,
@@ -16,6 +15,7 @@ from hats_import.catalog.file_readers import (
     ParquetReader,
     get_file_reader,
 )
+from hats_import.catalog.file_readers.csv import CsvPyarrowReader
 
 
 # pylint: disable=redefined-outer-name

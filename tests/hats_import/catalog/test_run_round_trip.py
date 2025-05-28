@@ -23,12 +23,9 @@ from pyarrow import csv
 
 import hats_import.catalog.run_import as runner
 from hats_import.catalog.arguments import ImportArguments
-from hats_import.catalog.file_readers import (
-    CsvPyarrowReader,
-    CsvReader,
-    ParquetPyarrowReader,
-    get_file_reader,
-)
+from hats_import.catalog.file_readers import CsvReader, get_file_reader
+from hats_import.catalog.file_readers.csv import CsvPyarrowReader
+from hats_import.catalog.file_readers.parquet import ParquetPyarrowReader
 
 
 @pytest.mark.dask
