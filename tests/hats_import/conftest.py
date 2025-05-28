@@ -127,6 +127,10 @@ def formats_fits(test_data_dir):
 
 @pytest.fixture
 def formats_fits_nested(test_data_dir):
+    """10 first rows of a 21GB file
+
+    https://data.desi.lbl.gov/public/dr1/spectro/redux/iron/zcatalog/v1/zall-pix-iron.fits
+    """
     return test_data_dir / "test_formats" / "zall-pix-iron_10rows.fits"
 
 

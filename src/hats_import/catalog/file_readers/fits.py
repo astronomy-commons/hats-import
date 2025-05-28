@@ -1,6 +1,7 @@
 import astropy.table
 import numpy as np
 import pyarrow as pa
+from astropy.io import fits
 
 from hats_import.catalog.file_readers.input_reader import InputReader
 
@@ -9,16 +10,18 @@ def _np_to_pyarrow_array(array: np.ndarray, *, flatten_tensors: bool) -> pa.Arra
     """Convert a numpy array to a pyarrow"""
     # We usually have the "wrong" byte order from FITS
     array = np.asanyarray(array, dtype=array.dtype.newbyteorder("="))
+    values = pa.array(array.reshape(-1))
     # "Base" type
     if array.ndim == 1:
-        return pa.array(array)
+        return values
     # Flat multidimensional nested values if asked
-    if array.ndim > 2 and flatten_tensors:
+    if flatten_tensors and array.ndim > 2:
         array = array.reshape(array.shape[0], -1)
-    values = pa.array(array.reshape(-1))
+    # An extra dimension is represented as a list array
     if array.ndim == 2:
         return pa.FixedSizeListArray.from_arrays(values, array.shape[1])
-    # Use tensors if ndim > 2
+    # array.ndim > 2
+    # Multiple extra dimensions are represented as a tensor array
     tensor_type = pa.fixed_shape_tensor(pa.from_numpy_dtype(array.dtype), array.shape[1:])
     return pa.FixedShapeTensorArray.from_storage(tensor_type, values)
 
@@ -30,6 +33,14 @@ def _astropy_to_pyarrow_table(astropy_table: astropy.table.Table, *, flatten_ten
         np_array = astropy_table[column]
         pa_arrays[column] = _np_to_pyarrow_array(np_array, flatten_tensors=flatten_tensors)
     return pa.table(pa_arrays)
+
+
+def _first_table_hdu(hdul: fits.HDUList) -> int:
+    """Get an index of the first HDU with a table"""
+    for i, hdu in enumerate(hdul):
+        if isinstance(hdu, (fits.TableHDU, fits.BinTableHDU, fits.GroupsHDU)):
+            return i
+    raise ValueError("No HDU with a table found")
 
 
 class FitsReader(InputReader):
@@ -55,40 +66,68 @@ class FitsReader(InputReader):
             one of `column_names` or `skip_column_names`
         skip_column_names (list[str]): list of column names to skip. only use
             one of `column_names` or `skip_column_names`
+        hdu (int | None): index of HDU to read. If None, use the first HDU
+            with a table.
         flatten_tensors (bool): whether to flatten tensors. If True, the
             fixed-length list-array will be used, otherwise the arrow
             extension fixed-shape tensor will be used.
-        kwargs: keyword arguments passed along to astropy.Table.read.
+        fits_kwargs: keyword arguments passed along to astropy.io.fits.open(file_handler, **kwargs).
+            See https://docs.astropy.org/en/stable/io/fits/api/files.html#astropy.io.fits.open
+        table_kwargs: keyword arguments passed along to astropy.Table.read(hdu, **kwargs)
             See https://docs.astropy.org/en/stable/api/astropy.table.Table.html#astropy.table.Table.read
     """
 
-    _default_kwargs = {"memmap": True}
+    # First, we open FITS file "lazily": with the memory map and not decoding bytes to UTF8
+    _default_fits_kwargs = {"memmap": True, "character_as_bytes": True}
+    # Next, for each batch, we decode bytes
+    _default_table_kwargs = {
+        "format": "fits",
+        "character_as_bytes": False,
+    }
 
     def __init__(
         self,
         chunksize=500_000,
         column_names=None,
         skip_column_names=None,
+        hdu: int | None = None,
         flatten_tensors: bool = True,
-        **kwargs,
+        fits_kwargs: dict[str, object] | None = None,
+        table_kwargs: dict[str, object] | None = None,
     ):
         self.chunksize = chunksize
         self.column_names = column_names
-        self.skip_column_names = skip_column_names
+        self.skip_column_names = None if skip_column_names is None else frozenset(skip_column_names)
+        self.hdu_index = hdu
         self.flatten_tensors = flatten_tensors
-        self.kwargs = self._default_kwargs | kwargs
+        self.fits_kwargs = self._default_fits_kwargs | (fits_kwargs or {})
+        self.table_kwargs = self._default_table_kwargs | (table_kwargs or {})
 
     def read(self, input_file, read_columns=None):
         input_file = self.regular_file_exists(input_file)
-        with input_file.open("rb") as file_handle:
-            table = astropy.table.Table.read(file_handle, **self.kwargs)
-            if read_columns:
-                table.keep_columns(read_columns)
-            elif self.column_names:
-                table.keep_columns(self.column_names)
-            elif self.skip_column_names:
-                table.remove_columns(self.skip_column_names)
+        with input_file.open("rb") as file_handle, fits.open(file_handle, **self.fits_kwargs) as hdul:
+            if self.hdu_index is None:
+                hdu_index = _first_table_hdu(hdul)
+                hdu = hdul[hdu_index]
+            else:
+                hdu = hdul[self.hdu_index]
 
-            for i_start in range(0, len(table), self.chunksize):
-                table_chunk = table[i_start : i_start + self.chunksize]
-                yield _astropy_to_pyarrow_table(table_chunk, flatten_tensors=self.flatten_tensors)
+            column_names = hdu.columns.names
+            if read_columns is not None:
+                column_names = read_columns
+            elif self.column_names is not None:
+                column_names = self.column_names
+            elif self.skip_column_names is not None:
+                column_names = [col for col in column_names if col not in self.skip_column_names]
+
+            for i_start in range(0, hdu.data.shape[0], self.chunksize):
+                data_chunk = hdu.data[i_start : i_start + self.chunksize]
+                hdu_chunk = type(hdu)(
+                    data=data_chunk,
+                    header=hdu.header,
+                    ver=hdu.ver,
+                )
+                table_chunk = astropy.table.Table.read(hdu_chunk, **self.table_kwargs)
+                yield _astropy_to_pyarrow_table(
+                    table_chunk[column_names], flatten_tensors=self.flatten_tensors
+                )
