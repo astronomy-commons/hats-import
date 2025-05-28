@@ -126,6 +126,11 @@ def formats_fits(test_data_dir):
 
 
 @pytest.fixture
+def formats_fits_nested(test_data_dir):
+    return test_data_dir / "test_formats" / "zall-pix-iron_10rows.fits"
+
+
+@pytest.fixture
 def formats_pandasindex(test_data_dir):
     return test_data_dir / "test_formats" / "pandasindex.parquet"
 
