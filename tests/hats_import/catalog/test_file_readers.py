@@ -365,7 +365,16 @@ def test_read_fits_columns(formats_fits):
     assert list(table.column_names) == ["ra", "dec"]
 
 
-def test_read_fits_with_nested_data(formats_fits_nested):
+def test_read_fits_with_nested_columns(formats_fits_nested):
     """Check that nested array data are processed."""
     table = next(FitsReader().read(formats_fits_nested))
     assert table["COEFF"].type == pa.list_(pa.float64(), 10)
+
+
+def test_read_fits_with_nested_tensor_columns(formats_fits_tensor):
+    """Check that nested tensor data are processed."""
+    table = next(FitsReader(flatten_tensors=False).read(formats_fits_tensor))
+    assert table["FLUX"].type == pa.fixed_shape_tensor(pa.float32(), (5, 5))
+
+    table = next(FitsReader(flatten_tensors=True).read(formats_fits_tensor))
+    assert table["FLUX"].type == pa.list_(pa.float32(), 25)

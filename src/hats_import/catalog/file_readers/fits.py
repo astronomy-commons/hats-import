@@ -17,20 +17,21 @@ def _np_to_pyarrow_array(array: np.ndarray, *, flatten_tensors: bool) -> pa.Arra
     # Flat multidimensional nested values if asked
     if flatten_tensors and array.ndim > 2:
         array = array.reshape(array.shape[0], -1)
+    pa_list_array = pa.FixedSizeListArray.from_arrays(values, np.prod(array.shape[1:]))
     # An extra dimension is represented as a list array
     if array.ndim == 2:
-        return pa.FixedSizeListArray.from_arrays(values, array.shape[1])
+        return pa_list_array
     # array.ndim > 2
     # Multiple extra dimensions are represented as a tensor array
-    tensor_type = pa.fixed_shape_tensor(pa.from_numpy_dtype(array.dtype), array.shape[1:])
-    return pa.FixedShapeTensorArray.from_storage(tensor_type, values)
+    tensor_type = pa.fixed_shape_tensor(values.type, shape=array.shape[1:])
+    return pa.FixedShapeTensorArray.from_storage(tensor_type, pa_list_array)
 
 
 def _astropy_to_pyarrow_table(astropy_table: astropy.table.Table, *, flatten_tensors: bool) -> pa.Table:
     """Convert astropy.table.Table to pyarrow.Table"""
     pa_arrays = {}
     for column in astropy_table.columns:
-        np_array = astropy_table[column]
+        np_array = np.asarray(astropy_table[column])
         pa_arrays[column] = _np_to_pyarrow_array(np_array, flatten_tensors=flatten_tensors)
     return pa.table(pa_arrays)
 
