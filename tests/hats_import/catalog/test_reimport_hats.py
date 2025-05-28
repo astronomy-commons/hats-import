@@ -7,7 +7,7 @@ from hats.io import paths
 
 import hats_import.catalog.run_import as runner
 from hats_import.catalog import ImportArguments
-from hats_import.catalog.file_readers.parquet import ParquetPyarrowReader
+from hats_import.catalog.file_readers import ParquetPyarrowReader
 
 
 def test_reimport_arguments(tmp_path, small_sky_object_catalog):

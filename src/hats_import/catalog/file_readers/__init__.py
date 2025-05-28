@@ -1,10 +1,10 @@
 """File reading generators for common file types."""
 
-from .csv import CsvReader, IndexedCsvReader
+from .csv import CsvPyarrowReader, CsvReader, IndexedCsvReader
 from .ecsv import AstropyEcsvReader
 from .fits import FitsReader
 from .input_reader import InputReader
-from .parquet import IndexedParquetReader, ParquetReader
+from .parquet import IndexedParquetReader, ParquetPyarrowReader, ParquetReader
 
 
 def get_file_reader(
