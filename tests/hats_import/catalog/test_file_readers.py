@@ -8,6 +8,7 @@ import pytest
 from hats.catalog import TableProperties
 
 from hats_import.catalog.file_readers import (
+    CsvPyarrowReader,
     CsvReader,
     FitsReader,
     IndexedCsvReader,
@@ -15,7 +16,6 @@ from hats_import.catalog.file_readers import (
     ParquetReader,
     get_file_reader,
 )
-from hats_import.catalog.file_readers.csv import CsvPyarrowReader
 
 
 # pylint: disable=redefined-outer-name
@@ -331,9 +331,9 @@ def test_parquet_reader_columns(parquet_shards_shard_44_0):
 def test_read_fits(formats_fits):
     """Success case - fits file that exists being read as fits"""
     total_chunks = 0
-    for frame in FitsReader().read(formats_fits):
+    for table in FitsReader().read(formats_fits):
         total_chunks += 1
-        assert len(frame) == 131
+        assert len(table) == 131
 
     assert total_chunks == 1
 
@@ -341,25 +341,40 @@ def test_read_fits(formats_fits):
 def test_read_fits_chunked(formats_fits):
     """Success case - fits file that exists being read as fits in chunks"""
     total_chunks = 0
-    for frame in FitsReader(chunksize=1).read(formats_fits):
+    for table in FitsReader(chunksize=1).read(formats_fits):
         total_chunks += 1
-        assert len(frame) == 1
+        assert len(table) == 1
 
     assert total_chunks == 131
 
 
 def test_read_fits_columns(formats_fits):
     """Success case - column filtering on reading fits file"""
-    frame = next(FitsReader(column_names=["id", "ra", "dec"]).read(formats_fits))
-    assert list(frame.columns) == ["id", "ra", "dec"]
+    table = next(FitsReader(column_names=["id", "ra", "dec"]).read(formats_fits))
+    assert list(table.column_names) == ["id", "ra", "dec"]
 
-    frame = next(FitsReader(column_names=["id", "ra", "dec"]).read(formats_fits, read_columns=["ra", "dec"]))
-    assert list(frame.columns) == ["ra", "dec"]
+    table = next(FitsReader(column_names=["id", "ra", "dec"]).read(formats_fits, read_columns=["ra", "dec"]))
+    assert list(table.column_names) == ["ra", "dec"]
 
-    frame = next(FitsReader(skip_column_names=["ra_error", "dec_error"]).read(formats_fits))
-    assert list(frame.columns) == ["id", "ra", "dec", "test_id"]
+    table = next(FitsReader(skip_column_names=["ra_error", "dec_error"]).read(formats_fits))
+    assert list(table.column_names) == ["id", "ra", "dec", "test_id"]
 
-    frame = next(
+    table = next(
         FitsReader(skip_column_names=["ra_error", "dec_error"]).read(formats_fits, read_columns=["ra", "dec"])
     )
-    assert list(frame.columns) == ["ra", "dec"]
+    assert list(table.column_names) == ["ra", "dec"]
+
+
+def test_read_fits_with_nested_columns(formats_fits_nested):
+    """Check that nested array data are processed."""
+    table = next(FitsReader().read(formats_fits_nested))
+    assert table["COEFF"].type == pa.list_(pa.float64(), 10)
+
+
+def test_read_fits_with_nested_tensor_columns(formats_fits_tensor):
+    """Check that nested tensor data are processed."""
+    table = next(FitsReader(flatten_tensors=False).read(formats_fits_tensor))
+    assert table["FLUX"].type == pa.fixed_shape_tensor(pa.float32(), (5, 5))
+
+    table = next(FitsReader(flatten_tensors=True).read(formats_fits_tensor))
+    assert table["FLUX"].type == pa.list_(pa.float32(), 25)

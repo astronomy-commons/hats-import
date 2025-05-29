@@ -126,6 +126,32 @@ def formats_fits(test_data_dir):
 
 
 @pytest.fixture
+def formats_fits_nested(test_data_dir):
+    """10 first rows of a 21GB file
+
+    https://data.desi.lbl.gov/public/dr1/spectro/redux/iron/zcatalog/v1/zall-pix-iron.fits
+    """
+    return test_data_dir / "test_formats" / "zall-pix-iron_10rows.fits"
+
+
+@pytest.fixture
+def formats_fits_tensor(test_data_dir):
+    """TESS cutouts from astrqoeury docs
+
+    https://astroquery.readthedocs.io/en/latest/mast/mast_cut.html
+
+    from astroquery.mast import Tesscut
+    from astropy.coordinates import SkyCoord
+    from astropy.table import Table
+    gam02 = SkyCoord(107.18696, -70.50919, unit="deg")
+    hdul = Tesscut.get_cutouts(coordinates=gam02, sector=33)[0]
+    table = Table.read(hdul)[:10]
+    table.write("tests/data/test_formats/tess_gam02_10rows.fits")
+    """
+    return test_data_dir / "test_formats" / "tess_gam02_10rows.fits"
+
+
+@pytest.fixture
 def formats_pandasindex(test_data_dir):
     return test_data_dir / "test_formats" / "pandasindex.parquet"
 
