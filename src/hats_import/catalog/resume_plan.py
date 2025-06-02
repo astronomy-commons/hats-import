@@ -300,8 +300,6 @@ class ResumePlan(PipelineResumePlan):
             with open(file_name, "rb") as pickle_file:
                 alignment = pickle.load(pickle_file)
             pixel_list = sorted({tuple(row) for row in alignment if row is not None})
-            #non_none_elements = alignment[alignment != np.array(None)]
-            #pixel_list = np.unique(non_none_elements)
             self.destination_pixel_map = {
                 HealpixPixel(order, pix): count for (order, pix, count) in pixel_list if int(count) > 0
             }
