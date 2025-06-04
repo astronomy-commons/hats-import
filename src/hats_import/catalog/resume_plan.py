@@ -276,13 +276,13 @@ class ResumePlan(PipelineResumePlan):
         file_name = file_io.append_paths_to_pointer(self.tmp_path, self.ALIGNMENT_FILE)
         if not file_io.does_file_or_directory_exist(file_name):
             if constant_healpix_order >= 0:
-                alignment = np.full(len(raw_histogram), None)
+                alignment = np.full((len(raw_histogram), 3), [-1, -1, 0])
                 for pixel_num, pixel_sum in enumerate(raw_histogram):
-                    alignment[pixel_num] = (
+                    alignment[pixel_num] = [
                         constant_healpix_order,
                         pixel_num,
                         pixel_sum,
-                    )
+                    ]
             else:
                 alignment = pixel_math.generate_alignment(
                     raw_histogram,
@@ -292,13 +292,13 @@ class ResumePlan(PipelineResumePlan):
                     drop_empty_siblings=drop_empty_siblings,
                 )
             with open(file_name, "wb") as pickle_file:
+                alignment = np.array([x if x is not None else [-1, -1, 0] for x in alignment], dtype=np.int64)
                 pickle.dump(alignment, pickle_file)
 
         if self.destination_pixel_map is None:
             with open(file_name, "rb") as pickle_file:
                 alignment = pickle.load(pickle_file)
-            non_none_elements = alignment[alignment != np.array(None)]
-            pixel_list = np.unique(non_none_elements)
+            pixel_list = np.unique(alignment, axis=0)
             self.destination_pixel_map = {
                 HealpixPixel(order, pix): count for (order, pix, count) in pixel_list if int(count) > 0
             }

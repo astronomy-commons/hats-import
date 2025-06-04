@@ -106,6 +106,11 @@ def empty_data_dir(test_data_dir):
 
 
 @pytest.fixture
+def reproducers_dir(test_data_dir):
+    return test_data_dir / "reproducers"
+
+
+@pytest.fixture
 def formats_dir(test_data_dir):
     return test_data_dir / "test_formats"
 
