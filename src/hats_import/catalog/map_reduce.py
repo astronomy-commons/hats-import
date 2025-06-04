@@ -170,7 +170,7 @@ def split_pixels(
             input_file, pickled_reader_file, highest_order, ra_column, dec_column, use_healpix_29
         ):
             aligned_pixels = alignment[mapped_pixels]
-            unique_pixels, unique_inverse = np.unique(aligned_pixels, return_inverse=True)
+            unique_pixels, unique_inverse = np.unique(aligned_pixels, return_inverse=True, axis=0)
 
             for unique_index, [order, pixel, _] in enumerate(unique_pixels):
                 pixel_dir = get_pixel_cache_directory(cache_shard_path, HealpixPixel(order, pixel))

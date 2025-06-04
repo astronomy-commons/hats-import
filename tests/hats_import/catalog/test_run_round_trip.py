@@ -987,6 +987,36 @@ def test_import_gaia_minimum(
 
 
 @pytest.mark.dask
+def test_import_issue_538(
+    dask_client,
+    reproducers_dir,
+    tmp_path,
+):
+    """Test end-to-end import, using a reproducible chunk of data."""
+    args = ImportArguments(
+        output_artifact_name="numpy_unique",
+        input_file_list=[reproducers_dir / "issue_538.csv"],
+        file_reader="csv",
+        ra_column="RA",
+        dec_column="DEC",
+        output_path=tmp_path,
+        dask_tmp=tmp_path,
+        highest_healpix_order=2,
+        pixel_threshold=3_000,
+        progress_bar=False,
+    )
+
+    runner.run(args, dask_client)
+
+    # Check that the catalog metadata file exists
+    catalog = read_hats(args.catalog_path)
+    assert catalog.on_disk
+    assert catalog.catalog_path == args.catalog_path
+    assert catalog.catalog_info.total_rows == 132
+    assert len(catalog.get_healpix_pixels()) == 12
+
+
+@pytest.mark.dask
 def test_gaia_ecsv(
     dask_client,
     formats_dir,

@@ -137,3 +137,6 @@ omit = [
     "src/hats_import/_version.py", # auto-generated
     "src/hats_import/pipeline.py", # too annoying to test
 ]
+
+[tool.mypy]
+disable_error_code = ["assignment"]
