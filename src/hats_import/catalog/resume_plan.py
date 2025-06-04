@@ -276,7 +276,6 @@ class ResumePlan(PipelineResumePlan):
         file_name = file_io.append_paths_to_pointer(self.tmp_path, self.ALIGNMENT_FILE)
         if not file_io.does_file_or_directory_exist(file_name):
             if constant_healpix_order >= 0:
-                print("here1")
                 alignment = np.full(len(raw_histogram), None)
                 for pixel_num, pixel_sum in enumerate(raw_histogram):
                     alignment[pixel_num] = (
@@ -285,7 +284,6 @@ class ResumePlan(PipelineResumePlan):
                         pixel_sum,
                     )
             else:
-                print("here2")
                 alignment = pixel_math.generate_alignment(
                     raw_histogram,
                     highest_order=highest_healpix_order,
