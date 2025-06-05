@@ -8,6 +8,7 @@ import os
 import pickle
 
 import hats.io.file_io as io
+from hats.io.skymap import write_skymap
 from hats.catalog import PartitionInfo
 from hats.io import paths
 from hats.io.parquet_metadata import write_parquet_metadata
@@ -140,6 +141,9 @@ def run(args, client):
                     )
             step_progress.update(1)
             io.write_fits_image(raw_histogram, paths.get_point_map_file_pointer(args.catalog_path))
+            write_skymap(
+                histogram=raw_histogram, catalog_dir=args.catalog_path, orders=args.skymap_alt_orders
+            )
             step_progress.update(1)
             catalog_info = args.to_table_properties(
                 total_rows, partition_info.get_highest_order(), partition_info.calculate_fractional_coverage()
