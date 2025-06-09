@@ -17,6 +17,7 @@ import pyarrow.dataset as pds
 import pyarrow.parquet as pq
 import pytest
 from hats import read_hats
+from hats.io.skymap import read_skymap
 from hats.pixel_math import HealpixPixel
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, spatial_index_to_healpix
 from pyarrow import csv
@@ -441,6 +442,9 @@ def test_import_constant_healpix_order(
     ids = data_frame["id"]
     assert np.logical_and(ids >= 700, ids < 832).all()
 
+    assert catalog.catalog_info.skymap_alt_orders is None
+    assert catalog.catalog_info.skymap_order == 2
+
 
 @pytest.mark.dask
 def test_import_keep_intermediate_files(
@@ -615,6 +619,7 @@ def test_import_lowest_healpix_order(
         dask_tmp=tmp_path,
         lowest_healpix_order=2,
         highest_healpix_order=4,
+        skymap_alt_orders=[3, 1],
         progress_bar=False,
     )
 
@@ -635,6 +640,24 @@ def test_import_lowest_healpix_order(
     assert len(data_frame) == 14
     ids = data_frame["id"]
     assert np.logical_and(ids >= 700, ids < 832).all()
+
+    point_map_file = args.catalog_path / "point_map.fits"
+    assert point_map_file.exists()
+
+    skymap_file = args.catalog_path / "skymap.fits"
+    assert skymap_file.exists()
+
+    assert len(read_skymap(catalog, None)) == 3_072
+
+    skymap_file = args.catalog_path / "skymap.1.fits"
+    assert skymap_file.exists()
+    skymap_file = args.catalog_path / "skymap.2.fits"
+    assert not skymap_file.exists()
+    skymap_file = args.catalog_path / "skymap.3.fits"
+    assert skymap_file.exists()
+
+    assert catalog.catalog_info.skymap_alt_orders == [1, 3]
+    assert catalog.catalog_info.skymap_order == 4
 
 
 class StarrReader(CsvReader):

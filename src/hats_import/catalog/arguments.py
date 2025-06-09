@@ -52,6 +52,8 @@ class ImportArguments(RuntimeArguments):
     """additional keyword arguments to use when writing files to parquet (e.g. compression schemes)."""
     row_group_kwargs: dict | None = None
     """additional keyword arguments to use in creation of rowgroups when writing files to parquet."""
+    skymap_alt_orders: list[int] | None = None
+    """Additional alternative healpix orders to write a HEALPix skymap."""
 
     use_schema_file: str | Path | UPath | None = None
     """path to a parquet file with schema metadata. this will be used for column
@@ -156,6 +158,8 @@ class ImportArguments(RuntimeArguments):
             "hats_order": highest_order,
             "moc_sky_fraction": f"{moc_sky_fraction:0.5f}",
             "hats_npix_suffix": self.npix_suffix,
+            "hats_skymap_order": self.mapping_healpix_order,
+            "hats_skymap_alt_orders": self.skymap_alt_orders,
         }
         return TableProperties(**info)
 
