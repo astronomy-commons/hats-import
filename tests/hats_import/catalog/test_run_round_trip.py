@@ -16,8 +16,8 @@ import pyarrow as pa
 import pyarrow.dataset as pds
 import pyarrow.parquet as pq
 import pytest
-from hats.io.skymap import read_skymap
 from hats import read_hats
+from hats.io.skymap import read_skymap
 from hats.pixel_math import HealpixPixel
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, spatial_index_to_healpix
 from pyarrow import csv

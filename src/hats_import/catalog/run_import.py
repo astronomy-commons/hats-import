@@ -8,10 +8,10 @@ import os
 import pickle
 
 import hats.io.file_io as io
-from hats.io.skymap import write_skymap
 from hats.catalog import PartitionInfo
 from hats.io import paths
 from hats.io.parquet_metadata import write_parquet_metadata
+from hats.io.skymap import write_skymap
 from hats.io.validation import is_valid_catalog
 
 import hats_import.catalog.map_reduce as mr
