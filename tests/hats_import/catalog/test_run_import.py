@@ -4,6 +4,7 @@ import os
 import shutil
 from pathlib import Path
 
+import hats
 import numpy as np
 import pandas as pd
 import pyarrow as pa
@@ -13,6 +14,7 @@ from hats import read_hats
 from hats.pixel_math.sparse_histogram import SparseHistogram
 from pyarrow.parquet import ParquetFile
 
+import hats_import
 import hats_import.catalog.run_import as runner
 from hats_import.catalog.arguments import ImportArguments
 from hats_import.catalog.file_readers import CsvReader
@@ -269,6 +271,12 @@ def test_dask_runner(
     assert catalog.catalog_info.dec_column == "dec"
     assert catalog.catalog_info.total_rows == 131
     assert len(catalog.get_healpix_pixels()) == 1
+
+    # Check that we keep track of the package versions
+    assert (
+        catalog.catalog_info.hats_builder
+        == f"hats-import v{hats_import.__version__}, hats v{hats.__version__}"
+    )
 
     # Check that the catalog parquet file exists and contains correct object IDs
     output_file = os.path.join(args.catalog_path, "dataset", "Norder=0", "Dir=0", "Npix=11.parquet")

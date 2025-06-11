@@ -5,12 +5,14 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from importlib.metadata import version
 from pathlib import Path
 
+import hats
 from hats.io import file_io
 from hats.io.validation import is_valid_catalog
 from upath import UPath
+
+import hats_import
 
 # pylint: disable=too-many-instance-attributes
 
@@ -125,7 +127,7 @@ class RuntimeArguments:
         if self.addl_hats_properties:
             properties = properties | self.addl_hats_properties
 
-        properties["hats_builder"] = f"hats-import v{version('hats-import')}"
+        properties["hats_builder"] = f"hats-import v{hats_import.__version__}, hats v{hats.__version__}"
 
         now = datetime.now(tz=timezone.utc)
         properties["hats_creation_date"] = now.strftime("%Y-%m-%dT%H:%M%Z")
