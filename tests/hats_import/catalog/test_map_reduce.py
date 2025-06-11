@@ -330,6 +330,27 @@ def test_reduce_order0(parquet_shards_dir, assert_parquet_file_ids, tmp_path):
     expected_ids = [*range(700, 831)]
     assert_parquet_file_ids(output_file, "id", expected_ids)
 
+    ## Confirm idempotency of reduce operation.
+    mr.reduce_pixel_shards(
+        cache_shard_path=parquet_shards_dir,
+        resume_path=tmp_path,
+        reducing_key="0_11",
+        destination_pixel_order=0,
+        destination_pixel_number=11,
+        destination_pixel_size=131,
+        output_path=tmp_path,
+        add_healpix_29=True,
+        ra_column="ra",
+        dec_column="dec",
+        sort_columns="id",
+        delete_input_files=False,
+    )
+
+    output_file = tmp_path / "dataset" / "Norder=0" / "Dir=0" / "Npix=11.parquet"
+
+    expected_ids = [*range(700, 831)]
+    assert_parquet_file_ids(output_file, "id", expected_ids)
+
 
 def test_reduce_healpix_29(parquet_shards_dir, assert_parquet_file_ids, tmp_path):
     """Test reducing with or without a _healpix_29 field"""
@@ -357,6 +378,8 @@ def test_reduce_healpix_29(parquet_shards_dir, assert_parquet_file_ids, tmp_path
         data_frame.columns,
         ["_healpix_29", "id", "ra", "dec", "ra_error", "dec_error"],
     )
+
+    output_file.unlink()
 
     mr.reduce_pixel_shards(
         cache_shard_path=parquet_shards_dir,
@@ -484,6 +507,7 @@ def test_reduce_with_sorting_complex(assert_parquet_file_ids, tmp_path):
 
     ######################## Sort option 2: by object id and time
     ## sort order is effectively (norder19 healpix, object id, time)
+    output_file.unlink()
     mr.reduce_pixel_shards(
         cache_shard_path=tmp_path / "reduce_shards",
         resume_path=tmp_path,
@@ -521,6 +545,7 @@ def test_reduce_with_sorting_complex(assert_parquet_file_ids, tmp_path):
     ## The 1500 block of ids goes back to the end, because we're not using
     ## spatial properties for sorting, only numeric.
     ## sort order is effectively (object id, time)
+    output_file.unlink()
     mr.reduce_pixel_shards(
         cache_shard_path=tmp_path / "reduce_shards",
         resume_path=tmp_path,

@@ -261,6 +261,13 @@ def reduce_pixel_shards(
 
         healpix_pixel = HealpixPixel(destination_pixel_order, destination_pixel_number)
         destination_file = paths.pixel_catalog_file(output_path, healpix_pixel, npix_suffix=npix_suffix)
+        if destination_file.exists():
+            if delete_input_files:
+                pixel_dir = get_pixel_cache_directory(cache_shard_path, healpix_pixel)
+                file_io.remove_directory(pixel_dir, ignore_errors=True)
+
+            ResumePlan.reducing_key_done(tmp_path=resume_path, reducing_key=reducing_key)
+            return
 
         schema = None
         if use_schema_file:
