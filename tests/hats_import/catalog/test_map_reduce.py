@@ -355,6 +355,27 @@ def test_reduce_idempotent(parquet_shards_dir, assert_parquet_file_ids, tmp_path
     expected_ids = [*range(700, 831)]
     assert_parquet_file_ids(output_file, "id", expected_ids)
 
+    ## It's even ok to try to delete the files again!
+    mr.reduce_pixel_shards(
+        cache_shard_path=shards_copy,
+        resume_path=tmp_path,
+        reducing_key="0_11",
+        destination_pixel_order=0,
+        destination_pixel_number=11,
+        destination_pixel_size=131,
+        output_path=tmp_path,
+        add_healpix_29=True,
+        ra_column="ra",
+        dec_column="dec",
+        sort_columns="id",
+        delete_input_files=True,
+    )
+
+    output_file = tmp_path / "dataset" / "Norder=0" / "Dir=0" / "Npix=11.parquet"
+
+    expected_ids = [*range(700, 831)]
+    assert_parquet_file_ids(output_file, "id", expected_ids)
+
 
 def test_reduce_order0(parquet_shards_dir, assert_parquet_file_ids, tmp_path):
     """Test reducing into one large pixel"""
