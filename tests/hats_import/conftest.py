@@ -8,7 +8,7 @@ import numpy as np
 import numpy.testing as npt
 import pandas as pd
 import pytest
-from dask.distributed import Client
+from dask.distributed import Client, LocalCluster
 from hats import pixel_math
 
 # pylint: disable=missing-function-docstring, redefined-outer-name
@@ -17,9 +17,11 @@ from hats import pixel_math
 @pytest.fixture(scope="session", name="dask_client")
 def dask_client():
     """Create a single client for use by all unit test cases."""
-    client = Client(n_workers=1, threads_per_worker=1)
+    cluster = LocalCluster(n_workers=1, threads_per_worker=1, dashboard_address=":0")
+    client = Client(cluster)
     yield client
     client.close()
+    cluster.close()
 
 
 def pytest_collection_modifyitems(items):

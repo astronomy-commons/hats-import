@@ -659,6 +659,19 @@ def test_import_lowest_healpix_order(
     assert catalog.catalog_info.skymap_alt_orders == [1, 3]
     assert catalog.catalog_info.skymap_order == 4
 
+    old_properties_file = args.catalog_path / "properties"
+    assert old_properties_file.exists()
+    new_properties_file = args.catalog_path / "hats.properties"
+    assert new_properties_file.exists()
+
+    with open(old_properties_file, "r", encoding="utf-8") as old_file:
+        old_contents = old_file.readlines()
+
+    with open(new_properties_file, "r", encoding="utf-8") as new_file:
+        new_contents = new_file.readlines()
+
+    assert old_contents == new_contents
+
 
 class StarrReader(CsvReader):
     """Shallow subclass"""
