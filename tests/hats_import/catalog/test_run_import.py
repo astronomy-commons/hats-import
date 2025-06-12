@@ -2,6 +2,7 @@
 
 import os
 import shutil
+from importlib.metadata import version
 from pathlib import Path
 
 import numpy as np
@@ -269,6 +270,11 @@ def test_dask_runner(
     assert catalog.catalog_info.dec_column == "dec"
     assert catalog.catalog_info.total_rows == 131
     assert len(catalog.get_healpix_pixels()) == 1
+
+    # Check that we keep track of the package versions
+    assert (
+        catalog.catalog_info.hats_builder == f"hats-import v{version('hats-import')}, hats v{version('hats')}"
+    )
 
     # Check that the catalog parquet file exists and contains correct object IDs
     output_file = os.path.join(args.catalog_path, "dataset", "Norder=0", "Dir=0", "Npix=11.parquet")

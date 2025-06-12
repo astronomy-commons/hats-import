@@ -125,7 +125,7 @@ class RuntimeArguments:
         if self.addl_hats_properties:
             properties = properties | self.addl_hats_properties
 
-        properties["hats_builder"] = f"hats-import v{version('hats-import')}"
+        properties["hats_builder"] = f"hats-import v{version('hats-import')}, hats v{version('hats')}"
 
         now = datetime.now(tz=timezone.utc)
         properties["hats_creation_date"] = now.strftime("%Y-%m-%dT%H:%M%Z")
