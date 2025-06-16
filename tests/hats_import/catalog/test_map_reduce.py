@@ -1,10 +1,10 @@
 """Tests of map reduce operations"""
 
 import os
-import pickle
 import shutil
 from io import StringIO
 
+import cloudpickle
 import hats.pixel_math as hist
 import hats.pixel_math.healpix_shim as hp
 import numpy as np
@@ -23,7 +23,7 @@ def pickle_file_reader(tmp_path, file_reader) -> str:
     """Utility method to pickle a file reader, and return path to pickle."""
     pickled_reader_file = tmp_path / "reader.pickle"
     with open(pickled_reader_file, "wb") as pickle_file:
-        pickle.dump(file_reader, pickle_file)
+        cloudpickle.dump(file_reader, pickle_file)
     return pickled_reader_file
 
 

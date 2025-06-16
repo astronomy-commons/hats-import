@@ -2,6 +2,7 @@
 
 import pickle
 
+import cloudpickle
 import hats.pixel_math.healpix_shim as hp
 import numpy as np
 import pandas as pd
@@ -45,7 +46,7 @@ def _iterate_input_file(
 ):
     """Helper function to handle input file reading and healpix pixel calculation"""
     with open(pickled_reader_file, "rb") as pickle_file:
-        file_reader = pickle.load(pickle_file)
+        file_reader = cloudpickle.load(pickle_file)
     if not file_reader:
         raise NotImplementedError("No file reader implemented")
 

@@ -1214,3 +1214,34 @@ def test_import_indexed_csv(
             "shard_split_1_0.parquet",
         ],
     )
+
+
+@pytest.mark.dask
+def test_pickled_reader_class_issue542(
+    dask_client,
+    formats_dir,
+    tmp_path,
+):
+    """Check if we can use reader class not imported from somewhere else,
+    e.g. defined in a Jupyter notebook.
+    """
+
+    class MyReader(StarrReader):
+        """My cool reader."""
+
+    args = ImportArguments(
+        output_artifact_name="starr",
+        input_file_list=[formats_dir],
+        file_reader=MyReader(),
+        output_path=tmp_path,
+        dask_tmp=tmp_path,
+        highest_healpix_order=2,
+        pixel_threshold=3_000,
+        progress_bar=False,
+    )
+
+    runner.run(args, dask_client)
+
+    # Check that the catalog metadata file exists
+    catalog = read_hats(args.catalog_path)
+    assert catalog.catalog_info.total_rows == 131
