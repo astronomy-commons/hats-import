@@ -5,8 +5,8 @@ The actual logic of the map reduce is in the `map_reduce.py` file.
 """
 
 import os
-import pickle
 
+import cloudpickle
 import hats.io.file_io as io
 from hats.catalog import PartitionInfo
 from hats.io import paths
@@ -30,7 +30,7 @@ def run(args, client):
 
     pickled_reader_file = os.path.join(resume_plan.tmp_path, "reader.pickle")
     with open(pickled_reader_file, "wb") as pickle_file:
-        pickle.dump(args.file_reader, pickle_file)
+        cloudpickle.dump(args.file_reader, pickle_file)
 
     if resume_plan.should_run_mapping:
         futures = []
