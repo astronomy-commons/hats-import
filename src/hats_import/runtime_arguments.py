@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from importlib.metadata import version
 from pathlib import Path
 
+from hats.catalog import TableProperties
 from hats.io import file_io
 from hats.io.validation import is_valid_catalog
 from upath import UPath
@@ -121,18 +121,11 @@ class RuntimeArguments:
     def extra_property_dict(self):
         """Generate additional HATS properties for this import run as a dictionary."""
         properties = {}
-
         if self.addl_hats_properties:
-            properties = properties | self.addl_hats_properties
-
-        properties["hats_builder"] = f"hats-import v{version('hats-import')}, hats v{version('hats')}"
-
-        now = datetime.now(tz=timezone.utc)
-        properties["hats_creation_date"] = now.strftime("%Y-%m-%dT%H:%M%Z")
-        properties["hats_estsize"] = int(_estimate_dir_size(self.catalog_path) / 1024)
-        properties["hats_release_date"] = "2024-09-18"
-        properties["hats_version"] = "v0.1"
-        return properties
+            properties = self.addl_hats_properties
+        return TableProperties.new_provenance_dict(
+            self.catalog_path, builder=f"hats-import v{version('hats-import')}", **properties
+        )
 
     def resume_kwargs_dict(self):
         """Convenience method to convert fields for resume functionality."""
