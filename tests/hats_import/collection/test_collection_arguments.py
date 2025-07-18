@@ -255,6 +255,68 @@ def test_collection_properties_supplemental(tmp_path, small_sky_object_catalog):
     assert index_args.output_artifact_name == "small_sky_object_catalog_id"
 
 
+def test_collection_properties_existing_supplemental(tmp_path, small_sky_object_catalog):
+    """If we have already created a catalog or supplemental table in the
+    collection, confirm that the collection properties are written with
+    the union of supplemental tables."""
+    args = (
+        CollectionArguments(
+            output_artifact_name="small_sky_collection",
+            new_catalog_name="small_sky",
+            output_path=tmp_path,
+            progress_bar=False,
+            addl_hats_properties={"obs_regime": "Optical"},
+        ).catalog(
+            catalog_path=small_sky_object_catalog,
+        )
+        # .add_margin(margin_threshold=5.0, is_default=True)
+        # .add_margin(margin_threshold=35.0)
+        # .add_index(indexing_column="id")
+    )
+
+    collection_info = args.to_collection_properties()
+    collection_info.to_properties_file(args.catalog_path)
+
+    args = (
+        CollectionArguments(
+            output_artifact_name="small_sky_collection",
+            new_catalog_name="small_sky",
+            output_path=tmp_path,
+            progress_bar=False,
+        )
+        .catalog(
+            catalog_path=small_sky_object_catalog,
+        )
+        .add_margin(margin_threshold=5.0, is_default=True)
+        # .add_margin(margin_threshold=35.0)
+        .add_index(indexing_column="id")
+    )
+
+    collection_info = args.to_collection_properties()
+    collection_info.to_properties_file(args.catalog_path)
+
+    args = (
+        CollectionArguments(
+            output_artifact_name="small_sky_collection",
+            new_catalog_name="small_sky",
+            output_path=tmp_path,
+            progress_bar=False,
+        ).catalog(
+            catalog_path=small_sky_object_catalog,
+        )
+        # .add_margin(margin_threshold=5.0, is_default=True)
+        .add_margin(margin_threshold=35.0)
+        # .add_index(indexing_column="id")
+    )
+
+    collection_info = args.to_collection_properties()
+    assert collection_info.name == "small_sky_collection"
+    assert len(collection_info.all_margins) == 2
+    assert collection_info.default_margin == "small_sky_object_catalog_5arcs"
+    assert len(collection_info.all_indexes) == 1
+    assert collection_info.__pydantic_extra__["obs_regime"] == "Optical"
+
+
 def test_collection_default_margin(tmp_path, small_sky_object_catalog):
     """Test behavior of the default margin setting."""
     ## Easy case - name derived from primary catalog

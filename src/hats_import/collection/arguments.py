@@ -34,8 +34,12 @@ class CollectionArguments(RuntimeArguments):
     """List of all argument dictionaries passed to this builder, for creating indexes."""
     margin_args: list[dict] = field(default_factory=list)
     """Constructed arguments for creating margins."""
+    margin_paths: list[str] = field(default_factory=list)
+    """Paths to margins that may be created by these arguments"""
     index_args: list[dict] = field(default_factory=list)
     """Constructed arguments for creating indexes."""
+    index_paths: dict[str, str] = field(default_factory=dict)
+    """Paths to indexes that may be created by these arguments"""
 
     def catalog(self, **kwargs):
         """Set the primary catalog for the collection.
@@ -120,7 +124,18 @@ class CollectionArguments(RuntimeArguments):
         if "input_catalog_path" not in kwargs:
             useful_kwargs["input_catalog_path"] = self.new_catalog_path
 
-        self.margin_kwargs.append(useful_kwargs)
+        if "catalog_path" in kwargs:
+            new_catalog_path = file_io.get_upath(kwargs["catalog_path"])
+        else:
+            new_catalog_path = (
+                file_io.get_upath(self.output_path)
+                / self.output_artifact_name
+                / useful_kwargs["output_artifact_name"]
+            )
+        if not is_valid_catalog(new_catalog_path):
+            self.margin_kwargs.append(useful_kwargs)
+
+        self.margin_paths.append(_maybe_relative(new_catalog_path, self.catalog_path))
 
         return self
 
@@ -145,16 +160,28 @@ class CollectionArguments(RuntimeArguments):
 
         if "indexing_column" not in kwargs:
             raise ValueError("indexing_column is required")
+        indexing_column = kwargs["indexing_column"]
 
         useful_kwargs = self._get_subarg_dict()
         useful_kwargs.update(kwargs)
 
         if "output_artifact_name" not in kwargs:
-            useful_kwargs["output_artifact_name"] = f"{self.new_catalog_name}_{kwargs['indexing_column']}"
+            useful_kwargs["output_artifact_name"] = f"{self.new_catalog_name}_{indexing_column}"
         if "input_catalog_path" not in kwargs:
             useful_kwargs["input_catalog_path"] = self.new_catalog_path
 
-        self.index_kwargs.append(useful_kwargs)
+        if "catalog_path" in kwargs:
+            new_catalog_path = file_io.get_upath(kwargs["catalog_path"])
+        else:
+            new_catalog_path = (
+                file_io.get_upath(self.output_path)
+                / self.output_artifact_name
+                / useful_kwargs["output_artifact_name"]
+            )
+        if not is_valid_catalog(new_catalog_path):
+            self.index_kwargs.append(useful_kwargs)
+
+        self.index_paths[indexing_column] = _maybe_relative(new_catalog_path, self.catalog_path)
 
         return self
 
@@ -194,33 +221,38 @@ class CollectionArguments(RuntimeArguments):
         """Collection-specific dataset info."""
         if self.new_catalog_path is None:
             raise ValueError("Must add catalog arguments before collection properties")
-        info = {"obs_collection": self.output_artifact_name}
-
-        def _maybe_relative(artifact_path, collection_path):
-            if artifact_path.is_relative_to(collection_path):
-                return str(artifact_path.relative_to(collection_path))
-            return str(artifact_path)
+        info = {"name": self.output_artifact_name}
 
         info["hats_primary_table_url"] = _maybe_relative(self.new_catalog_path, self.catalog_path)
 
-        margin_paths = [
-            _maybe_relative(args.catalog_path, self.catalog_path) for args in self.get_margin_args()
-        ]
-        if margin_paths:
-            info["all_margins"] = margin_paths
+        if self.margin_paths:
+            info["all_margins"] = self.margin_paths
         if self.default_margin_name:
             info["default_margin"] = self.default_margin_name
-
-        index_paths = {
-            args.indexing_column: _maybe_relative(args.catalog_path, self.catalog_path)
-            for args in self.get_index_args()
-        }
-        if index_paths:
-            info["all_indexes"] = index_paths
+        if self.index_paths:
+            info["all_indexes"] = self.index_paths
 
         info = info | self.extra_property_dict()
-        properties = CollectionProperties(**info)
-        return properties
+        new_properties = CollectionProperties(**info)
+        existing_properties = None
+        try:
+            ## If there is already a collection at this location, try to update the values.
+            existing_properties = CollectionProperties.read_from_dir(self.catalog_path)
+        except FileNotFoundError:
+            pass
+
+        if existing_properties:
+            if new_properties.all_indexes or existing_properties.all_indexes:
+                info["all_indexes"] = existing_properties.all_indexes or {} | new_properties.all_indexes or {}
+
+            if new_properties.all_margins or existing_properties.all_margins:
+                info["all_margins"] = list(
+                    set((new_properties.all_margins or []) + (existing_properties.all_margins or []))
+                )
+
+            new_properties = existing_properties.model_copy(update=info)
+            CollectionProperties.model_validate(new_properties)
+        return new_properties
 
 
 def _pretty_print_angle(arc_seconds):
@@ -231,3 +263,9 @@ def _pretty_print_angle(arc_seconds):
     if arc_seconds >= 1:
         return f"{int(arc_seconds)}arcs"
     return f"{int(arc_seconds * 1000)}msec"
+
+
+def _maybe_relative(artifact_path, collection_path):
+    if artifact_path.is_relative_to(collection_path):
+        return str(artifact_path.relative_to(collection_path))
+    return str(artifact_path)
