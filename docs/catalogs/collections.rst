@@ -15,7 +15,7 @@ Below is an example of a collection directory structure:
 
     gaia_dr3 /
     |-- collection.properties
-    |-- catalog /
+    |-- gaia_dr3 /
     | | -- hats.properties
     | + -- . . .
     |-- gaia_dr3_5arcs /
@@ -28,8 +28,11 @@ Below is an example of a collection directory structure:
         |-- hats.properties
         + -- . . .
 
-Here, the primary object catalog is named simply "catalog". There are two margin
-tables, as you may want to have different margins for different scientific use cases.
+Here, the primary object catalog is named simply "gaia_dr3". There are two margin
+tables (with widths of 5 and 100 arcseconds), as you may want to have different 
+margins for different scientific use cases. The last table, "gaia_dr3_designation",
+is an index table to enable fast lookup of objects by their "designation", which 
+is not a spatial property.
 
 The ``collection.properties`` file provides the links between those tables.
 
