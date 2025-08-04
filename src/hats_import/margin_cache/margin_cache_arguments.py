@@ -18,15 +18,14 @@ class MarginCacheArguments(RuntimeArguments):
     """Container for margin cache generation arguments"""
 
     margin_threshold: float = 5.0
-    """the size of the margin cache boundary, given in arcseconds. setting the
-    `margin_threshold` to be greater than the resolution of a `margin_order`
-    healpixel will result in a warning, as this may lead to data loss."""
+    """the size of the margin cache boundary, given in arcseconds. If the `margin_order` parameter is set
+    and fine_filtering is not run, the `margin_order` will be used to determine the margin and this 
+    value will be overwritten."""
     margin_order: int = -1
-    """the order of healpixels that will be used to constrain the margin data before
-    doing more precise boundary checking. this value must be greater than the highest
-    order of healpix partitioning in the source catalog. if `margin_order` is left
-    default or set to -1, then the `margin_order` will be set dynamically to the
-    highest partition order plus 1."""
+    """the order of healpixels that will be used to generate the margin of each catalog pixel. By default, 
+    this is calculated from `margin_threshold` to be the minimum order that covers the entire 
+    threshold. If this is set and there is no fine filtering, the `margin_threshold` will be recalculated to 
+    be the minimum distance of the specified order."""
     fine_filtering: bool = False
     """should we perform the precise boundary checking? if false, some results may be
     greater than `margin_threshold` away from the border (but within `margin_order`)."""
@@ -57,6 +56,9 @@ class MarginCacheArguments(RuntimeArguments):
             raise NotImplementedError("Fine filtering temporarily removed.")
 
         highest_order = int(self.catalog.partition_info.get_highest_order())
+
+        if self.margin_order >= 0 and not self.fine_filtering:
+            self.margin_threshold = hp.order2mindist(self.margin_order) * 60.0
 
         if self.margin_order < 0:
             self.margin_order = hp.margin2order(margin_thr_arcmin=self.margin_threshold / 60.0)
