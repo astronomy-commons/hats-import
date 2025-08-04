@@ -1,8 +1,8 @@
 """Tests of margin cache generation arguments"""
 
+import hats.pixel_math.healpix_shim as hp
 import pytest
 from hats.pixel_math.healpix_pixel import HealpixPixel
-import hats.pixel_math.healpix_shim as hp
 
 from hats_import.margin_cache.margin_cache_arguments import MarginCacheArguments
 
