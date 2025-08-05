@@ -1,5 +1,6 @@
 """Tests of margin cache generation arguments"""
 
+import hats.pixel_math.healpix_shim as hp
 import pytest
 from hats.pixel_math.healpix_pixel import HealpixPixel
 
@@ -36,6 +37,7 @@ def test_margin_order_dynamic(small_sky_source_catalog, tmp_path):
     )
 
     assert args.margin_order == 14
+    assert args.margin_threshold == 5.0
 
 
 def test_margin_order_static(small_sky_source_catalog, tmp_path):
@@ -49,6 +51,7 @@ def test_margin_order_static(small_sky_source_catalog, tmp_path):
     )
 
     assert args.margin_order == 4
+    assert args.margin_threshold == hp.order2mindist(4) * 60.0
 
 
 def test_margin_order_invalid_small_margin_order(small_sky_source_catalog, tmp_path):
@@ -63,6 +66,7 @@ def test_margin_order_invalid_small_margin_order(small_sky_source_catalog, tmp_p
         )
 
 
+@pytest.mark.skip("fine filtering temporarily removed")
 def test_margin_threshold_invalid_large_margin_threshold(small_sky_source_catalog, tmp_path):
     """Ensure we give a warning when margin_threshold is greater than margin_order resolution"""
 
@@ -71,6 +75,7 @@ def test_margin_threshold_invalid_large_margin_threshold(small_sky_source_catalo
             margin_threshold=360.0,
             input_catalog_path=small_sky_source_catalog,
             output_path=tmp_path,
+            fine_filtering=True,
             output_artifact_name="catalog_cache",
             margin_order=16,
         )
@@ -126,6 +131,7 @@ def test_to_table_properties(small_sky_source_catalog, tmp_path):
     assert catalog_info.total_rows == 10
     assert catalog_info.ra_column == "source_ra"
     assert catalog_info.dec_column == "source_dec"
+    assert catalog_info.margin_threshold == hp.order2mindist(4) * 60.0
 
 
 def test_no_margin_cache_overwrite(small_sky_object_catalog):
