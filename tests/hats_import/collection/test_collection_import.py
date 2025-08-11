@@ -131,7 +131,7 @@ def test_import_collection_resume_supplemental(
         .add_index(indexing_column="object_id", include_healpix_29=False)
         .add_index(indexing_column="not_a_good_column", include_healpix_29=False)
     )
-    with pytest.raises(match="not_a_good_column"):
+    with pytest.raises(ValueError, match="not_a_good_column"):
         run(args, dask_client)
 
     ## Re-running should complete successfully.
