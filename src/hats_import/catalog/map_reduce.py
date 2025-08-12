@@ -263,8 +263,7 @@ def reduce_pixel_shards(
         healpix_pixel = HealpixPixel(destination_pixel_order, destination_pixel_number)
         destination_file = paths.pixel_catalog_file(output_path, healpix_pixel, npix_suffix=npix_suffix)
         if destination_file.exists():
-            merged_table = pq.read_table(destination_file)
-            rows_written = len(merged_table)
+            rows_written = file_io.read_parquet_metadata(destination_file).num_rows
             if rows_written != destination_pixel_size:
                 raise ValueError(
                     "Unexpected number of objects in RESUMED pixel data "
