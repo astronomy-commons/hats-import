@@ -263,6 +263,13 @@ def reduce_pixel_shards(
         healpix_pixel = HealpixPixel(destination_pixel_order, destination_pixel_number)
         destination_file = paths.pixel_catalog_file(output_path, healpix_pixel, npix_suffix=npix_suffix)
         if destination_file.exists():
+            rows_written = file_io.read_parquet_metadata(destination_file).num_rows
+            if rows_written != destination_pixel_size:
+                raise ValueError(
+                    "Unexpected number of objects in RESUMED pixel data "
+                    f"({healpix_pixel})."
+                    f" Expected {destination_pixel_size}, found {rows_written}"
+                )
             if delete_input_files:
                 pixel_dir = get_pixel_cache_directory(cache_shard_path, healpix_pixel)
                 file_io.remove_directory(pixel_dir, ignore_errors=True)

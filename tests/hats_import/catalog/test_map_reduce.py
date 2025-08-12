@@ -456,6 +456,67 @@ def test_reduce_healpix_29(parquet_shards_dir, assert_parquet_file_ids, tmp_path
     )
 
 
+def test_reduce_different_expectation(parquet_shards_dir, tmp_path):
+    """Test reducing into one large pixel.
+
+    This will succeed the first time, but we change the size expectation the second time,
+    and the original file is in error."""
+    (tmp_path / "reducing").mkdir(parents=True)
+    mr.reduce_pixel_shards(
+        cache_shard_path=parquet_shards_dir,
+        resume_path=tmp_path,
+        reducing_key="0_11",
+        destination_pixel_order=0,
+        destination_pixel_number=11,
+        destination_pixel_size=131,
+        output_path=tmp_path,
+        ra_column="ra",
+        dec_column="dec",
+        sort_columns="id",
+        delete_input_files=False,
+    )
+    with pytest.raises(ValueError, match="Unexpected number of objects in RESUMED"):
+        mr.reduce_pixel_shards(
+            cache_shard_path=parquet_shards_dir,
+            resume_path=tmp_path,
+            reducing_key="0_11",
+            destination_pixel_order=0,
+            destination_pixel_number=11,
+            destination_pixel_size=11,  ## should be 131
+            output_path=tmp_path,
+            ra_column="ra",
+            dec_column="dec",
+            sort_columns="id",
+            delete_input_files=False,
+        )
+
+
+def test_reduce_resume_corrupted(parquet_shards_dir, tmp_path):
+    """Test reducing into one large pixel.
+
+    This will succeed the first time, but we change the size expectation the second time,
+    and the original file is in error."""
+    (tmp_path / "reducing").mkdir(parents=True)
+    output_dir = tmp_path / "dataset" / "Norder=0" / "Dir=0"
+    output_dir.mkdir(parents=True)
+    with open(output_dir / "Npix=11.parquet", "w", encoding="utf-8") as file_handle:
+        file_handle.write("Not a good parquet file")
+    with pytest.raises(pa.lib.ArrowInvalid, match="the file is corrupted or this is not a parquet file"):
+        mr.reduce_pixel_shards(
+            cache_shard_path=parquet_shards_dir,
+            resume_path=tmp_path,
+            reducing_key="0_11",
+            destination_pixel_order=0,
+            destination_pixel_number=11,
+            destination_pixel_size=131,
+            output_path=tmp_path,
+            ra_column="ra",
+            dec_column="dec",
+            sort_columns="id",
+            delete_input_files=False,
+        )
+
+
 def test_reduce_bad_expectation(parquet_shards_dir, tmp_path):
     """Test reducing into one large pixel"""
     with pytest.raises(ValueError, match="Unexpected number of objects"):
