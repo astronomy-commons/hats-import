@@ -1,6 +1,8 @@
 """Import a set of non-hats files using dask for parallelization"""
 
 import pickle
+import sys
+from collections import defaultdict
 
 import cloudpickle
 import hats.pixel_math.healpix_shim as hp
@@ -84,6 +86,7 @@ def map_to_pixels(
     ra_column,
     dec_column,
     use_healpix_29=False,
+    histogram_by_memory_size=False,
 ):
     """Map a file of input objects to their healpix pixels.
 
@@ -108,12 +111,9 @@ def map_to_pixels(
     try:
         histo = HistogramAggregator(highest_order)
 
-        if use_healpix_29:
-            read_columns = [SPATIAL_INDEX_COLUMN]
-        else:
-            read_columns = [ra_column, dec_column]
+        read_columns = [SPATIAL_INDEX_COLUMN] if use_healpix_29 else [ra_column, dec_column]
 
-        for _, _, mapped_pixels in _iterate_input_file(
+        for _, chunk_data, mapped_pixels in _iterate_input_file(
             input_file,
             pickled_reader_file,
             highest_order,
@@ -122,16 +122,48 @@ def map_to_pixels(
             use_healpix_29,
             read_columns,
         ):
-            mapped_pixel, count_at_pixel = np.unique(mapped_pixels, return_counts=True)
+            # If we're creating the histogram from row count.
+            if not histogram_by_memory_size:
+                mapped_pixel, count_at_pixel = np.unique(mapped_pixels, return_counts=True)
+                histo.add(SparseHistogram(mapped_pixel, count_at_pixel, highest_order))
+            # If we're creating the histogram from memory size.
+            else:
+                data_mem_sizes = _get_mem_size_of_rows(chunk_data)
 
-            histo.add(SparseHistogram(mapped_pixel, count_at_pixel, highest_order))
+                # Make a mapping from pixel to memory size
+                pixel_mem_sizes = defaultdict(int)
+                # print(f"Mapped_pixels len: {len(mapped_pixels)}, data_mem_sizes len: {len(data_mem_sizes)}")
+                for pixel, mem_size in zip(mapped_pixels, data_mem_sizes, strict=True):
+                    pixel_mem_sizes[pixel] += mem_size
+
+                # Turn our dict into two lists, the keys and vals, sorted so the keys are increasing
+                mapped_pixel_ids = np.array(list(pixel_mem_sizes.keys()), dtype=np.int64)
+                mapped_pixel_mem_sizes = np.array(list(pixel_mem_sizes.values()), dtype=np.int64)
+
+                # Add these lists to our histo via SparseHistogram
+                histo.add(SparseHistogram(mapped_pixel_ids, mapped_pixel_mem_sizes, highest_order))
 
         histo.to_sparse().to_file(
             ResumePlan.partial_histogram_file(tmp_path=resume_path, mapping_key=mapping_key)
         )
+        # TODO - we'd also want to write the other histogram to file, if it exists. gotta redo the
+        # branching tho, since we'll now want to always make the row count histo anyway ig.
+        # tho, that means we'll need to update things in the first histo as we join pixels to
+        # lower orders and stuff. should be fine, just need to keep an eye out for that in the code
     except Exception as exception:  # pylint: disable=broad-exception-caught
         print_task_failure(f"Failed MAPPING stage with file {input_file}", exception)
         raise exception
+
+
+def _get_mem_size_of_rows(data):
+    """Given a 2D array of data, return a list of memory sizes for each row."""
+    # TODO check that this is the way we'd like to be doing it
+    if isinstance(data, pa.Table):
+        rows = data.to_pylist()
+        mem_sizes = [sum(sys.getsizeof(item) for item in row.values()) for row in rows]
+    else:
+        mem_sizes = [sum(sys.getsizeof(item) for item in row) for row in data]
+    return mem_sizes
 
 
 def split_pixels(
@@ -217,6 +249,7 @@ def reduce_pixel_shards(
     write_table_kwargs=None,
     row_group_kwargs=None,
     npix_suffix=".parquet",
+    pixel_threshold_by_memory_size=False,
 ):
     """Reduce sharded source pixels into destination pixels.
 
@@ -249,6 +282,7 @@ def reduce_pixel_shards(
         row_group_kwargs (dict): additional keyword arguments to use in
             creation of rowgroups when writing files to parquet.
         npix_suffix (str): suffix for Npix files. Defaults to ".parquet".
+        pixel_threshold_by_memory_size (bool): if True, use pixel thresholding by memory size.
 
     Raises:
         ValueError: if the number of rows written doesn't equal provided
@@ -281,7 +315,7 @@ def reduce_pixel_shards(
 
         rows_written = len(merged_table)
 
-        if rows_written != destination_pixel_size:
+        if not pixel_threshold_by_memory_size and rows_written != destination_pixel_size:
             raise ValueError(
                 "Unexpected number of objects at pixel "
                 f"({healpix_pixel})."

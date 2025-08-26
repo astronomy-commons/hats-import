@@ -26,11 +26,15 @@ def run(args, client):
     if not isinstance(args, ImportArguments):
         raise ValueError("args must be type ImportArguments")
 
+    # 1 - PLANNING ---------------------------------------------------------------------------------
+
     resume_plan = ResumePlan(import_args=args)
 
     pickled_reader_file = os.path.join(resume_plan.tmp_path, "reader.pickle")
     with open(pickled_reader_file, "wb") as pickle_file:
         cloudpickle.dump(args.file_reader, pickle_file)
+
+    # 2 - MAPPING ----------------------------------------------------------------------------------
 
     if resume_plan.should_run_mapping:
         futures = []
@@ -46,14 +50,21 @@ def run(args, client):
                     ra_column=args.ra_column,
                     dec_column=args.dec_column,
                     use_healpix_29=args.use_healpix_29,
+                    histogram_by_memory_size=(args.pixel_threshold_as_memory is not None),
                 )
             )
         resume_plan.wait_for_mapping(futures)
 
+    # 3 - BINNING ----------------------------------------------------------------------------------
+
     with resume_plan.print_progress(total=2, stage_name="Binning") as step_progress:
         raw_histogram = resume_plan.read_histogram(args.mapping_healpix_order)
         total_rows = int(raw_histogram.sum())
-        if args.expected_total_rows > 0 and args.expected_total_rows != total_rows:
+        if (
+            args.pixel_threshold_as_memory is None
+            and args.expected_total_rows > 0
+            and args.expected_total_rows != total_rows
+        ):
             raise ValueError(
                 f"Number of rows ({total_rows}) does not match expectation ({args.expected_total_rows})"
             )
@@ -65,11 +76,14 @@ def run(args, client):
             args.highest_healpix_order,
             args.lowest_healpix_order,
             args.pixel_threshold,
+            args.pixel_threshold_as_memory,
             args.drop_empty_siblings,
             total_rows,
         )
 
         step_progress.update(1)
+
+    # 4 - SPLITTING --------------------------------------------------------------------------------
 
     if resume_plan.should_run_splitting:
         futures = []
@@ -91,6 +105,8 @@ def run(args, client):
             )
 
         resume_plan.wait_for_splitting(futures)
+
+    # 5 - REDUCING ---------------------------------------------------------------------------------
 
     if resume_plan.should_run_reducing:
         futures = []
@@ -119,10 +135,13 @@ def run(args, client):
                     write_table_kwargs=args.write_table_kwargs,
                     row_group_kwargs=args.row_group_kwargs,
                     npix_suffix=args.npix_suffix,
+                    pixel_threshold_by_memory_size=(args.pixel_threshold_as_memory is not None),
                 )
             )
 
         resume_plan.wait_for_reducing(futures)
+
+    # 6 - FINISHING --------------------------------------------------------------------------------
 
     # All done - write out the metadata
     if resume_plan.should_run_finishing:
@@ -134,7 +153,7 @@ def run(args, client):
                 parquet_rows = write_parquet_metadata(
                     args.catalog_path, create_thumbnail=True, thumbnail_threshold=args.pixel_threshold
                 )
-                if total_rows > 0 and parquet_rows != total_rows:
+                if args.pixel_threshold_as_memory is None and total_rows > 0 and parquet_rows != total_rows:
                     raise ValueError(
                         f"Number of rows in parquet ({parquet_rows}) "
                         f"does not match expectation ({total_rows})"

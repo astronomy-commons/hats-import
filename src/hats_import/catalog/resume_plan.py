@@ -187,6 +187,18 @@ class ResumePlan(PipelineResumePlan):
                 + "the highest healpix order. To start the importing pipeline "
                 + "from scratch with the current order set `resume` to False."
             )
+
+        # TMP start:
+        destination_path = "/astro/users/olynn/tmp-histograms"
+
+        # Copy the full_histogram npz to the destination path:
+        destination_file = file_io.append_paths_to_pointer(
+            destination_path, f"full_histogram_{healpix_order}.npz"
+        )
+        with open(destination_file, "wb+") as file_handle:
+            file_handle.write(full_histogram)
+
+        # TMP end.
         return full_histogram
 
     @classmethod
@@ -252,6 +264,7 @@ class ResumePlan(PipelineResumePlan):
         highest_healpix_order,
         lowest_healpix_order,
         pixel_threshold,
+        pixel_threshold_as_memory,
         drop_empty_siblings,
         expected_total_rows,
     ) -> UPath:
@@ -266,7 +279,9 @@ class ResumePlan(PipelineResumePlan):
             highest_healpix_order (int):  the highest healpix order (e.g. 5-10)
             lowest_healpix_order (int): the lowest healpix order (e.g. 1-5). specifying a lowest order
                 constrains the partitioning to prevent spatially large pixels.
-            threshold (int): the maximum number of objects allowed in a single pixel
+            pixel_threshold (int): the maximum number of objects allowed in a single pixel
+            pixel_threshold_as_memory (int | None): the maximum number of objects allowed in a
+                single pixel, expressed in bytes.
             drop_empty_siblings (bool):  if 3 of 4 pixels are empty, keep only the non-empty pixel
             expected_total_rows (int): number of expected rows found in the dataset.
 
@@ -289,6 +304,7 @@ class ResumePlan(PipelineResumePlan):
                     highest_order=highest_healpix_order,
                     lowest_order=lowest_healpix_order,
                     threshold=pixel_threshold,
+                    threshold_as_memory=pixel_threshold_as_memory,
                     drop_empty_siblings=drop_empty_siblings,
                 )
             with open(file_name, "wb") as pickle_file:

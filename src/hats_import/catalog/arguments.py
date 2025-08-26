@@ -77,6 +77,11 @@ class ImportArguments(RuntimeArguments):
     """when determining bins for the final partitioning, the maximum number 
     of rows for a single resulting pixel. we may combine hierarchically until 
     we near the ``pixel_threshold``"""
+    pixel_threshold_as_memory: int | None = None
+    """when determining bins for the final partitioning, the maximum number
+    of rows for a single resulting pixel, expressed in bytes. we may combine hierarchically until
+    we near the ``pixel_threshold_as_memory``. if this is set, it will override
+    ``pixel_threshold``."""
     drop_empty_siblings: bool = True
     """when determining bins for the final partitioning, should we keep result pixels
     at a higher order (smaller area) if the 3 sibling pixels are empty. setting this to 
