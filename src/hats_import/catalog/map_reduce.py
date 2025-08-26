@@ -86,7 +86,7 @@ def map_to_pixels(
     ra_column,
     dec_column,
     use_healpix_29=False,
-    histogram_by_memory_size=False,
+    use_byte_threshold_histogram=False,
 ):
     """Map a file of input objects to their healpix pixels.
 
@@ -111,6 +111,8 @@ def map_to_pixels(
     try:
         histo = HistogramAggregator(highest_order)
 
+        # TODO : this is where we'd like to intialize the other histo, probs
+
         read_columns = [SPATIAL_INDEX_COLUMN] if use_healpix_29 else [ra_column, dec_column]
 
         for _, chunk_data, mapped_pixels in _iterate_input_file(
@@ -123,7 +125,7 @@ def map_to_pixels(
             read_columns,
         ):
             # If we're creating the histogram from row count.
-            if not histogram_by_memory_size:
+            if not use_byte_threshold_histogram:
                 mapped_pixel, count_at_pixel = np.unique(mapped_pixels, return_counts=True)
                 histo.add(SparseHistogram(mapped_pixel, count_at_pixel, highest_order))
             # If we're creating the histogram from memory size.
@@ -249,7 +251,7 @@ def reduce_pixel_shards(
     write_table_kwargs=None,
     row_group_kwargs=None,
     npix_suffix=".parquet",
-    pixel_threshold_by_memory_size=False,
+    use_byte_pixel_threshold=False,
 ):
     """Reduce sharded source pixels into destination pixels.
 
@@ -282,7 +284,7 @@ def reduce_pixel_shards(
         row_group_kwargs (dict): additional keyword arguments to use in
             creation of rowgroups when writing files to parquet.
         npix_suffix (str): suffix for Npix files. Defaults to ".parquet".
-        pixel_threshold_by_memory_size (bool): if True, use pixel thresholding by memory size.
+        use_byte_pixel_threshold (bool): if True, use pixel thresholding by memory size.
 
     Raises:
         ValueError: if the number of rows written doesn't equal provided
@@ -315,7 +317,7 @@ def reduce_pixel_shards(
 
         rows_written = len(merged_table)
 
-        if not pixel_threshold_by_memory_size and rows_written != destination_pixel_size:
+        if not use_byte_pixel_threshold and rows_written != destination_pixel_size:
             raise ValueError(
                 "Unexpected number of objects at pixel "
                 f"({healpix_pixel})."

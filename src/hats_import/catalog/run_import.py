@@ -50,7 +50,7 @@ def run(args, client):
                     ra_column=args.ra_column,
                     dec_column=args.dec_column,
                     use_healpix_29=args.use_healpix_29,
-                    histogram_by_memory_size=(args.pixel_threshold_as_memory is not None),
+                    use_byte_threshold_histogram=(args.byte_pixel_threshold is not None),
                 )
             )
         resume_plan.wait_for_mapping(futures)
@@ -61,7 +61,7 @@ def run(args, client):
         raw_histogram = resume_plan.read_histogram(args.mapping_healpix_order)
         total_rows = int(raw_histogram.sum())
         if (
-            args.pixel_threshold_as_memory is None
+            args.byte_pixel_threshold is None
             and args.expected_total_rows > 0
             and args.expected_total_rows != total_rows
         ):
@@ -76,7 +76,7 @@ def run(args, client):
             args.highest_healpix_order,
             args.lowest_healpix_order,
             args.pixel_threshold,
-            args.pixel_threshold_as_memory,
+            args.byte_pixel_threshold,
             args.drop_empty_siblings,
             total_rows,
         )
@@ -135,7 +135,7 @@ def run(args, client):
                     write_table_kwargs=args.write_table_kwargs,
                     row_group_kwargs=args.row_group_kwargs,
                     npix_suffix=args.npix_suffix,
-                    pixel_threshold_by_memory_size=(args.pixel_threshold_as_memory is not None),
+                    use_byte_pixel_threshold=(args.byte_pixel_threshold is not None),
                 )
             )
 
@@ -153,7 +153,7 @@ def run(args, client):
                 parquet_rows = write_parquet_metadata(
                     args.catalog_path, create_thumbnail=True, thumbnail_threshold=args.pixel_threshold
                 )
-                if args.pixel_threshold_as_memory is None and total_rows > 0 and parquet_rows != total_rows:
+                if args.byte_pixel_threshold is None and total_rows > 0 and parquet_rows != total_rows:
                     raise ValueError(
                         f"Number of rows in parquet ({parquet_rows}) "
                         f"does not match expectation ({total_rows})"
