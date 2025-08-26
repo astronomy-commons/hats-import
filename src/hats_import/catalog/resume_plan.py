@@ -304,7 +304,7 @@ class ResumePlan(PipelineResumePlan):
                     highest_order=highest_healpix_order,
                     lowest_order=lowest_healpix_order,
                     threshold=pixel_threshold,
-                    threshold_as_memory=byte_pixel_threshold,
+                    byte_pixel_threshold=byte_pixel_threshold,
                     drop_empty_siblings=drop_empty_siblings,
                 )
             with open(file_name, "wb") as pickle_file:
