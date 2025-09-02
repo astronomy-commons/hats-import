@@ -10,7 +10,7 @@ need to install or upgrade versions of dependencies to work with hats-import.
 
 .. code-block:: console
 
-   >> conda create env -n <env_name> python=3.11
+   >> conda create -n <env_name> python=3.12
    >> conda activate <env_name>
 
 .. tip::
