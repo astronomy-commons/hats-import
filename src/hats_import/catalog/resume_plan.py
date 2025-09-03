@@ -263,10 +263,10 @@ class ResumePlan(PipelineResumePlan):
         constant_healpix_order,
         highest_healpix_order,
         lowest_healpix_order,
-        pixel_threshold,
-        byte_pixel_threshold,
         drop_empty_siblings,
         expected_total_rows,
+        pixel_threshold,
+        byte_pixel_threshold=None,
     ) -> UPath:
         """Get a pointer to the existing alignment file for the pipeline, or
         generate a new alignment using provided arguments.
@@ -280,11 +280,10 @@ class ResumePlan(PipelineResumePlan):
             lowest_healpix_order (int): the lowest healpix order (e.g. 1-5). specifying a lowest order
                 constrains the partitioning to prevent spatially large pixels.
             pixel_threshold (int): the maximum number of objects allowed in a single pixel
-            byte_pixel_threshold (int | None): the maximum number of objects allowed in a
-                single pixel, expressed in bytes.
             drop_empty_siblings (bool):  if 3 of 4 pixels are empty, keep only the non-empty pixel
             expected_total_rows (int): number of expected rows found in the dataset.
-
+            byte_pixel_threshold (int | None): the maximum number of objects allowed in a
+                single pixel, expressed in bytes.
         Returns:
             path to cached alignment file.
         """

@@ -75,10 +75,10 @@ def run(args, client):
             args.constant_healpix_order,
             args.highest_healpix_order,
             args.lowest_healpix_order,
-            args.pixel_threshold,
-            args.byte_pixel_threshold,
             args.drop_empty_siblings,
             total_rows,
+            args.pixel_threshold,
+            args.byte_pixel_threshold,
         )
 
         step_progress.update(1)

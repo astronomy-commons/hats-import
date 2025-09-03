@@ -110,14 +110,14 @@ def test_get_alignment_file(tmp_path):
     plan = ResumePlan(tmp_path=tmp_path, progress_bar=False, input_paths=["foo1"])
     raw_histogram = np.full(12, 0)
     raw_histogram[11] = 131
-    alignment_file = plan.get_alignment_file(raw_histogram, -1, 0, 0, 1_000, True, 131)
+    alignment_file = plan.get_alignment_file(raw_histogram, -1, 0, 0, True, 131, 1_000)
 
-    alignment_file2 = plan.get_alignment_file(raw_histogram, -1, 0, 0, 1_000, True, 131)
+    alignment_file2 = plan.get_alignment_file(raw_histogram, -1, 0, 0, True, 131, 1_000)
 
     assert alignment_file == alignment_file2
 
     with pytest.raises(ValueError, match="does not match expectation"):
-        plan.get_alignment_file(raw_histogram, -1, 0, 0, 1_000, True, 130)
+        plan.get_alignment_file(raw_histogram, -1, 0, 0, True, 130, 1_000)
 
 
 def never_fails():
