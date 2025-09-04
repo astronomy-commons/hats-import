@@ -27,8 +27,7 @@ and where to put the output files. A minimal arguments block will look something
 More details on each of these parameters is provided in sections below.
 
 For the curious, see the API documentation for 
-:py:class:`hats_import.margin_cache.margin_cache_arguments.MarginCacheArguments`,
-and its superclass :py:class:`hats_import.runtime_arguments.RuntimeArguments`.
+:py:class:`hats_import.margin_cache.margin_cache_arguments.MarginCacheArguments`.
 
 Dask setup
 -------------------------------------------------------------------------------

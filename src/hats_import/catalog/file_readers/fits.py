@@ -47,17 +47,15 @@ def _first_table_hdu(hdul: fits.HDUList) -> int:
 class FitsReader(InputReader):
     """Chunked FITS file reader.
 
-    There are two column-level arguments for reading fits files:
-    `column_names` and `skip_column_names`.
+    There are two column-level arguments for reading fits files: ``column_names`` and ``skip_column_names``.
 
-        - If neither is provided, we will read and process all columns in the fits file.
-        - If `column_names` is given, we will use *only* those names, and
-          `skip_column_names` will be ignored.
-        - If `skip_column_names` is provided, we will remove those columns from processing stages.
+    - If neither is provided, we will read and process all columns in the fits file.
+    - If ``column_names`` is given, we will use _only_ those names, and ``skip_column_names`` will be ignored.
+    - If ``skip_column_names`` is provided, we will remove those columns from processing stages.
 
     NB: Uses astropy table memmap to avoid reading the entire file into memory.
-    See: https://docs.astropy.org/en/stable/io/fits/index.html#working-with-large-files
 
+    See: https://docs.astropy.org/en/stable/io/fits/index.html#working-with-large-files
 
     Attributes:
         chunksize (int): number of rows of the file to process at once.
@@ -72,9 +70,9 @@ class FitsReader(InputReader):
         flatten_tensors (bool): whether to flatten tensors. If True, the
             fixed-length list-array will be used, otherwise the arrow
             extension fixed-shape tensor will be used.
-        fits_kwargs: keyword arguments passed along to astropy.io.fits.open(file_handler, **kwargs).
+        fits_kwargs: keyword arguments passed along to ``astropy.io.fits.open(file_handler, **kwargs)``.
             See https://docs.astropy.org/en/stable/io/fits/api/files.html#astropy.io.fits.open
-        table_kwargs: keyword arguments passed along to astropy.Table.read(hdu, **kwargs)
+        table_kwargs: keyword arguments passed along to ``astropy.Table.read(hdu, **kwargs)``.
             See https://docs.astropy.org/en/stable/api/astropy.table.Table.html#astropy.table.Table.read
     """
 
