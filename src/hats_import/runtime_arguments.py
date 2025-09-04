@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
+import pandas as pd
 
 from hats.catalog import TableProperties
 from hats.io import file_io
@@ -159,9 +160,12 @@ def find_input_paths(input_path="", file_matcher="", input_file_list=None):
             raise ValueError("exactly one of input_path or input_file_list is required")
         input_paths = file_io.find_files_matching_path(input_path, file_matcher)
     elif input_file_list is not None:
-        # It's common for users to accidentally pass in an empty list. Give them a friendly error.
-        if len(input_file_list) == 0:
-            raise ValueError("input_file_list is empty")
+        if pd.api.types.is_list_like(input_file_list):
+            # It's common for users to accidentally pass in an empty list. Give them a friendly error.
+            if len(input_file_list) == 0:
+                raise ValueError("input_file_list is empty")
+        else:
+            input_file_list = [input_file_list]
         input_paths = input_file_list
     else:
         raise ValueError("exactly one of input_path or input_file_list is required")
