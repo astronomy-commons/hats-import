@@ -20,6 +20,7 @@ from hats_import.catalog.arguments import ImportArguments
 from hats_import.catalog.resume_plan import ResumePlan
 
 
+# pylint: disable=too-many-statements
 def run(args, client):
     """Run catalog creation pipeline."""
     if not args:
