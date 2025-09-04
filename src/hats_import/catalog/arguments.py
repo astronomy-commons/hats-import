@@ -23,7 +23,8 @@ from hats_import.runtime_arguments import RuntimeArguments, find_input_paths
 
 @dataclass
 class ImportArguments(RuntimeArguments):
-    """Container class for holding partitioning arguments"""
+    """Container class for holding arguments for partitioning input
+    data into a HATS catalog."""
 
     catalog_type: str = "object"
     """level of catalog data, object (things in the sky) or source (detections)"""

@@ -8,3 +8,4 @@ from .margin_cache.margin_cache_arguments import MarginCacheArguments
 from .pipeline import pipeline, pipeline_with_client
 from .runtime_arguments import RuntimeArguments
 from .verification.arguments import VerificationArguments
+from .hipscat_conversion import ConversionArguments

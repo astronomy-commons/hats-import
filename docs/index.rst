@@ -33,7 +33,6 @@ large or custom catalogs into HATS format.
    catalogs/temp_files
    catalogs/properties
    catalogs/collections
-   catalogs/file_readers
 
 .. toctree::
    :maxdepth: 1

@@ -1,14 +1,8 @@
 API Reference
 ========================================================================================
 
-.. currentmodule:: hats_import
+.. toctree::
 
-.. autosummary::
-    :toctree: api/
-
-    ImportArguments
-    CollectionArguments
-    IndexArguments
-    MarginCacheArguments
-    VerificationArguments
-    hipscat_conversion.arguments.ConversionArguments
+    Pipeline Runners <reference/pipeline>
+    Pipeline Arguments <reference/argument_classes>
+    Catalog File Readers <reference/file_readers>
