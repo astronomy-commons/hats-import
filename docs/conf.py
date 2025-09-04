@@ -55,7 +55,7 @@ templates_path = ["_templates"]
 modindex_common_prefix = ["lsdb.", "lsdb.catalog", "lsdb.catalog.dataset."]
 # Customize display of autosummary entries
 autosummary_imported_members = True
-autodoc_class_signature = 'separated'
+autodoc_class_signature = "separated"
 
 napoleon_google_docstring = True
 
