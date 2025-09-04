@@ -257,6 +257,7 @@ def test_dask_runner(
         output_path=tmp_path,
         dask_tmp=tmp_path,
         highest_healpix_order=1,
+        create_thumbnail=True,
         progress_bar=False,
     )
 

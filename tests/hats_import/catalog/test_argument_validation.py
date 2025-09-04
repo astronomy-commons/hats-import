@@ -133,6 +133,28 @@ def test_single_debug_file(formats_headers_csv, tmp_path):
     assert len(args.input_paths) == 1
     assert args.input_paths[0] == formats_headers_csv
 
+    args = ImportArguments(
+        output_artifact_name="catalog",
+        input_file_list=formats_headers_csv,
+        file_reader="csv",
+        output_path=tmp_path,
+        progress_bar=False,
+    )
+    assert len(args.input_paths) == 1
+    assert args.input_paths[0] == formats_headers_csv
+
+    single_file_name = formats_headers_csv.name
+    assert isinstance(single_file_name, str)
+    args = ImportArguments(
+        output_artifact_name="catalog",
+        input_file_list=single_file_name,
+        file_reader="csv",
+        output_path=tmp_path,
+        progress_bar=False,
+    )
+    assert len(args.input_paths) == 1
+    assert args.input_paths[0] == single_file_name
+
 
 def test_healpix_args(blank_data_dir, tmp_path):
     """Test errors for healpix partitioning arguments"""
@@ -214,11 +236,30 @@ def test_to_table_properties(blank_data_dir, tmp_path):
         progress_bar=False,
         addl_hats_properties={"hats_cols_default": "id, mjd", "obs_regime": "Optical"},
     )
-    catalog_info = args.to_table_properties(total_rows=10, highest_order=4, moc_sky_fraction=22 / 7)
+    catalog_info = args.to_table_properties(
+        total_rows=10, highest_order=4, moc_sky_fraction=22 / 7, column_names=["id", "mjd", "ra", "dec"]
+    )
     assert catalog_info.catalog_name == "catalog"
     assert catalog_info.total_rows == 10
     assert catalog_info.default_columns == ["id", "mjd"]
     assert catalog_info.__pydantic_extra__["obs_regime"] == "Optical"
+
+
+def test_to_table_properties_missing_default(blank_data_dir, tmp_path):
+    """Verify creation of catalog parameters for catalog to be created."""
+    args = ImportArguments(
+        output_artifact_name="catalog",
+        input_path=blank_data_dir,
+        file_reader="csv",
+        output_path=tmp_path,
+        tmp_dir=tmp_path,
+        progress_bar=False,
+        addl_hats_properties={"hats_cols_default": "id, mjd", "obs_regime": "Optical"},
+    )
+    with pytest.raises(ValueError, match="Some default columns not found"):
+        args.to_table_properties(
+            total_rows=10, highest_order=4, moc_sky_fraction=22 / 7, column_names=["id", "ra", "dec"]
+        )
 
 
 def test_check_healpix_order_range():
