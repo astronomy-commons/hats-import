@@ -38,13 +38,10 @@ html_css_files = ["custom.css"]
 extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
-    # viewcode and autoapi interaction creates some failures. See:
-    # https://github.com/readthedocs/sphinx-autoapi/issues/422
-    # "sphinx.ext.viewcode",
     "sphinx.ext.intersphinx",
     "sphinx_copybutton",
-    "autoapi.extension",
     "nbsphinx",
+    "sphinx.ext.autosummary",
 ]
 
 # -- autoapi configuration ----------------------------------------
@@ -53,21 +50,12 @@ html_show_sourcelink = False
 # Remove namespaces from class/method signatures
 add_module_names = False
 
-autoapi_type = "python"
-autoapi_dirs = ["../src"]
-autoapi_ignore = ["*/__main__.py", "*/_version.py"]
-autoapi_add_toc_tree_entry = False
-autoapi_member_order = "bysource"
-
-autoapi_options = [
-    "members",
-    "undoc-members",
-    "show-inheritance",
-    "show-module-summary",
-    "special-members",
-    "imported-members",
-    "inherited-members",
-]
+templates_path = ["_templates"]
+# Hide full module path in navigation
+modindex_common_prefix = ["lsdb.", "lsdb.catalog", "lsdb.catalog.dataset."]
+# Customize display of autosummary entries
+autosummary_imported_members = True
+autodoc_class_signature = 'separated'
 
 napoleon_google_docstring = True
 

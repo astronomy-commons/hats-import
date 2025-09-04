@@ -58,4 +58,4 @@ large or custom catalogs into HATS format.
    :caption: Developers
 
    guide/contributing
-   API Reference <autoapi/index>
+   API Reference <reference>
