@@ -6,8 +6,8 @@ import re
 from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
-import pandas as pd
 
+import pandas as pd
 from hats.catalog import TableProperties
 from hats.io import file_io
 from hats.io.validation import is_valid_catalog

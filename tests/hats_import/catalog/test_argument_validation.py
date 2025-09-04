@@ -143,6 +143,18 @@ def test_single_debug_file(formats_headers_csv, tmp_path):
     assert len(args.input_paths) == 1
     assert args.input_paths[0] == formats_headers_csv
 
+    single_file_name = formats_headers_csv.name
+    assert isinstance(single_file_name, str)
+    args = ImportArguments(
+        output_artifact_name="catalog",
+        input_file_list=single_file_name,
+        file_reader="csv",
+        output_path=tmp_path,
+        progress_bar=False,
+    )
+    assert len(args.input_paths) == 1
+    assert args.input_paths[0] == single_file_name
+
 
 def test_healpix_args(blank_data_dir, tmp_path):
     """Test errors for healpix partitioning arguments"""
