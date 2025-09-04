@@ -54,6 +54,8 @@ class ImportArguments(RuntimeArguments):
     """additional keyword arguments to use in creation of rowgroups when writing files to parquet."""
     skymap_alt_orders: list[int] | None = None
     """Additional alternative healpix orders to write a HEALPix skymap."""
+    create_thumbnail: bool = False
+    """Create /dataset/data_thumbnail.parquet from one row of each data partition."""
 
     use_schema_file: str | Path | UPath | None = None
     """path to a parquet file with schema metadata. this will be used for column
