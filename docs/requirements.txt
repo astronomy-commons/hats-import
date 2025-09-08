@@ -6,7 +6,6 @@ jupytext
 nbconvert
 nbsphinx
 sphinx
-sphinx-autoapi
 sphinx-copybutton
 sphinx-book-theme
 git+https://github.com/astronomy-commons/hats.git@main
