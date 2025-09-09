@@ -21,12 +21,13 @@ from hats_import.catalog.resume_plan import ResumePlan
 
 def run(args, client):
     """Run catalog creation pipeline."""
+
+    # 1 - PLANNING ---------------------------------------------------------------------------------
+
     if not args:
         raise ValueError("args is required and should be type ImportArguments")
     if not isinstance(args, ImportArguments):
         raise ValueError("args must be type ImportArguments")
-
-    # 1 - PLANNING ---------------------------------------------------------------------------------
 
     resume_plan = ResumePlan(import_args=args)
 
@@ -50,7 +51,7 @@ def run(args, client):
                     ra_column=args.ra_column,
                     dec_column=args.dec_column,
                     use_healpix_29=args.use_healpix_29,
-                    use_byte_threshold_histogram=(args.byte_pixel_threshold is not None),
+                    use_byte_threshold_histogram=(resume_plan.histogram_type == "memsize"),
                 )
             )
         resume_plan.wait_for_mapping(futures)
@@ -58,10 +59,14 @@ def run(args, client):
     # 3 - BINNING ----------------------------------------------------------------------------------
 
     with resume_plan.print_progress(total=2, stage_name="Binning") as step_progress:
-        raw_histogram = resume_plan.read_histogram(args.mapping_healpix_order)
+        # Select histogram type based on resume_plan.histogram_type
+        if resume_plan.histogram_type == "memsize":
+            raw_histogram = resume_plan.read_histogram(args.mapping_healpix_order, histogram_type="memsize")
+        else:
+            raw_histogram = resume_plan.read_histogram(args.mapping_healpix_order, histogram_type="row_count")
         total_rows = int(raw_histogram.sum())
         if (
-            args.byte_pixel_threshold is None
+            resume_plan.histogram_type == "row_count"
             and args.expected_total_rows > 0
             and args.expected_total_rows != total_rows
         ):
@@ -135,13 +140,31 @@ def run(args, client):
                     write_table_kwargs=args.write_table_kwargs,
                     row_group_kwargs=args.row_group_kwargs,
                     npix_suffix=args.npix_suffix,
-                    use_byte_pixel_threshold=(args.byte_pixel_threshold is not None),
+                    use_byte_pixel_threshold=(resume_plan.histogram_type == "memsize"),
                 )
             )
 
         resume_plan.wait_for_reducing(futures)
 
     # 6 - FINISHING --------------------------------------------------------------------------------
+
+    # After reducing, update the row count histogram from final partition files
+    import numpy as np
+    from hats.loaders import read_hats
+    from hats.pixel_math import HealpixPixel
+    from hats.pixel_math.partition_stats import generate_row_count_histogram_from_partitions
+
+    info_frame = read_hats(args.catalog_path).partition_info.as_dataframe()
+    partition_files = [
+        paths.pixel_catalog_file(args.catalog_path, HealpixPixel(row["Norder"], row["Npix"]))
+        for _, row in info_frame.iterrows()
+    ]
+    pixel_orders = info_frame["Norder"].tolist()
+    pixel_indices = info_frame["Npix"].tolist()
+    highest_order = max(pixel_orders)
+    updated_row_histogram = generate_row_count_histogram_from_partitions(
+        partition_files, pixel_orders, pixel_indices, highest_order
+    )
 
     # All done - write out the metadata
     if resume_plan.should_run_finishing:
@@ -153,10 +176,18 @@ def run(args, client):
                 parquet_rows = write_parquet_metadata(
                     args.catalog_path, create_thumbnail=True, thumbnail_threshold=args.pixel_threshold
                 )
+                # Use updated_row_histogram for validation if needed
+                updated_total_rows = int(np.sum(updated_row_histogram))
                 if args.byte_pixel_threshold is None and total_rows > 0 and parquet_rows != total_rows:
                     raise ValueError(
                         f"Number of rows in parquet ({parquet_rows}) "
                         f"does not match expectation ({total_rows})"
+                    )
+                # Optionally, validate against updated_total_rows
+                if parquet_rows != updated_total_rows:
+                    raise ValueError(
+                        f"Number of rows in parquet ({parquet_rows}) "
+                        f"does not match updated row count ({updated_total_rows})"
                     )
             step_progress.update(1)
             io.write_fits_image(raw_histogram, paths.get_point_map_file_pointer(args.catalog_path))

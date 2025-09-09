@@ -34,6 +34,8 @@ class ResumePlan(PipelineResumePlan):
     should_run_splitting: bool = True
     should_run_reducing: bool = True
     should_run_finishing: bool = True
+    histogram_type: str = "row_count"  # Either "row_count" or "memsize"
+    """Type of histogram used for partitioning: 'row_count' or 'memsize'"""
 
     MAPPING_STAGE = "mapping"
     SPLITTING_STAGE = "splitting"
@@ -62,6 +64,11 @@ class ResumePlan(PipelineResumePlan):
             if import_args.debug_stats_only:
                 run_stages = ["mapping", "finishing"]
             self.input_paths = import_args.input_paths
+            # Set histogram_type based on byte_pixel_threshold
+            if hasattr(import_args, "byte_pixel_threshold") and import_args.byte_pixel_threshold is not None:
+                self.histogram_type = "memsize"
+            else:
+                self.histogram_type = "row_count"
         else:
             super().__init__(
                 resume=resume,
@@ -73,6 +80,7 @@ class ResumePlan(PipelineResumePlan):
                 delete_intermediate_parquet_files=delete_intermediate_parquet_files,
             )
             self.input_paths = input_paths
+            self.histogram_type = "row_count"
         self.gather_plan(run_stages)
 
     def gather_plan(self, run_stages: list[str] | None = None):
@@ -188,17 +196,6 @@ class ResumePlan(PipelineResumePlan):
                 + "from scratch with the current order set `resume` to False."
             )
 
-        # TMP start:
-        destination_path = "/astro/users/olynn/tmp-histograms"
-
-        # Copy the full_histogram npz to the destination path:
-        destination_file = file_io.append_paths_to_pointer(
-            destination_path, f"full_histogram_{healpix_order}.npz"
-        )
-        with open(destination_file, "wb+") as file_handle:
-            file_handle.write(full_histogram)
-
-        # TMP end.
         return full_histogram
 
     @classmethod

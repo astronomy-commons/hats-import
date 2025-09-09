@@ -109,9 +109,11 @@ def map_to_pixels(
         FileNotFoundError: if the file does not exist, or is a directory
     """
     try:
-        histo = HistogramAggregator(highest_order)
-
-        # TODO : this is where we'd like to intialize the other histo, probs
+        # Always generate the row-count histogram
+        row_count_histo = HistogramAggregator(highest_order)
+        mem_size_histo = None
+        if use_byte_threshold_histogram:
+            mem_size_histo = HistogramAggregator(highest_order)
 
         read_columns = [SPATIAL_INDEX_COLUMN] if use_healpix_29 else [ra_column, dec_column]
 
@@ -124,17 +126,14 @@ def map_to_pixels(
             use_healpix_29,
             read_columns,
         ):
-            # If we're creating the histogram from row count.
-            if not use_byte_threshold_histogram:
-                mapped_pixel, count_at_pixel = np.unique(mapped_pixels, return_counts=True)
-                histo.add(SparseHistogram(mapped_pixel, count_at_pixel, highest_order))
-            # If we're creating the histogram from memory size.
-            else:
-                data_mem_sizes = _get_mem_size_of_rows(chunk_data)
+            # Always add to row-count histogram
+            mapped_pixel, count_at_pixel = np.unique(mapped_pixels, return_counts=True)
+            row_count_histo.add(SparseHistogram(mapped_pixel, count_at_pixel, highest_order))
 
-                # Make a mapping from pixel to memory size
+            # If requested, also add to memory-size histogram
+            if use_byte_threshold_histogram:
+                data_mem_sizes = _get_mem_size_of_rows(chunk_data)
                 pixel_mem_sizes = defaultdict(int)
-                # print(f"Mapped_pixels len: {len(mapped_pixels)}, data_mem_sizes len: {len(data_mem_sizes)}")
                 for pixel, mem_size in zip(mapped_pixels, data_mem_sizes, strict=True):
                     pixel_mem_sizes[pixel] += mem_size
 
@@ -142,16 +141,17 @@ def map_to_pixels(
                 mapped_pixel_ids = np.array(list(pixel_mem_sizes.keys()), dtype=np.int64)
                 mapped_pixel_mem_sizes = np.array(list(pixel_mem_sizes.values()), dtype=np.int64)
 
-                # Add these lists to our histo via SparseHistogram
-                histo.add(SparseHistogram(mapped_pixel_ids, mapped_pixel_mem_sizes, highest_order))
+                mem_size_histo.add(SparseHistogram(mapped_pixel_ids, mapped_pixel_mem_sizes, highest_order))
 
-        histo.to_sparse().to_file(
+        # Write row-count histogram to file
+        row_count_histo.to_sparse().to_file(
             ResumePlan.partial_histogram_file(tmp_path=resume_path, mapping_key=mapping_key)
         )
-        # TODO - we'd also want to write the other histogram to file, if it exists. gotta redo the
-        # branching tho, since we'll now want to always make the row count histo anyway ig.
-        # tho, that means we'll need to update things in the first histo as we join pixels to
-        # lower orders and stuff. should be fine, just need to keep an eye out for that in the code
+        # If requested, also write memory-size histogram to a separate file
+        if use_byte_threshold_histogram:
+            mem_size_histo.to_sparse().to_file(
+                ResumePlan.partial_histogram_file(tmp_path=resume_path, mapping_key=f"{mapping_key}_memsize")
+            )
     except Exception as exception:  # pylint: disable=broad-exception-caught
         print_task_failure(f"Failed MAPPING stage with file {input_file}", exception)
         raise exception
@@ -184,7 +184,7 @@ def split_pixels(
 
     Args:
         input_file (UPath): file to read for catalog data.
-        file_reader (hats_import.catalog.file_readers.InputReader): instance
+        pickled_reader_file (hats_import.catalog.file_readers.InputReader): instance
             of input reader that specifies arguments necessary for reading from the input file.
         splitting_key (str): unique counter for this input file, used
             when creating intermediate files
@@ -193,6 +193,8 @@ def split_pixels(
         dec_column (str): where to find declation in the dataframe
         cache_shard_path (UPath): where to write intermediate parquet files.
         resume_path (UPath): where to write resume files.
+        alignment_file (str, optional): path to the alignment file for pixel mapping.
+        use_healpix_29 (bool, optional): whether to use healpix_29 column for mapping.
 
     Raises:
         ValueError: if the `ra_column` or `dec_column` cannot be found in the input file.
