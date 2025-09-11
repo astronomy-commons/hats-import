@@ -23,7 +23,7 @@ large or custom catalogs into HATS format.
    Home page <self>
    Getting Started <getting_started>
    guide/contact
-   About <citation>
+   About & Citation <citation>
 
 .. toctree::
    :maxdepth: 1

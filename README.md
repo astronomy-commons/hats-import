@@ -30,6 +30,15 @@ See related projects:
 See the [contribution guide](https://hats-import.readthedocs.io/en/stable/guide/contributing.html)
 for complete installation instructions and contribution best practices.
 
+## Citation
+
+If you use HATS / HATS-import in your work, please cite the conference proceedings: 
+["Using LSDB to enable large-scale catalog distribution, cross-matching, and analytics"](https://ui.adsabs.harvard.edu/abs/2025arXiv250102103C). 
+
+If you use Rubin Data Preview 1 (DP1) with HATS, please also cite: ["Variability-finding in Rubin Data Preview 1 with LSDB"](https://ui.adsabs.harvard.edu/abs/2025arXiv250623955M).
+
+Find full citation information [here](./CITATION.bib).
+
 ## Acknowledgements
 
 This project is supported by Schmidt Sciences.
