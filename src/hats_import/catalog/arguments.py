@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import hats
-from hats.catalog import TableProperties
+from hats.catalog import AssociationCatalog, TableProperties
 from hats.catalog.catalog_collection import CatalogCollection
 from hats.io.file_io import get_upath
 from hats.io.paths import DATASET_DIR, PARTITION_ORDER
@@ -122,8 +122,10 @@ class ImportArguments(RuntimeArguments):
                 raise ValueError("pixel_threshold should be between 100 and 1,000,000,000")
             self.mapping_healpix_order = self.highest_healpix_order
 
-        if self.catalog_type not in ("source", "object", "map"):
-            raise ValueError("catalog_type should be one of `source`, `object`, or `map`")
+        if self.catalog_type not in ("source", "object", "association", "map"):
+            raise ValueError("catalog_type should be one of `source`, `object`, `association` or `map`")
+        if self.catalog_type == "association" and not self.use_healpix_29:
+            raise ValueError("catalog_type `association` requires `use_healpix_29=True`")
 
         if self.file_reader is None:
             raise ValueError("file_reader is required")
@@ -217,6 +219,19 @@ class ImportArguments(RuntimeArguments):
                 "hats_npix_suffix": catalog.catalog_info.npix_suffix,
             }
         )
+        if isinstance(catalog, AssociationCatalog):
+            addl_hats_properties.update(
+                {
+                    "primary_catalog": catalog.catalog_info.primary_catalog,
+                    "primary_column": catalog.catalog_info.primary_column,
+                    "primary_column_association": catalog.catalog_info.primary_column_association,
+                    "join_catalog": catalog.catalog_info.join_catalog,
+                    "join_column": catalog.catalog_info.join_column,
+                    "join_column_association": catalog.catalog_info.join_column_association,
+                    "assn_max_separation": catalog.catalog_info.assn_max_separation,
+                    "contains_leaf_files": catalog.catalog_info.contains_leaf_files,
+                }
+            )
 
         if "addl_hats_properties" in kwargs:
             addl_hats_properties.update(kwargs.pop("addl_hats_properties"))

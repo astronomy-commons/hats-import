@@ -93,6 +93,11 @@ def small_sky_nested_catalog(test_data_dir):
 
 
 @pytest.fixture
+def small_sky_object_source_association(test_data_dir):
+    return test_data_dir / "small_sky_object_source_association"
+
+
+@pytest.fixture
 def blank_data_dir(test_data_dir):
     return test_data_dir / "blank"
 
