@@ -50,4 +50,6 @@ class AssociationArguments(ImportArguments):
             "assn_max_separation": catalog.catalog_info.assn_max_separation,
             "contains_leaf_files": catalog.catalog_info.contains_leaf_files,
         }
-        return super().reimport_from_hats(path, output_dir, addl_hats_properties=addl_hats_properties)
+        return super().reimport_from_hats(
+            path, output_dir, addl_hats_properties=addl_hats_properties, **kwargs
+        )
