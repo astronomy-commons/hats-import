@@ -20,12 +20,12 @@ dependencies = [
     "cloudpickle", # Reader serialisation, transitive dependency of Dask
     "dask[complete]>=2024.3.0,<2025.4.0", # Includes dask expressions.
     "deprecated",
-    "hats >=0.6",
+    "hats >=0.6.5",
     "numpy",
     "pandas",
     "pyarrow",
     "tqdm",
-    "universal_pathlib",
+    "universal-pathlib>=0.2.2",
 ]
 
 # On a mac, install optional dependencies with `pip install '.[dev]'` (include the single quotes)
