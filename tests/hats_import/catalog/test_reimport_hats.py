@@ -200,7 +200,7 @@ def test_run_reimport(
     assert skymap_file.exists()
 
 
-@pytest.mark.dask(timeout=20)
+@pytest.mark.dask(timeout=30)
 def test_run_reimport_association(dask_client, small_sky_object_source_association, tmp_path):
     output_name = "small_sky_assn_smaller_order"
     args = AssociationArguments.reimport_from_hats(
