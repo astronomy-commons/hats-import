@@ -13,12 +13,14 @@ from hats.io import paths
 from hats.io.parquet_metadata import write_parquet_metadata
 from hats.io.skymap import write_skymap
 from hats.io.validation import is_valid_catalog
+from hats.loaders.read_hats import _read_schema_from_metadata
 
 import hats_import.catalog.map_reduce as mr
 from hats_import.catalog.arguments import ImportArguments
 from hats_import.catalog.resume_plan import ResumePlan
 
 
+# pylint: disable=too-many-statements
 def run(args, client):
     """Run catalog creation pipeline."""
     if not args:
@@ -126,19 +128,25 @@ def run(args, client):
 
     # All done - write out the metadata
     if resume_plan.should_run_finishing:
-        with resume_plan.print_progress(total=5, stage_name="Finishing") as step_progress:
+        with resume_plan.print_progress(total=6, stage_name="Finishing") as step_progress:
             partition_info = PartitionInfo.from_healpix(resume_plan.get_destination_pixels())
             partition_info_file = paths.get_partition_info_pointer(args.catalog_path)
             partition_info.write_to_file(partition_info_file)
+            step_progress.update(1)
+
+            column_names = []
             if not args.debug_stats_only:
                 parquet_rows = write_parquet_metadata(
-                    args.catalog_path, create_thumbnail=True, thumbnail_threshold=args.pixel_threshold
+                    args.catalog_path,
+                    create_thumbnail=args.create_thumbnail,
+                    thumbnail_threshold=args.pixel_threshold,
                 )
                 if total_rows > 0 and parquet_rows != total_rows:
                     raise ValueError(
                         f"Number of rows in parquet ({parquet_rows}) "
                         f"does not match expectation ({total_rows})"
                     )
+                column_names = _read_schema_from_metadata(args.catalog_path).names
             step_progress.update(1)
             io.write_fits_image(raw_histogram, paths.get_point_map_file_pointer(args.catalog_path))
             write_skymap(
@@ -146,7 +154,10 @@ def run(args, client):
             )
             step_progress.update(1)
             catalog_info = args.to_table_properties(
-                total_rows, partition_info.get_highest_order(), partition_info.calculate_fractional_coverage()
+                total_rows,
+                partition_info.get_highest_order(),
+                partition_info.calculate_fractional_coverage(),
+                column_names=column_names,
             )
             catalog_info.to_properties_file(args.catalog_path)
             step_progress.update(1)

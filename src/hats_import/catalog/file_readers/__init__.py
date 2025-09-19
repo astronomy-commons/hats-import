@@ -18,20 +18,22 @@ def get_file_reader(
 ):
     """Get a generator file reader for common file types
 
+    Currently supported formats include:
+
+    - ``"csv"``, comma separated values. may also be tab- or pipe-delimited
+      includes `.csv.gz` and other compressed csv files
+    - ``"fits"``, flexible image transport system. often used for astropy tables.
+    - ``"parquet"``, compressed columnar data format
+    - ``"ecsv"``, astropy's enhanced CSV
+    - ``"indexed_csv"``, "index" style reader, that accepts a file with a list
+      of csv files that are appended in-memory
+    - ``"indexed_parquet"``, "index" style reader, that accepts a file with a list
+      of parquet files that are appended in-memory
+
     Args:
         file_format (str): specifier for the file type and extension.
-            Currently supported formats include:
-
-            - `csv`, comma separated values. may also be tab- or pipe-delimited
-              includes `.csv.gz` and other compressed csv files
-            - `fits`, flexible image transport system. often used for astropy tables.
-            - `parquet`, compressed columnar data format
-            - `ecsv`, astropy's enhanced CSV
-            - `indexed_csv`, "index" style reader, that accepts a file with a list
-              of csv files that are appended in-memory
-            - `indexed_parquet`, "index" style reader, that accepts a file with a list
-              of parquet files that are appended in-memory
-
+            If using an ``input_path`` argument, we will look for files with this string
+            as the extension.
         chunksize (int): number of rows to read in a single iteration.
             for single-file readers, large files are split into batches based on this value.
             for index-style readers, we read files until we reach this chunksize and

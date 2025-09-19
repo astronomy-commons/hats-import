@@ -23,7 +23,8 @@ from hats_import.runtime_arguments import RuntimeArguments, find_input_paths
 
 @dataclass
 class ImportArguments(RuntimeArguments):
-    """Container class for holding partitioning arguments"""
+    """Container class for holding arguments for partitioning input
+    data into a HATS catalog."""
 
     catalog_type: str = "object"
     """level of catalog data, object (things in the sky) or source (detections)"""
@@ -54,6 +55,8 @@ class ImportArguments(RuntimeArguments):
     """additional keyword arguments to use in creation of rowgroups when writing files to parquet."""
     skymap_alt_orders: list[int] | None = None
     """Additional alternative healpix orders to write a HEALPix skymap."""
+    create_thumbnail: bool = False
+    """Create /dataset/data_thumbnail.parquet from one row of each data partition."""
 
     use_schema_file: str | Path | UPath | None = None
     """path to a parquet file with schema metadata. this will be used for column
@@ -144,7 +147,11 @@ class ImportArguments(RuntimeArguments):
             }
 
     def to_table_properties(
-        self, total_rows: int, highest_order: int, moc_sky_fraction: float
+        self,
+        total_rows: int,
+        highest_order: int,
+        moc_sky_fraction: float,
+        column_names=None,
     ) -> TableProperties:
         """Catalog-type-specific dataset info."""
         info = self.extra_property_dict() | {
@@ -161,7 +168,14 @@ class ImportArguments(RuntimeArguments):
             "hats_skymap_order": self.mapping_healpix_order,
             "hats_skymap_alt_orders": self.skymap_alt_orders,
         }
-        return TableProperties(**info)
+        properties = TableProperties(**info)
+
+        if properties.default_columns and column_names:
+            missing_columns = set(properties.default_columns) - set(column_names)
+            if len(missing_columns):
+                raise ValueError(f"Some default columns not found in catalog: {missing_columns}")
+
+        return properties
 
     @classmethod
     def reimport_from_hats(

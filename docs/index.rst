@@ -23,7 +23,7 @@ large or custom catalogs into HATS format.
    Home page <self>
    Getting Started <getting_started>
    guide/contact
-   About <citation>
+   About & Citation <citation>
 
 .. toctree::
    :maxdepth: 1
@@ -33,7 +33,6 @@ large or custom catalogs into HATS format.
    catalogs/temp_files
    catalogs/properties
    catalogs/collections
-   catalogs/file_readers
 
 .. toctree::
    :maxdepth: 1
@@ -58,4 +57,4 @@ large or custom catalogs into HATS format.
    :caption: Developers
 
    guide/contributing
-   API Reference <autoapi/index>
+   API Reference <reference>
