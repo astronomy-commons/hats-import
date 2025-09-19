@@ -6,6 +6,7 @@ from hats import HealpixPixel, read_hats
 from hats.io import paths
 
 import hats_import.catalog.run_import as runner
+from hats_import.association.arguments import AssociationArguments
 from hats_import.catalog import ImportArguments
 from hats_import.catalog.file_readers import ParquetPyarrowReader
 
@@ -108,7 +109,7 @@ def test_reimport_arguments_catalog_collection(test_data_dir, small_sky_object_c
 
 
 def test_reimport_arguments_association(small_sky_object_source_association, tmp_path):
-    args = ImportArguments.reimport_from_hats(small_sky_object_source_association, tmp_path)
+    args = AssociationArguments.reimport_from_hats(small_sky_object_source_association, tmp_path)
 
     catalog = hats.read_hats(small_sky_object_source_association)
     assert len(args.input_paths) == len(catalog.get_healpix_pixels())
@@ -136,6 +137,11 @@ def test_reimport_arguments_association(small_sky_object_source_association, tmp
     }
 
 
+def test_reimport_arguments_association_wrong_catalog_type(small_sky_object_catalog, tmp_path):
+    with pytest.raises(ValueError, match="type `association`"):
+        AssociationArguments.reimport_from_hats(small_sky_object_catalog, tmp_path)
+
+
 @pytest.mark.dask(timeout=10)
 def test_run_reimport(
     dask_client,
@@ -152,6 +158,7 @@ def test_run_reimport(
         highest_healpix_order=1,
         addl_hats_properties={"obs_regime": "Optical"},
     )
+    assert isinstance(args, ImportArguments)
 
     runner.run(args, dask_client)
 
@@ -186,16 +193,24 @@ def test_run_reimport(
     expected_dtypes = expected_parquet_schema.empty_table().to_pandas().dtypes
     assert data_frame.dtypes.equals(expected_dtypes)
 
+    # Check that the fits files exist
+    pointmap_file = paths.get_point_map_file_pointer(args.catalog_path)
+    assert pointmap_file.exists()
+    skymap_file = paths.get_skymap_file_pointer(args.catalog_path)
+    assert skymap_file.exists()
 
-@pytest.mark.dask(timeout=10)
+
+@pytest.mark.dask(timeout=20)
 def test_run_reimport_association(dask_client, small_sky_object_source_association, tmp_path):
     output_name = "small_sky_assn_smaller_order"
-    args = ImportArguments.reimport_from_hats(
+    args = AssociationArguments.reimport_from_hats(
         small_sky_object_source_association,
         tmp_path,
         constant_healpix_order=0,
         output_artifact_name=output_name,
     )
+    assert isinstance(args, AssociationArguments)
+
     runner.run(args, dask_client)
 
     old_cat = read_hats(small_sky_object_source_association)
@@ -229,3 +244,9 @@ def test_run_reimport_association(dask_client, small_sky_object_source_associati
     data_frame = pd.read_parquet(output_file, engine="pyarrow")
     expected_dtypes = expected_parquet_schema.empty_table().to_pandas().dtypes
     assert data_frame.dtypes.equals(expected_dtypes)
+
+    # Check that the fits files do not exist
+    pointmap_file = paths.get_point_map_file_pointer(args.catalog_path)
+    assert not pointmap_file.exists()
+    skymap_file = paths.get_skymap_file_pointer(args.catalog_path)
+    assert not skymap_file.exists()

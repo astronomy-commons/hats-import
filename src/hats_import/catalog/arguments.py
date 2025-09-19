@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Self
 
 import hats
-from hats.catalog import AssociationCatalog, TableProperties
+from hats.catalog import TableProperties
 from hats.catalog.catalog_collection import CatalogCollection
 from hats.io.file_io import get_upath
 from hats.io.paths import DATASET_DIR, PARTITION_ORDER
@@ -28,6 +29,8 @@ class ImportArguments(RuntimeArguments):
 
     catalog_type: str = "object"
     """level of catalog data, object (things in the sky) or source (detections)"""
+    allowed_catalog_types: tuple[str] = ("source", "object", "map")
+    """possible types of catalog to import with `ImportArguments`"""
     input_path: str | Path | UPath | None = None
     """path to search for the input data"""
     input_file_list: list[str | Path | UPath] = field(default_factory=list)
@@ -100,6 +103,8 @@ class ImportArguments(RuntimeArguments):
     file_reader: InputReader | str | None = None
     """instance of input reader that specifies arguments necessary for reading
     from your input files"""
+    should_write_skymap: bool = True
+    """main catalogs should contain skymap fits files"""
 
     def __post_init__(self):
         self._check_arguments()
@@ -122,10 +127,8 @@ class ImportArguments(RuntimeArguments):
                 raise ValueError("pixel_threshold should be between 100 and 1,000,000,000")
             self.mapping_healpix_order = self.highest_healpix_order
 
-        if self.catalog_type not in ("source", "object", "association", "map"):
-            raise ValueError("catalog_type should be one of `source`, `object`, `association` or `map`")
-        if self.catalog_type == "association" and not self.use_healpix_29:
-            raise ValueError("catalog_type `association` requires `use_healpix_29=True`")
+        if self.catalog_type not in self.allowed_catalog_types:
+            raise ValueError(f"catalog_type should be one of {self.allowed_catalog_types}")
 
         if self.file_reader is None:
             raise ValueError("file_reader is required")
@@ -167,9 +170,14 @@ class ImportArguments(RuntimeArguments):
             "hats_order": highest_order,
             "moc_sky_fraction": f"{moc_sky_fraction:0.5f}",
             "hats_npix_suffix": self.npix_suffix,
-            "hats_skymap_order": self.mapping_healpix_order,
-            "hats_skymap_alt_orders": self.skymap_alt_orders,
         }
+        if self.should_write_skymap:
+            info.update(
+                {
+                    "hats_skymap_order": self.mapping_healpix_order,
+                    "hats_skymap_alt_orders": self.skymap_alt_orders,
+                }
+            )
         properties = TableProperties(**info)
 
         if properties.default_columns and column_names:
@@ -180,9 +188,7 @@ class ImportArguments(RuntimeArguments):
         return properties
 
     @classmethod
-    def reimport_from_hats(
-        cls, path: str | Path | UPath, output_dir: str | Path | UPath, **kwargs
-    ) -> ImportArguments:
+    def reimport_from_hats(cls, path: str | Path | UPath, output_dir: str | Path | UPath, **kwargs) -> Self:
         """Generate the import arguments to reimport a HATS catalog with different parameters
 
         Args:
@@ -219,19 +225,6 @@ class ImportArguments(RuntimeArguments):
                 "hats_npix_suffix": catalog.catalog_info.npix_suffix,
             }
         )
-        if isinstance(catalog, AssociationCatalog):
-            addl_hats_properties.update(
-                {
-                    "primary_catalog": catalog.catalog_info.primary_catalog,
-                    "primary_column": catalog.catalog_info.primary_column,
-                    "primary_column_association": catalog.catalog_info.primary_column_association,
-                    "join_catalog": catalog.catalog_info.join_catalog,
-                    "join_column": catalog.catalog_info.join_column,
-                    "join_column_association": catalog.catalog_info.join_column_association,
-                    "assn_max_separation": catalog.catalog_info.assn_max_separation,
-                    "contains_leaf_files": catalog.catalog_info.contains_leaf_files,
-                }
-            )
 
         if "addl_hats_properties" in kwargs:
             addl_hats_properties.update(kwargs.pop("addl_hats_properties"))
