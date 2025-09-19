@@ -128,7 +128,8 @@ def run(args, client):
 
     # All done - write out the metadata
     if resume_plan.should_run_finishing:
-        with resume_plan.print_progress(total=6, stage_name="Finishing") as step_progress:
+        num_steps = 6 if args.should_write_skymap else 5
+        with resume_plan.print_progress(total=num_steps, stage_name="Finishing") as step_progress:
             partition_info = PartitionInfo.from_healpix(resume_plan.get_destination_pixels())
             partition_info_file = paths.get_partition_info_pointer(args.catalog_path)
             partition_info.write_to_file(partition_info_file)
@@ -148,11 +149,12 @@ def run(args, client):
                     )
                 column_names = _read_schema_from_metadata(args.catalog_path).names
             step_progress.update(1)
-            io.write_fits_image(raw_histogram, paths.get_point_map_file_pointer(args.catalog_path))
-            write_skymap(
-                histogram=raw_histogram, catalog_dir=args.catalog_path, orders=args.skymap_alt_orders
-            )
-            step_progress.update(1)
+            if args.should_write_skymap:
+                io.write_fits_image(raw_histogram, paths.get_point_map_file_pointer(args.catalog_path))
+                write_skymap(
+                    histogram=raw_histogram, catalog_dir=args.catalog_path, orders=args.skymap_alt_orders
+                )
+                step_progress.update(1)
             catalog_info = args.to_table_properties(
                 total_rows,
                 partition_info.get_highest_order(),

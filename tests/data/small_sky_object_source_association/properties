@@ -1,0 +1,15 @@
+#HATS catalog
+obs_collection=small_sky_object_source_association
+dataproduct_type=association
+hats_nrows=131
+hats_primary_table_url=small_sky_object_catalog
+hats_col_assn_primary=id
+hats_col_assn_primary_assn=id_obj
+hats_assn_join_table_url=small_sky_source_catalog
+hats_col_assn_join=object_id
+hats_col_assn_join_assn=object_id_src
+hats_assn_max_separation=436.93257
+hats_assn_leaf_files=True
+hats_npix_suffix=.parquet
+hats_order=2
+moc_sky_fraction=0.08333
