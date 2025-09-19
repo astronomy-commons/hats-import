@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Self
 
 import hats
 from hats.catalog import AssociationCatalog
 from hats.io.file_io import get_upath
+from typing_extensions import Self
 from upath import UPath
 
 from hats_import import ImportArguments

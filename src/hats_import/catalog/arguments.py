@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Self
 
 import hats
 from hats.catalog import TableProperties
@@ -13,6 +12,7 @@ from hats.io.file_io import get_upath
 from hats.io.paths import DATASET_DIR, PARTITION_ORDER
 from hats.io.validation import is_valid_catalog
 from hats.pixel_math import spatial_index
+from typing_extensions import Self
 from upath import UPath
 
 from hats_import.catalog.file_readers import InputReader, get_file_reader
