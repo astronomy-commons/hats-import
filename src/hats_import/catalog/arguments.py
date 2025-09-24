@@ -12,6 +12,7 @@ from hats.io.file_io import get_upath
 from hats.io.paths import DATASET_DIR, PARTITION_ORDER
 from hats.io.validation import is_valid_catalog
 from hats.pixel_math import spatial_index
+from typing_extensions import Self
 from upath import UPath
 
 from hats_import.catalog.file_readers import InputReader, get_file_reader
@@ -28,6 +29,8 @@ class ImportArguments(RuntimeArguments):
 
     catalog_type: str = "object"
     """level of catalog data, object (things in the sky) or source (detections)"""
+    allowed_catalog_types: tuple[str] = ("source", "object", "map")
+    """possible types of catalog to import with `ImportArguments`"""
     input_path: str | Path | UPath | None = None
     """path to search for the input data"""
     input_file_list: list[str | Path | UPath] = field(default_factory=list)
@@ -100,6 +103,8 @@ class ImportArguments(RuntimeArguments):
     file_reader: InputReader | str | None = None
     """instance of input reader that specifies arguments necessary for reading
     from your input files"""
+    should_write_skymap: bool = True
+    """main catalogs should contain skymap fits files"""
 
     def __post_init__(self):
         self._check_arguments()
@@ -122,8 +127,8 @@ class ImportArguments(RuntimeArguments):
                 raise ValueError("pixel_threshold should be between 100 and 1,000,000,000")
             self.mapping_healpix_order = self.highest_healpix_order
 
-        if self.catalog_type not in ("source", "object", "map"):
-            raise ValueError("catalog_type should be one of `source`, `object`, or `map`")
+        if self.catalog_type not in self.allowed_catalog_types:
+            raise ValueError(f"catalog_type should be one of {self.allowed_catalog_types}")
 
         if self.file_reader is None:
             raise ValueError("file_reader is required")
@@ -165,9 +170,14 @@ class ImportArguments(RuntimeArguments):
             "hats_order": highest_order,
             "moc_sky_fraction": f"{moc_sky_fraction:0.5f}",
             "hats_npix_suffix": self.npix_suffix,
-            "hats_skymap_order": self.mapping_healpix_order,
-            "hats_skymap_alt_orders": self.skymap_alt_orders,
         }
+        if self.should_write_skymap:
+            info.update(
+                {
+                    "hats_skymap_order": self.mapping_healpix_order,
+                    "hats_skymap_alt_orders": self.skymap_alt_orders,
+                }
+            )
         properties = TableProperties(**info)
 
         if properties.default_columns and column_names:
@@ -178,9 +188,7 @@ class ImportArguments(RuntimeArguments):
         return properties
 
     @classmethod
-    def reimport_from_hats(
-        cls, path: str | Path | UPath, output_dir: str | Path | UPath, **kwargs
-    ) -> ImportArguments:
+    def reimport_from_hats(cls, path: str | Path | UPath, output_dir: str | Path | UPath, **kwargs) -> Self:
         """Generate the import arguments to reimport a HATS catalog with different parameters
 
         Args:
