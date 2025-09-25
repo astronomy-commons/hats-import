@@ -254,3 +254,39 @@ def test_no_import_overwrite(small_sky_object_catalog, parquet_shards_dir):
             output_artifact_name=catalog_name,
             file_reader="parquet",
         )
+
+
+def test_byte_pixel_threshold_valid(blank_data_dir, tmp_path):
+    """Setting byte_pixel_threshold should be valid if other required args are present."""
+    args = ImportArguments(
+        output_artifact_name="catalog",
+        input_path=blank_data_dir,
+        file_reader="csv",
+        output_path=tmp_path,
+        byte_pixel_threshold=1000000,
+        progress_bar=False,
+    )
+    assert args.byte_pixel_threshold == 1000000
+
+
+def test_byte_pixel_threshold_negative_or_non_integer(blank_data_dir, tmp_path):
+    """Negative or non-integer byte_pixel_threshold should raise an error."""
+    with pytest.raises(ValueError, match="byte_pixel_threshold"):
+        ImportArguments(
+            output_artifact_name="catalog",
+            input_path=blank_data_dir,
+            file_reader="csv",
+            output_path=tmp_path,
+            byte_pixel_threshold=-100,
+            progress_bar=False,
+        )
+
+    with pytest.raises(TypeError):
+        ImportArguments(
+            output_artifact_name="catalog",
+            input_path=blank_data_dir,
+            file_reader="csv",
+            output_path=tmp_path,
+            byte_pixel_threshold="not_an_int",
+            progress_bar=False,
+        )

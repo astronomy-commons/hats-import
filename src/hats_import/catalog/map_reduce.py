@@ -159,10 +159,14 @@ def map_to_pixels(
 
 def _get_mem_size_of_rows(data):
     """Given a 2D array of data, return a list of memory sizes for each row."""
-    # TODO check that this is the way we'd like to be doing it
+    # Handles pyarrow Table, pandas DataFrame, or numpy array
     if isinstance(data, pa.Table):
         rows = data.to_pylist()
         mem_sizes = [sum(sys.getsizeof(item) for item in row.values()) for row in rows]
+    elif isinstance(data, pd.DataFrame):
+        mem_sizes = [
+            sum(sys.getsizeof(item) for item in row) for row in data.itertuples(index=False, name=None)
+        ]
     else:
         mem_sizes = [sum(sys.getsizeof(item) for item in row) for row in data]
     return mem_sizes

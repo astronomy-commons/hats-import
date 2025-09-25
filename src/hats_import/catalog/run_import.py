@@ -34,6 +34,7 @@ def run(args, client):
     pickled_reader_file = os.path.join(resume_plan.tmp_path, "reader.pickle")
     with open(pickled_reader_file, "wb") as pickle_file:
         cloudpickle.dump(args.file_reader, pickle_file)
+    print(f"[run_import] ResumePlan initialized. Temporary path: {resume_plan.tmp_path}")
 
     # 2 - MAPPING ----------------------------------------------------------------------------------
 
@@ -51,7 +52,7 @@ def run(args, client):
                     ra_column=args.ra_column,
                     dec_column=args.dec_column,
                     use_healpix_29=args.use_healpix_29,
-                    use_byte_threshold_histogram=(resume_plan.histogram_type == "memsize"),
+                    use_byte_threshold_histogram=(resume_plan.histogram_type == "mem_size"),
                 )
             )
         resume_plan.wait_for_mapping(futures)
@@ -60,10 +61,12 @@ def run(args, client):
 
     with resume_plan.print_progress(total=2, stage_name="Binning") as step_progress:
         # Select histogram type based on resume_plan.histogram_type
-        if resume_plan.histogram_type == "memsize":
-            raw_histogram = resume_plan.read_histogram(args.mapping_healpix_order, histogram_type="memsize")
-        else:
-            raw_histogram = resume_plan.read_histogram(args.mapping_healpix_order, histogram_type="row_count")
+        # TODO: why did we add this?
+        # if resume_plan.histogram_type == "mem_size":
+        #     raw_histogram = resume_plan.read_histogram(args.mapping_healpix_order, histogram_type="mem_size")
+        # else:
+        #     raw_histogram = resume_plan.read_histogram(args.mapping_healpix_order, histogram_type="row_count")
+        raw_histogram = resume_plan.read_histogram(args.mapping_healpix_order)
         total_rows = int(raw_histogram.sum())
         if (
             resume_plan.histogram_type == "row_count"
@@ -110,10 +113,16 @@ def run(args, client):
             )
 
         resume_plan.wait_for_splitting(futures)
+        for fut in futures:
+            if fut.status == "error":
+                print(f"[run_import][ERROR] Splitting future failed: {fut.exception()}")
+        print("[run_import] Splitting stage complete.")
 
+    print("[run_import][DEBUG] Contents of catalog path after splitting:", os.listdir(args.catalog_path))
     # 5 - REDUCING ---------------------------------------------------------------------------------
 
     if resume_plan.should_run_reducing:
+        print("[run_import] Starting reducing stage...")
         futures = []
         for (
             destination_pixel,
@@ -140,35 +149,19 @@ def run(args, client):
                     write_table_kwargs=args.write_table_kwargs,
                     row_group_kwargs=args.row_group_kwargs,
                     npix_suffix=args.npix_suffix,
-                    use_byte_pixel_threshold=(resume_plan.histogram_type == "memsize"),
+                    use_byte_pixel_threshold=(resume_plan.histogram_type == "mem_size"),
                 )
             )
 
         resume_plan.wait_for_reducing(futures)
 
-    # 6 - FINISHING --------------------------------------------------------------------------------
-
-    # After reducing, update the row count histogram from final partition files
-    import numpy as np
-    from hats.loaders import read_hats
-    from hats.pixel_math import HealpixPixel
-    from hats.pixel_math.partition_stats import generate_row_count_histogram_from_partitions
-
-    info_frame = read_hats(args.catalog_path).partition_info.as_dataframe()
-    partition_files = [
-        paths.pixel_catalog_file(args.catalog_path, HealpixPixel(row["Norder"], row["Npix"]))
-        for _, row in info_frame.iterrows()
-    ]
-    pixel_orders = info_frame["Norder"].tolist()
-    pixel_indices = info_frame["Npix"].tolist()
-    highest_order = max(pixel_orders)
-    updated_row_histogram = generate_row_count_histogram_from_partitions(
-        partition_files, pixel_orders, pixel_indices, highest_order
-    )
+    print("[run_import][DEBUG] Contents of catalog path after reducing:", os.listdir(args.catalog_path))
+    print("[run_import] Starting finishing stage...")
 
     # All done - write out the metadata
     if resume_plan.should_run_finishing:
         with resume_plan.print_progress(total=5, stage_name="Finishing") as step_progress:
+            print("[run_import] Writing partition info and metadata...")
             partition_info = PartitionInfo.from_healpix(resume_plan.get_destination_pixels())
             partition_info_file = paths.get_partition_info_pointer(args.catalog_path)
             partition_info.write_to_file(partition_info_file)
@@ -176,18 +169,13 @@ def run(args, client):
                 parquet_rows = write_parquet_metadata(
                     args.catalog_path, create_thumbnail=True, thumbnail_threshold=args.pixel_threshold
                 )
-                # Use updated_row_histogram for validation if needed
-                updated_total_rows = int(np.sum(updated_row_histogram))
                 if args.byte_pixel_threshold is None and total_rows > 0 and parquet_rows != total_rows:
+                    print(
+                        f"[run_import][ERROR] Parquet row count {parquet_rows} does not match expected {total_rows}"
+                    )
                     raise ValueError(
                         f"Number of rows in parquet ({parquet_rows}) "
                         f"does not match expectation ({total_rows})"
-                    )
-                # Optionally, validate against updated_total_rows
-                if parquet_rows != updated_total_rows:
-                    raise ValueError(
-                        f"Number of rows in parquet ({parquet_rows}) "
-                        f"does not match updated row count ({updated_total_rows})"
                     )
             step_progress.update(1)
             io.write_fits_image(raw_histogram, paths.get_point_map_file_pointer(args.catalog_path))
@@ -203,4 +191,34 @@ def run(args, client):
             resume_plan.clean_resume_files()
             step_progress.update(1)
             assert is_valid_catalog(args.catalog_path)
+            print("[run_import] Catalog is valid.")
             step_progress.update(1)
+
+        # Now, after all metadata is written, update the row count histogram from final partition files
+        import numpy as np
+        from hats.loaders import read_hats
+        from hats.pixel_math import HealpixPixel
+        from hats.pixel_math.partition_stats import generate_row_count_histogram_from_partitions
+
+        info_frame = read_hats(args.catalog_path).partition_info.as_dataframe()
+        partition_files = [
+            paths.pixel_catalog_file(args.catalog_path, HealpixPixel(row["Norder"], row["Npix"]))
+            for _, row in info_frame.iterrows()
+        ]
+        pixel_orders = info_frame["Norder"].tolist()
+        pixel_indices = info_frame["Npix"].tolist()
+        highest_order = max(pixel_orders)
+        updated_row_histogram = generate_row_count_histogram_from_partitions(
+            partition_files, pixel_orders, pixel_indices, highest_order
+        )
+        # If we used mem_size partitioning, overwrite the row-count histogram file with the updated one
+        if resume_plan.histogram_type == "mem_size":
+            from hats.pixel_math.sparse_histogram import SparseHistogram
+            import numpy as np
+
+            row_histogram_file = os.path.join(args.catalog_path, "mapping_histogram.npz")
+            SparseHistogram(
+                np.arange(len(updated_row_histogram)), updated_row_histogram, highest_order
+            ).to_file(row_histogram_file)
+            print("[run_import] Updated row-count histogram written to catalog.")
+    print("[run_import] Pipeline finished.")

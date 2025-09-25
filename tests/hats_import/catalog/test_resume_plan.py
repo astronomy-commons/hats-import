@@ -258,3 +258,43 @@ def test_run_stages(tmp_path):
     assert not plan.should_run_splitting
     assert plan.should_run_reducing
     assert plan.should_run_finishing
+
+
+def test_histogram_type_propagation(tmp_path):
+    """Test that ResumePlan sets and propagates histogram_type correctly."""
+    # Default should be row_count
+    plan = ResumePlan(tmp_path=tmp_path, progress_bar=False, input_paths=["foo1"])
+    assert plan.histogram_type == "row_count"
+
+    # If byte_pixel_threshold is set, histogram_type should be mem_size
+    class TestArgs:
+        input_paths = ["foo1"]
+        debug_stats_only = False
+
+        def resume_kwargs_dict(self):
+            return {"tmp_path": tmp_path}
+
+        byte_pixel_threshold = 123
+
+    plan_mem = ResumePlan(tmp_path=tmp_path, progress_bar=False, import_args=TestArgs())
+    assert plan_mem.histogram_type == "mem_size"
+
+
+def test_histogram_type_validation_error(tmp_path):
+    """Test that ResumePlan raises error on histogram type mismatch."""
+
+    # Simulate a mismatch by using TestArgs to set mem_size
+    class TestArgs:
+        input_paths = ["foo1"]
+        debug_stats_only = False
+
+        def resume_kwargs_dict(self):
+            return {"tmp_path": tmp_path}
+
+        byte_pixel_threshold = 123
+
+    plan_mem = ResumePlan(tmp_path=tmp_path, progress_bar=False, import_args=TestArgs())
+    import pytest
+
+    with pytest.raises(ValueError, match="histogram type"):
+        plan_mem.validate_histogram_type("row_count")

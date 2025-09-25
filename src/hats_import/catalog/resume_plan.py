@@ -30,12 +30,12 @@ class ResumePlan(PipelineResumePlan):
     """set of files (and job keys) that have yet to be split"""
     destination_pixel_map: dict[HealpixPixel, int] | None = None
     """Destination pixels and their expected final count"""
+    histogram_type: str = "row_count"
+    """Type of histogram used for partitioning: 'row_count' or 'mem_size'"""
     should_run_mapping: bool = True
     should_run_splitting: bool = True
     should_run_reducing: bool = True
     should_run_finishing: bool = True
-    histogram_type: str = "row_count"  # Either "row_count" or "memsize"
-    """Type of histogram used for partitioning: 'row_count' or 'memsize'"""
 
     MAPPING_STAGE = "mapping"
     SPLITTING_STAGE = "splitting"
@@ -66,7 +66,7 @@ class ResumePlan(PipelineResumePlan):
             self.input_paths = import_args.input_paths
             # Set histogram_type based on byte_pixel_threshold
             if hasattr(import_args, "byte_pixel_threshold") and import_args.byte_pixel_threshold is not None:
-                self.histogram_type = "memsize"
+                self.histogram_type = "mem_size"
             else:
                 self.histogram_type = "row_count"
         else:
@@ -157,6 +157,14 @@ class ResumePlan(PipelineResumePlan):
         done_indexes = [int(map_file_pattern.match(path.name).group(1)) for path in prefix.glob("*.npz")]
         remaining_indexes = list(set(range(0, len(self.input_paths))) - (set(done_indexes)))
         return [(f"map_{key}", self.input_paths[key]) for key in remaining_indexes]
+
+    def validate_histogram_type(self, expected_type: str):
+        """Raise ValueError if the current histogram_type does not match expected_type."""
+        if self.histogram_type != expected_type:
+            raise ValueError(
+                f"ResumePlan histogram type '{self.histogram_type}' "
+                f"does not match expected '{expected_type}'"
+            )
 
     def read_histogram(self, healpix_order):
         """Return histogram with healpix_order'd shape
