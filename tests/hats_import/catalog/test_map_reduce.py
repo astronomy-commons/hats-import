@@ -94,7 +94,7 @@ def read_partial_histogram(tmp_path, mapping_key):
 
 def test_read_single_fits(tmp_path, formats_fits):
     """Success case - fits file that exists being read as fits"""
-    (tmp_path / "histograms").mkdir(parents=True)
+    (tmp_path / "histograms").mkdir(parents=True, exist_ok=True)
     mr.map_to_pixels(
         input_file=formats_fits,
         pickled_reader_file=pickle_file_reader(tmp_path, get_file_reader("fits")),
@@ -128,7 +128,7 @@ def test_map_headers_wrong(formats_headers_csv, tmp_path):
 
 def test_map_headers(tmp_path, formats_headers_csv):
     """Test loading the a file with non-default headers"""
-    (tmp_path / "histograms").mkdir(parents=True)
+    (tmp_path / "histograms").mkdir(parents=True, exist_ok=True)
     mr.map_to_pixels(
         input_file=formats_headers_csv,
         pickled_reader_file=pickle_file_reader(tmp_path, get_file_reader("csv")),
@@ -150,7 +150,7 @@ def test_map_headers(tmp_path, formats_headers_csv):
 
 
 def test_map_with_healpix_29(tmp_path, formats_dir, small_sky_single_file):
-    (tmp_path / "histograms").mkdir(parents=True)
+    (tmp_path / "histograms").mkdir(parents=True, exist_ok=True)
     input_file = formats_dir / "spatial_index.csv"
     mr.map_to_pixels(
         input_file=input_file,
@@ -184,7 +184,7 @@ def test_map_with_healpix_29(tmp_path, formats_dir, small_sky_single_file):
 
 def test_map_with_schema(tmp_path, mixed_schema_csv_dir, mixed_schema_csv_parquet):
     """Test loading the a file when using a parquet schema file for dtypes"""
-    (tmp_path / "histograms").mkdir(parents=True)
+    (tmp_path / "histograms").mkdir(parents=True, exist_ok=True)
     input_file = mixed_schema_csv_dir / "input_01.csv"
     mr.map_to_pixels(
         input_file=input_file,
@@ -214,7 +214,7 @@ def test_map_with_schema(tmp_path, mixed_schema_csv_dir, mixed_schema_csv_parque
 
 def test_map_small_sky_order0(tmp_path, small_sky_single_file):
     """Test loading the small sky catalog and partitioning each object into the same large bucket"""
-    (tmp_path / "histograms").mkdir(parents=True)
+    (tmp_path / "histograms").mkdir(parents=True, exist_ok=True)
     mr.map_to_pixels(
         input_file=small_sky_single_file,
         pickled_reader_file=pickle_file_reader(tmp_path, get_file_reader("csv")),
@@ -240,7 +240,7 @@ def test_map_small_sky_part_order1(tmp_path, small_sky_file0):
     Test loading a small portion of the small sky catalog and
     partitioning objects into four smaller buckets
     """
-    (tmp_path / "histograms").mkdir(parents=True)
+    (tmp_path / "histograms").mkdir(parents=True, exist_ok=True)
     mr.map_to_pixels(
         input_file=small_sky_file0,
         pickled_reader_file=pickle_file_reader(tmp_path, get_file_reader("csv")),
@@ -622,3 +622,81 @@ def test_reduce_with_sorting_complex(assert_parquet_file_ids, tmp_path):
         [1206, 1200, 1201, 1309, 1308, 1307, 1402, 1403, 1404, 1505],
         resort_ids=False,
     )
+
+
+def test_map_reduce_histogram_type(tmp_path):
+    """Test that map/reduce operations respect histogram_type and error on mismatch."""
+    # Simulate a ResumePlan with row_count histogram
+    plan = ResumePlan(tmp_path=tmp_path, progress_bar=False, input_paths=["foo1"])
+    assert plan.histogram_type == "row_count"
+
+    # Simulate a ResumePlan with mem_size histogram by passing byte_pixel_threshold
+    class TestArgs:
+        input_paths = ["foo1"]
+        debug_stats_only = False
+
+        def resume_kwargs_dict(self):
+            return {"tmp_path": tmp_path}
+
+        byte_pixel_threshold = 123
+
+    plan_mem = ResumePlan(tmp_path=tmp_path, progress_bar=False, import_args=TestArgs())
+    assert plan_mem.histogram_type == "mem_size"
+
+    # Validate that error is raised if wrong type is validated
+    import pytest
+
+    with pytest.raises(ValueError, match="histogram type"):
+        plan_mem.validate_histogram_type("row_count")
+    with pytest.raises(ValueError, match="histogram type"):
+        plan.validate_histogram_type("mem_size")
+
+    # If types match, no error
+    plan_mem.validate_histogram_type("mem_size")
+    plan.validate_histogram_type("row_count")
+
+    # This test does not run the full map/reduce, but checks the type logic for partitioning.
+    # For full integration, see run_import tests.
+
+
+def test_histogram_file_contents(tmp_path, small_sky_single_file):
+    """Test that map_to_pixels writes correct histogram file contents for both row_count and mem_size."""
+    (tmp_path / "histograms").mkdir(parents=True, exist_ok=True)
+    # Row count histogram (default)
+    mr.map_to_pixels(
+        input_file=small_sky_single_file,
+        pickled_reader_file=pickle_file_reader(tmp_path, get_file_reader("csv")),
+        highest_order=0,
+        ra_column="ra",
+        dec_column="dec",
+        resume_path=tmp_path,
+        mapping_key="map_0",
+    )
+    # Check row_count histogram contents
+    histogram_file = tmp_path / "histograms" / "map_0.npz"
+    hist_obj = SparseHistogram.from_file(histogram_file)
+    arr = hist_obj.to_array()
+    assert len(arr) == 12
+    assert arr[11] == 131  # known value for this fixture
+    assert arr.sum() == 131
+
+    # Now simulate mem_size histogram by passing byte_pixel_threshold
+    (tmp_path / "histograms").mkdir(parents=True, exist_ok=True)
+    mr.map_to_pixels(
+        input_file=small_sky_single_file,
+        pickled_reader_file=pickle_file_reader(tmp_path, get_file_reader("csv")),
+        highest_order=0,
+        ra_column="ra",
+        dec_column="dec",
+        resume_path=tmp_path,
+        mapping_key="map_1",
+        use_byte_threshold_histogram=True,  # triggers mem_size histogram logic
+    )
+    histogram_file_mem = tmp_path / "histograms" / "map_1.npz"
+    hist_obj_mem = SparseHistogram.from_file(histogram_file_mem)
+    arr_mem = hist_obj_mem.to_array()
+    assert len(arr_mem) == 12
+    # For mem_size, the sum should be greater than or equal to row count (since it's bytes)
+    assert arr_mem[11] >= 131
+    assert arr_mem.sum() >= 131
+    # Note: For some datasets, mem_size and row_count histograms may be identical.

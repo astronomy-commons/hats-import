@@ -17,6 +17,7 @@ from pyarrow.parquet import ParquetFile
 import hats_import.catalog.run_import as runner
 from hats_import.catalog.arguments import ImportArguments
 from hats_import.catalog.file_readers import CsvReader
+
 from hats_import.catalog.resume_plan import ResumePlan
 
 
@@ -380,3 +381,84 @@ def test_import_mismatch_expectation(
 
     with pytest.raises(ValueError, match="does not match expectation"):
         runner.run(args, dask_client)
+
+
+@pytest.mark.dask
+def test_jagged_catalog_partitioning(tmp_path, dask_client):
+    """
+    Test pipeline on small_sky_jagged with both row-count and memory-size partitioning.
+    Verifies:
+    - Pipeline runs successfully for both strategies
+    - Row-count and memory-size strategies produce different partitioning
+    - Memory-size strategy produces output files with approximately equal sizes
+    """
+    # Note: may want @pytest.mark.dask(timeout=10 or other number of seconds)
+
+    # TODO change to pytest fixture
+    jagged_input = Path("./data/small_sky_jagged_source/")  # small_sky_jagged.parquet")
+    assert jagged_input.exists(), "Jagged test catalog not found. Run notebook cell to generate."
+
+    # Row-count partitioning
+    row_count_args = ImportArguments(
+        output_artifact_name="jagged_row_count_catalog",
+        input_path=jagged_input,
+        file_reader="parquet",
+        output_path=tmp_path,
+        dask_tmp=tmp_path,
+        tmp_dir=tmp_path,
+        highest_healpix_order=5,
+        pixel_threshold=100,
+        progress_bar=False,
+    )
+    runner.run(row_count_args, dask_client)
+    row_count_catalog_path = (
+        Path(row_count_args.catalog_path)
+        / "dataset"
+        / f"Norder={row_count_args.highest_healpix_order}"
+        / "Dir=0"
+    )
+    row_count_files = list(row_count_catalog_path.glob("Npix=*.parquet"))
+    assert row_count_files, "No output files for row-count partitioning."
+
+    # Memory-size partitioning
+    mem_size_args = ImportArguments(
+        output_artifact_name="jagged_mem_size_catalog",
+        input_path=jagged_input,
+        file_reader="parquet",
+        output_path=tmp_path,
+        dask_tmp=tmp_path,
+        tmp_dir=tmp_path,
+        highest_healpix_order=5,
+        byte_pixel_threshold=5000,  # Small threshold for test
+        progress_bar=False,
+    )
+    runner.run(mem_size_args, dask_client)
+    mem_size_catalog_path = (
+        Path(mem_size_args.catalog_path)
+        / "dataset"
+        / f"Norder={mem_size_args.highest_healpix_order}"
+        / "Dir=0"
+    )
+    mem_size_files = list(mem_size_catalog_path.glob("Npix=*.parquet"))
+    assert mem_size_files, "No output files for memory-size partitioning."
+
+    # Assert partitioning is different
+    row_count_set = set(f.name for f in row_count_files)
+    mem_size_set = set(f.name for f in mem_size_files)
+    print(f"[test] Row-count files: {row_count_set}")
+    print(f"[test] Memory-size files: {mem_size_set}")
+    assert row_count_set != mem_size_set, "Partitioning should differ between strategies."
+
+    # Check file sizes for memory-size strategy
+    sizes = [f.stat().st_size for f in mem_size_files]
+    avg_size = sum(sizes) / len(sizes)
+    for sz in sizes:
+        assert (
+            abs(sz - avg_size) < avg_size * 0.5
+        ), f"File size {sz} differs too much from average {avg_size}."
+
+    # Sanity check: pipeline runs with row-count strategy and output is as expected
+    for f in row_count_files:
+        df = pd.read_parquet(f)
+        assert "id" in df.columns
+        assert len(df) > 0

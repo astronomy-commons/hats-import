@@ -147,15 +147,34 @@ class ResumePlan(PipelineResumePlan):
             step_progress.update(1)
 
     def get_remaining_map_keys(self):
-        """Gather remaining keys, dropping successful mapping tasks from histogram names.
+        """
+        Gather remaining keys, dropping successful mapping tasks from histogram names.
+
+        This method inspects the histogram directory (HISTOGRAMS_DIR) for partial histogram files.
+        - For each input file, a row-count partial histogram is always written: map_0.npz, map_1.npz, etc.
+        - If using memory-size partitioning, an additional mem-size partial is written: map_0_memsize.npz,
+          etc.
+        - The directory may contain both types if mem_size is used.
+
+        For row-count partitioning, only files matching the pattern map_<number>.npz are considered completed.
+        For mem_size partitioning, only files matching the pattern map_<number>_memsize.npz are considered
+        completed.
 
         Returns:
-            list of mapping keys *not* found in files like /resume/path/mapping_key.npz
+            list of mapping keys *not* found in files like /resume/path/mapping_key.npz (row_count) or
+            mapping_key_memsize.npz (mem_size)
         """
         prefix = file_io.get_upath(self.tmp_path) / self.HISTOGRAMS_DIR
-        map_file_pattern = re.compile(r"map_(\d+).npz")
-        done_indexes = [int(map_file_pattern.match(path.name).group(1)) for path in prefix.glob("*.npz")]
-        remaining_indexes = list(set(range(0, len(self.input_paths))) - (set(done_indexes)))
+        if self.histogram_type == "mem_size":
+            map_file_pattern = re.compile(r"map_(\d+)_memsize.npz")
+        else:
+            map_file_pattern = re.compile(r"map_(\d+).npz")
+        done_indexes = [
+            int(m.group(1))
+            for path in prefix.glob("*.npz")
+            if (m := map_file_pattern.match(path.name)) is not None
+        ]
+        remaining_indexes = list(set(range(0, len(self.input_paths))) - set(done_indexes))
         return [(f"map_{key}", self.input_paths[key]) for key in remaining_indexes]
 
     def validate_histogram_type(self, expected_type: str):

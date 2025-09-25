@@ -23,7 +23,6 @@ def run(args, client):
     """Run catalog creation pipeline."""
 
     # 1 - PLANNING ---------------------------------------------------------------------------------
-
     if not args:
         raise ValueError("args is required and should be type ImportArguments")
     if not isinstance(args, ImportArguments):
@@ -34,10 +33,8 @@ def run(args, client):
     pickled_reader_file = os.path.join(resume_plan.tmp_path, "reader.pickle")
     with open(pickled_reader_file, "wb") as pickle_file:
         cloudpickle.dump(args.file_reader, pickle_file)
-    print(f"[run_import] ResumePlan initialized. Temporary path: {resume_plan.tmp_path}")
 
     # 2 - MAPPING ----------------------------------------------------------------------------------
-
     if resume_plan.should_run_mapping:
         futures = []
         for key, file_path in resume_plan.map_files:
@@ -58,7 +55,6 @@ def run(args, client):
         resume_plan.wait_for_mapping(futures)
 
     # 3 - BINNING ----------------------------------------------------------------------------------
-
     with resume_plan.print_progress(total=2, stage_name="Binning") as step_progress:
         # Select histogram type based on resume_plan.histogram_type
         # TODO: why did we add this?
@@ -113,16 +109,9 @@ def run(args, client):
             )
 
         resume_plan.wait_for_splitting(futures)
-        for fut in futures:
-            if fut.status == "error":
-                print(f"[run_import][ERROR] Splitting future failed: {fut.exception()}")
-        print("[run_import] Splitting stage complete.")
 
-    print("[run_import][DEBUG] Contents of catalog path after splitting:", os.listdir(args.catalog_path))
     # 5 - REDUCING ---------------------------------------------------------------------------------
-
     if resume_plan.should_run_reducing:
-        print("[run_import] Starting reducing stage...")
         futures = []
         for (
             destination_pixel,
@@ -155,13 +144,9 @@ def run(args, client):
 
         resume_plan.wait_for_reducing(futures)
 
-    print("[run_import][DEBUG] Contents of catalog path after reducing:", os.listdir(args.catalog_path))
-    print("[run_import] Starting finishing stage...")
-
     # All done - write out the metadata
     if resume_plan.should_run_finishing:
         with resume_plan.print_progress(total=5, stage_name="Finishing") as step_progress:
-            print("[run_import] Writing partition info and metadata...")
             partition_info = PartitionInfo.from_healpix(resume_plan.get_destination_pixels())
             partition_info_file = paths.get_partition_info_pointer(args.catalog_path)
             partition_info.write_to_file(partition_info_file)
