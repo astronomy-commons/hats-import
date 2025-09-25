@@ -56,14 +56,10 @@ def run(args, client):
 
     # 3 - BINNING ----------------------------------------------------------------------------------
     with resume_plan.print_progress(total=2, stage_name="Binning") as step_progress:
-        # Select histogram type based on resume_plan.histogram_type
-        # TODO: why did we add this?
-        # if resume_plan.histogram_type == "mem_size":
-        #     raw_histogram = resume_plan.read_histogram(args.mapping_healpix_order, histogram_type="mem_size")
-        # else:
-        #     raw_histogram = resume_plan.read_histogram(args.mapping_healpix_order, histogram_type="row_count")
         raw_histogram = resume_plan.read_histogram(args.mapping_healpix_order)
         total_rows = int(raw_histogram.sum())
+
+        # Check expected row count if provided (if we're using row_count histogram).
         if (
             resume_plan.histogram_type == "row_count"
             and args.expected_total_rows > 0
@@ -179,28 +175,25 @@ def run(args, client):
             print("[run_import] Catalog is valid.")
             step_progress.update(1)
 
-        # Now, after all metadata is written, update the row count histogram from final partition files
-        import numpy as np
-        from hats.loaders import read_hats
-        from hats.pixel_math import HealpixPixel
-        from hats.pixel_math.partition_stats import generate_row_count_histogram_from_partitions
-
-        info_frame = read_hats(args.catalog_path).partition_info.as_dataframe()
-        partition_files = [
-            paths.pixel_catalog_file(args.catalog_path, HealpixPixel(row["Norder"], row["Npix"]))
-            for _, row in info_frame.iterrows()
-        ]
-        pixel_orders = info_frame["Norder"].tolist()
-        pixel_indices = info_frame["Npix"].tolist()
-        highest_order = max(pixel_orders)
-        updated_row_histogram = generate_row_count_histogram_from_partitions(
-            partition_files, pixel_orders, pixel_indices, highest_order
-        )
         # If we used mem_size partitioning, overwrite the row-count histogram file with the updated one
         if resume_plan.histogram_type == "mem_size":
-            from hats.pixel_math.sparse_histogram import SparseHistogram
             import numpy as np
+            from hats.loaders import read_hats
+            from hats.pixel_math import HealpixPixel
+            from hats.pixel_math.partition_stats import generate_row_count_histogram_from_partitions
+            from hats.pixel_math.sparse_histogram import SparseHistogram
 
+            info_frame = read_hats(args.catalog_path).partition_info.as_dataframe()
+            partition_files = [
+                paths.pixel_catalog_file(args.catalog_path, HealpixPixel(row["Norder"], row["Npix"]))
+                for _, row in info_frame.iterrows()
+            ]
+            pixel_orders = info_frame["Norder"].tolist()
+            pixel_indices = info_frame["Npix"].tolist()
+            highest_order = max(pixel_orders)
+            updated_row_histogram = generate_row_count_histogram_from_partitions(
+                partition_files, pixel_orders, pixel_indices, highest_order
+            )
             row_histogram_file = os.path.join(args.catalog_path, "mapping_histogram.npz")
             SparseHistogram(
                 np.arange(len(updated_row_histogram)), updated_row_histogram, highest_order

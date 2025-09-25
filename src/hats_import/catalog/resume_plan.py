@@ -191,19 +191,34 @@ class ResumePlan(PipelineResumePlan):
         - Try to find a combined histogram
         - Otherwise, combine histograms from partials
         - Otherwise, return an empty histogram
+        Uses self.histogram_type to select the correct histogram type.
         """
         file_name = file_io.append_paths_to_pointer(self.tmp_path, self.HISTOGRAM_BINARY_FILE)
         if not file_io.does_file_or_directory_exist(file_name):
             # Read the histogram from partial histograms and combine.
+
+            # Use the correct pattern for the requested histogram type.
+            if self.histogram_type == "mem_size":
+                map_file_pattern = re.compile(r"map_(\d+)_memsize.npz")
+            else:
+                map_file_pattern = re.compile(r"map_(\d+).npz")
+
+            # Gather remaining map files.
             remaining_map_files = self.get_remaining_map_keys()
             if len(remaining_map_files) > 0:
                 raise RuntimeError(f"{len(remaining_map_files)} map stages did not complete successfully.")
             histogram_files = file_io.find_files_matching_path(self.tmp_path, self.HISTOGRAMS_DIR, "*.npz")
+
+            # Filter histogram files by type (row_count or mem_size).
+            histogram_files = [f for f in histogram_files if map_file_pattern.fullmatch(f.name)]
+
+            # Combine partial histograms.
             aggregate_histogram = HistogramAggregator(healpix_order)
             for partial_file_name in histogram_files:
                 partial = SparseHistogram.from_file(partial_file_name)
                 aggregate_histogram.add(partial)
 
+            # Write out the combined histogram for future use.
             file_name = file_io.append_paths_to_pointer(self.tmp_path, self.HISTOGRAM_BINARY_FILE)
             with open(file_name, "wb+") as file_handle:
                 file_handle.write(aggregate_histogram.full_histogram)

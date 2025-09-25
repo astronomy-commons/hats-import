@@ -100,6 +100,9 @@ def map_to_pixels(
         highest_order (int): healpix order to use when mapping
         ra_column (str): where to find right ascension data in the dataframe
         dec_column (str): where to find declation in the dataframe
+        use_healpix_29 (bool, optional): whether to use healpix_29 column for mapping.
+        use_byte_threshold_histogram (bool, optional): whether to create a histogram
+            based on the memory size of the objects.
 
     Returns:
         one-dimensional numpy array of long integers where the value at each index corresponds
