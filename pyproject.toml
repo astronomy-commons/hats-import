@@ -17,8 +17,8 @@ classifiers = [
 dynamic = ["version"]
 requires-python = ">=3.10"
 dependencies = [
-    "cloudpickle", # Reader serialisation, transitive dependency of Dask
-    "dask[complete]>=2024.3.0,<2025.4.0", # Includes dask expressions.
+    "cloudpickle>=3.0.0", # Reader serialisation, transitive dependency of Dask
+    "dask[complete]>=2025.3.0,<2025.4.0", # Includes dask expressions.
     "deprecated",
     "hats >=0.6.5",
     "numpy>=2,<3", 
