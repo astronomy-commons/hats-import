@@ -21,10 +21,11 @@ dependencies = [
     "dask[complete]>=2024.3.0,<2025.4.0", # Includes dask expressions.
     "deprecated",
     "hats >=0.6.5",
-    "numpy",
-    "pandas",
-    "pyarrow",
-    "tqdm",
+    "numpy>=2,<3", 
+    "pandas>=2.0",
+    "pyarrow>=14.0.1,!=19.0.0,<21.0.0; platform_system == 'Windows'",
+    "pyarrow>=14.0.1,!=19.0.0; platform_system != 'Windows'",
+    "tqdm>=4.59.0",
     "universal-pathlib>=0.2.2",
 ]
 
