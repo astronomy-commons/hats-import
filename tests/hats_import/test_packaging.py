@@ -1,6 +1,6 @@
 import hats_import
 
 
-def test_hats_import_version():
-    """Check to see that we can get the hats-import version"""
+def test_version():
+    """Check to see that we can get the package version"""
     assert hats_import.__version__ is not None

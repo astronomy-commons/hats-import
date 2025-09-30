@@ -1,14 +1,14 @@
 [project]
 name = "hats-import"
-license = {file = "LICENSE"}
 description = "Utility for ingesting large survey data into HATS structure"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 readme = "README.md"
 authors = [
     { name = "LINCC Frameworks", email = "lincc-frameworks-team@lists.lsst.org" }
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
-    "License :: OSI Approved :: BSD License",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
@@ -17,14 +17,15 @@ classifiers = [
 dynamic = ["version"]
 requires-python = ">=3.10"
 dependencies = [
-    "cloudpickle", # Reader serialisation, transitive dependency of Dask
-    "dask[complete]>=2024.3.0,<2025.4.0", # Includes dask expressions.
+    "cloudpickle>=3.0.0", # Reader serialisation, transitive dependency of Dask
+    "dask[complete]>=2025.3.0,<2025.4.0", # Includes dask expressions.
     "deprecated",
     "hats >=0.6.5",
-    "numpy",
-    "pandas",
-    "pyarrow",
-    "tqdm",
+    "numpy>=2.2.0,<3", 
+    "pandas>=2.0",
+    "pyarrow>=14.0.1,!=19.0.0,<21.0.0; platform_system == 'Windows'",
+    "pyarrow>=14.0.1,!=19.0.0; platform_system != 'Windows'",
+    "tqdm>=4.59.0",
     "universal-pathlib>=0.2.2",
 ]
 
