@@ -23,7 +23,7 @@ dependencies = [
     "hats >=0.6.5",
     "numpy>=2.2.0,<3", 
     "pandas>=2.0",
-    "pyarrow>=14.0.1,!=19.0.0,<21.0.0; platform_system == 'Windows'",
+    "pyarrow>=14.0.1,!=19.0.0,<22.0.0; platform_system == 'Windows'",
     "pyarrow>=14.0.1,!=19.0.0; platform_system != 'Windows'",
     "tqdm>=4.59.0",
     "universal-pathlib>=0.2.2",
