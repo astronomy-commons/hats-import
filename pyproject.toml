@@ -18,7 +18,7 @@ dynamic = ["version"]
 requires-python = ">=3.10"
 dependencies = [
     "cloudpickle>=3.0.0", # Reader serialisation, transitive dependency of Dask
-    "dask[complete]>=2025.3.0,<2025.4.0", # Includes dask expressions.
+    "dask[complete]>=2025.3.0,<2025.10.0", # Includes dask expressions.
     "deprecated",
     "hats >=0.6.6",
     "numpy>=2.2.0,<3", 
