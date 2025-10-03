@@ -32,6 +32,8 @@ def generate_margin_cache(args, client):
                     margin_pair_file=resume_plan.margin_pair_file,
                     output_path=args.tmp_path,
                     margin_order=args.margin_order,
+                    healpix_column=args.catalog.catalog_info.healpix_column,
+                    healpix_order=args.catalog.catalog_info.healpix_order,
                 )
             )
         resume_plan.wait_for_mapping(futures)

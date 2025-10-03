@@ -51,6 +51,8 @@ class MarginCacheArguments(RuntimeArguments):
             self.catalog = self.catalog.filter_from_pixel_list(self.debug_filter_pixel_list)
             if len(self.catalog.get_healpix_pixels()) == 0:
                 raise ValueError("debug_filter_pixel_list has created empty catalog")
+        if not self.catalog.has_healpix_column():
+            raise ValueError("Only catalogs with some healpix column (e.g. _healpix_29) can have a margin")
 
         if self.fine_filtering:
             raise NotImplementedError("Fine filtering temporarily removed.")

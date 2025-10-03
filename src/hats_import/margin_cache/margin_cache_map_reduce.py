@@ -4,7 +4,7 @@ import pyarrow.dataset as ds
 import pyarrow.parquet as pq
 from hats.io import file_io, paths
 from hats.pixel_math.healpix_pixel import HealpixPixel
-from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, spatial_index_to_healpix
+from hats.pixel_math.spatial_index import spatial_index_to_healpix
 
 from hats_import.margin_cache.margin_cache_resume_plan import MarginCachePlan
 from hats_import.pipeline_resume_plan import get_pixel_cache_directory, print_task_failure
@@ -19,6 +19,8 @@ def map_pixel_shards(
     margin_pair_file,
     output_path,
     margin_order,
+    healpix_column,
+    healpix_order,
 ):
     """Creates margin cache shards from a source partition file."""
     try:
@@ -39,8 +41,9 @@ def map_pixel_shards(
         )
 
         margin_pixel_list = spatial_index_to_healpix(
-            data[SPATIAL_INDEX_COLUMN].to_numpy(),
+            data[healpix_column].to_numpy(),
             target_order=margin_order,
+            spatial_index_order=healpix_order,
         )
         margin_pixel_filter = pd.DataFrame(
             {"margin_pixel": margin_pixel_list, "filter_value": np.arange(0, len(margin_pixel_list))}
@@ -60,6 +63,7 @@ def map_pixel_shards(
                 pixel=pixel,
                 output_path=output_path,
                 source_pixel=source_pixel,
+                healpix_column=healpix_column,
             )
 
         MarginCachePlan.mapping_key_done(output_path, mapping_key, num_rows)
@@ -74,6 +78,7 @@ def _to_pixel_shard(
     pixel,
     output_path,
     source_pixel,
+    healpix_column,
 ):
     """Do boundary checking for the cached partition and then output remaining data."""
     margin_data = filtered_data
@@ -88,7 +93,7 @@ def _to_pixel_shard(
 
         shard_path = paths.pixel_catalog_file(partition_dir, source_pixel)
 
-        margin_data = margin_data.sort_by(SPATIAL_INDEX_COLUMN)
+        margin_data = margin_data.sort_by(healpix_column)
 
         pq.write_table(margin_data, shard_path.path, filesystem=shard_path.fs)
     return num_rows
