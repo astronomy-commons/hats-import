@@ -88,5 +88,7 @@ class MarginCacheArguments(RuntimeArguments):
             "margin_threshold": self.margin_threshold,
             "hats_order": highest_order,
             "moc_sky_fraction": f"{moc_sky_fraction:0.5f}",
+            "hats_col_healpix": self.catalog.catalog_info.healpix_column,
+            "hats_col_healpix_order": self.catalog.catalog_info.healpix_order,
         } | self.extra_property_dict()
         return TableProperties(**info)

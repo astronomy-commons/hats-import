@@ -194,15 +194,8 @@ def test_import_collection_healpix13(
             addl_hats_properties={"hats_col_healpix": "healpix13", "hats_col_healpix_order": 13},
             constant_healpix_order=1,
         )
-        .add_margin(
-            margin_threshold=3600,
-            is_default=True,
-            addl_hats_properties={"hats_col_healpix": "healpix13", "hats_col_healpix_order": 13},
-        )
-        .add_margin(
-            margin_threshold=7200,
-            addl_hats_properties={"hats_col_healpix": "healpix13", "hats_col_healpix_order": 13},
-        )
+        .add_margin(margin_threshold=3600, is_default=True)
+        .add_margin(margin_threshold=7200)
         .add_index(
             indexing_column="id",
             include_healpix_29=False,
@@ -211,3 +204,15 @@ def test_import_collection_healpix13(
     )
 
     run(args, dask_client)
+
+    collection = read_hats(tmp_path / "small_sky_healpix13")
+
+    catalog = collection.main_catalog
+    assert catalog.catalog_info.healpix_column == "healpix13"
+    assert catalog.catalog_info.healpix_order == 13
+    assert catalog.has_healpix_column()
+
+    catalog = read_hats(tmp_path / "small_sky_healpix13" / collection.default_margin)
+    assert catalog.catalog_info.healpix_column == "healpix13"
+    assert catalog.catalog_info.healpix_order == 13
+    assert catalog.has_healpix_column()

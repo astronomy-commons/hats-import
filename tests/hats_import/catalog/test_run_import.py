@@ -122,6 +122,9 @@ def test_resume_dask_runner(
     assert len(catalog.get_healpix_pixels()) == 1
     assert_parquet_file_ids(output_file, "id", expected_ids)
 
+    assert catalog.catalog_info.healpix_column == "_healpix_29"
+    assert catalog.catalog_info.healpix_order == 29
+
 
 @pytest.mark.dask
 def test_resume_dask_runner_diff_pixel_order(
