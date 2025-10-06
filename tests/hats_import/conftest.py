@@ -93,6 +93,11 @@ def small_sky_nested_catalog(test_data_dir):
 
 
 @pytest.fixture
+def small_sky_jagged_source(test_data_dir):
+    return test_data_dir / "small_sky_jagged_source"
+
+
+@pytest.fixture
 def blank_data_dir(test_data_dir):
     return test_data_dir / "blank"
 

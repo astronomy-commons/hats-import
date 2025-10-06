@@ -384,7 +384,7 @@ def test_import_mismatch_expectation(
 
 
 @pytest.mark.dask
-def test_jagged_catalog_partitioning(tmp_path, dask_client):
+def test_jagged_catalog_partitioning(dask_client, small_sky_jagged_source, tmp_path):
     """
     Test pipeline on small_sky_jagged with both row-count and memory-size partitioning.
     Verifies:
@@ -392,22 +392,16 @@ def test_jagged_catalog_partitioning(tmp_path, dask_client):
     - Row-count and memory-size strategies produce different partitioning
     - Memory-size strategy produces output files with approximately equal sizes
     """
-    # Note: may want @pytest.mark.dask(timeout=10 or other number of seconds)
-
-    # TODO change to pytest fixture
-    jagged_input = Path("/astro/users/olynn/hats-import/tests/data/small_sky_jagged_source")
-    assert jagged_input.exists(), "Jagged test catalog not found. Run notebook cell to generate."
-
     # Row-count partitioning
     row_count_args = ImportArguments(
         output_artifact_name="jagged_row_count_catalog",
-        input_path=jagged_input,
+        input_path=small_sky_jagged_source,
         file_reader="parquet",
         output_path=tmp_path,
         dask_tmp=tmp_path,
         tmp_dir=tmp_path,
-        highest_healpix_order=2,  # Lower order for larger sky pixels
-        pixel_threshold=500,  # Increased threshold for larger pixels
+        highest_healpix_order=3,
+        pixel_threshold=200,
         progress_bar=False,
     )
     runner.run(row_count_args, dask_client)
@@ -423,13 +417,13 @@ def test_jagged_catalog_partitioning(tmp_path, dask_client):
     # Memory-size partitioning
     mem_size_args = ImportArguments(
         output_artifact_name="jagged_mem_size_catalog",
-        input_path=jagged_input,
+        input_path=small_sky_jagged_source,
         file_reader="parquet",
         output_path=tmp_path,
         dask_tmp=tmp_path,
         tmp_dir=tmp_path,
-        highest_healpix_order=2,  # Lower order for larger sky pixels
-        byte_pixel_threshold=3_000_000,  # Small threshold for test
+        highest_healpix_order=3,
+        byte_pixel_threshold=200_000,
         progress_bar=False,
     )
     runner.run(mem_size_args, dask_client)
@@ -447,7 +441,7 @@ def test_jagged_catalog_partitioning(tmp_path, dask_client):
     mem_size_set = set(f.name for f in mem_size_files)
     print(f"[test] Row-count files: {row_count_set}")
     print(f"[test] Memory-size files: {mem_size_set}")
-    # assert row_count_set != mem_size_set, "Partitioning should differ between strategies."
+    assert row_count_set != mem_size_set, "Partitioning should differ between strategies."
 
     # List row counts for each row-count partition file
     row_counts = []
@@ -459,21 +453,6 @@ def test_jagged_catalog_partitioning(tmp_path, dask_client):
 
     # Check file sizes for memory-size strategy
     sizes = [f.stat().st_size for f in mem_size_files]
-    avg_size = sum(sizes) / len(sizes)
-    print(f"[test] Memory-size partitioning produced {len(sizes)} files, average size {round(avg_size)}.")
-    for sz in sizes:
-        print(f"[test] File size: {sz}")
-        # assert (
-        #     abs(sz - avg_size) < avg_size * 0.5
-        # ), f"File size {sz} differs too much from average {avg_size}."
-
-    # Plot the mem-size file sizes
-    import matplotlib.pyplot as plt
-
-    plt.figure()
-    plt.hist(sizes, bins=10, edgecolor="black")
-    plt.axvline(avg_size, color="red", linestyle="dashed", linewidth=1)
-    plt.title("Memory-Size Partition File Sizes")
-    plt.xlabel("File Size (bytes)")
-    plt.ylabel("Number of Files")
-    plt.show()
+    assert np.all(
+        np.array(sizes) < mem_size_args.byte_pixel_threshold * 1.2  # Allow 20% margin for overhead
+    ), f"Some file sizes too much higher than limit {mem_size_args.byte_pixel_threshold}."
