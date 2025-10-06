@@ -151,14 +151,13 @@ class ResumePlan(PipelineResumePlan):
         Gather remaining keys, dropping successful mapping tasks from histogram names.
 
         This method inspects the histogram directory (HISTOGRAMS_DIR) for partial histogram files.
-        - For each input file, a row-count partial histogram is always written: map_0.npz, map_1.npz, etc.
-        - If using memory-size partitioning, an additional mem-size partial is written: map_0_memsize.npz,
+        - For each input file, a row_count partial histogram is always written: map_0.npz, map_1.npz, etc.
+        - If using memory-size partitioning, an additional mem_size partial is written: map_0_memsize.npz,
           etc.
-        - The directory may contain both types if mem_size is used.
+        - The directory should contain both types if mem_size is used.
 
-        For row-count partitioning, only files matching the pattern map_<number>.npz are considered completed.
-        For mem_size partitioning, only files matching the pattern map_<number>_memsize.npz are considered
-        completed.
+        For row_count partitioning, only files matching the pattern map_<number>.npz are considered.
+        For mem_size partitioning, only files matching the pattern map_<number>_memsize.npz are considered.
 
         Returns:
             list of mapping keys *not* found in files like /resume/path/mapping_key.npz (row_count) or
@@ -178,7 +177,12 @@ class ResumePlan(PipelineResumePlan):
         return [(f"map_{key}", self.input_paths[key]) for key in remaining_indexes]
 
     def validate_histogram_type(self, expected_type: str):
-        """Raise ValueError if the current histogram_type does not match expected_type."""
+        """Raise ValueError if the current histogram_type does not match expected_type.
+
+        Args:
+            expected_type (str): the type the ResumePlan's histogram is expected to be, either
+            'row_count' or 'mem_size'
+        """
         if self.histogram_type != expected_type:
             raise ValueError(
                 f"ResumePlan histogram type '{self.histogram_type}' "
@@ -321,8 +325,8 @@ class ResumePlan(PipelineResumePlan):
             pixel_threshold (int): the maximum number of objects allowed in a single pixel
             drop_empty_siblings (bool):  if 3 of 4 pixels are empty, keep only the non-empty pixel
             expected_total_rows (int): number of expected rows found in the dataset.
-            byte_pixel_threshold (int | None): the maximum number of objects allowed in a
-                single pixel, expressed in bytes.
+            byte_pixel_threshold (int | None): the maximum size of total objects allowed in a
+                single pixel, expressed in bytes. If None, use pixel_threshold to partition by count.
         Returns:
             path to cached alignment file.
         """

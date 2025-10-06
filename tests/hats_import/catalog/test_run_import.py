@@ -395,7 +395,7 @@ def test_jagged_catalog_partitioning(tmp_path, dask_client):
     # Note: may want @pytest.mark.dask(timeout=10 or other number of seconds)
 
     # TODO change to pytest fixture
-    jagged_input = Path("./data/small_sky_jagged_source/")
+    jagged_input = Path("/astro/users/olynn/hats-import/tests/data/small_sky_jagged_source")
     assert jagged_input.exists(), "Jagged test catalog not found. Run notebook cell to generate."
 
     # Row-count partitioning
@@ -407,7 +407,7 @@ def test_jagged_catalog_partitioning(tmp_path, dask_client):
         dask_tmp=tmp_path,
         tmp_dir=tmp_path,
         highest_healpix_order=2,  # Lower order for larger sky pixels
-        pixel_threshold=100,  # Increased threshold for larger pixels
+        pixel_threshold=500,  # Increased threshold for larger pixels
         progress_bar=False,
     )
     runner.run(row_count_args, dask_client)
@@ -429,7 +429,7 @@ def test_jagged_catalog_partitioning(tmp_path, dask_client):
         dask_tmp=tmp_path,
         tmp_dir=tmp_path,
         highest_healpix_order=2,  # Lower order for larger sky pixels
-        byte_pixel_threshold=5_000,  # Small threshold for test
+        byte_pixel_threshold=3_000_000,  # Small threshold for test
         progress_bar=False,
     )
     runner.run(mem_size_args, dask_client)

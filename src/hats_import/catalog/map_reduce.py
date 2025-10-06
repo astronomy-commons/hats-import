@@ -114,7 +114,7 @@ def map_to_pixels(
         FileNotFoundError: if the file does not exist, or is a directory
     """
     try:
-        # Always generate the row-count histogram
+        # Always generate the row-count histogram.
         row_count_histo = HistogramAggregator(highest_order)
         mem_size_histo = None
         if use_byte_threshold_histogram:
@@ -141,11 +141,11 @@ def map_to_pixels(
             use_healpix_29,
             read_columns,
         ):
-            # Always add to row-count histogram
+            # Always add to row-count histogram.
             mapped_pixel, count_at_pixel = np.unique(mapped_pixels, return_counts=True)
             row_count_histo.add(SparseHistogram(mapped_pixel, count_at_pixel, highest_order))
 
-            # If specified, also add to memory-size histogram
+            # If using bytewise/memory thresholding, also add to memory-size histogram.
             if use_byte_threshold_histogram:
                 data_mem_sizes = _get_mem_size_of_chunk(chunk_data)
 
@@ -159,11 +159,11 @@ def map_to_pixels(
 
                 mem_size_histo.add(SparseHistogram(mapped_pixel_ids, mapped_pixel_mem_sizes, highest_order))
 
-        # Write row-count histogram to file
+        # Write row-count histogram to file.
         row_count_histo.to_sparse().to_file(
             ResumePlan.partial_histogram_file(tmp_path=resume_path, mapping_key=mapping_key)
         )
-        # If requested, also write memory-size histogram to a separate file
+        # If using bytewise/memory thresholding, also write memory-size histogram to a separate file.
         if use_byte_threshold_histogram:
             mem_size_histo.to_sparse().to_file(
                 ResumePlan.partial_histogram_file(tmp_path=resume_path, mapping_key=f"{mapping_key}_memsize")
@@ -184,13 +184,13 @@ def _get_row_mem_size_data_frame(row):
     """
     total = 0
 
-    # Add the memory overhead of the row object itself
+    # Add the memory overhead of the row object itself.
     total += sys.getsizeof(row)
 
-    # Then add the size of each item in the row
+    # Then add the size of each item in the row.
     for item in row:
         if isinstance(item, np.ndarray):
-            total += item.nbytes + sys.getsizeof(item)  # include object overhead
+            total += item.nbytes + sys.getsizeof(item)  # object data + object overhead
         else:
             total += sys.getsizeof(item)
 
@@ -209,14 +209,14 @@ def _get_row_mem_size_pa_table(table, row_index):
     """
     total = 0
 
-    # Add the memory overhead of the row object itself
+    # Add the memory overhead of the row object itself.
     total += sys.getsizeof(row_index)
 
-    # Then add the size of each item in the row
+    # Then add the size of each item in the row.
     for column in table.itercolumns():
         item = column[row_index]
         if isinstance(item, np.ndarray):
-            total += item.nbytes + sys.getsizeof(item)  # include object overhead
+            total += item.nbytes + sys.getsizeof(item)  # object data + object overhead
         else:
             total += sys.getsizeof(item.as_py())
 
@@ -232,7 +232,6 @@ def _get_mem_size_of_chunk(data):
     Returns:
         list[int]: list of memory sizes for each row in the chunk
     """
-    print(f"Calculating memory sizes for chunk of type {type(data)} with {len(data)} rows")
     if isinstance(data, pd.DataFrame):
         mem_sizes = [_get_row_mem_size_data_frame(row) for row in data.itertuples(index=False, name=None)]
     elif isinstance(data, pa.Table):
@@ -360,7 +359,8 @@ def reduce_pixel_shards(
         row_group_kwargs (dict): additional keyword arguments to use in
             creation of rowgroups when writing files to parquet.
         npix_suffix (str): suffix for Npix files. Defaults to ".parquet".
-        use_byte_pixel_threshold (bool): if True, use pixel thresholding by memory size.
+        use_byte_pixel_threshold (bool): if True, use pixel thresholding by memory size,
+            rather than row count.
 
     Raises:
         ValueError: if the number of rows written doesn't equal provided

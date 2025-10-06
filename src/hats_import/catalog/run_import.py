@@ -22,7 +22,6 @@ from hats_import.catalog.resume_plan import ResumePlan
 def run(args, client):
     """Run catalog creation pipeline."""
 
-    # 1 - PLANNING ---------------------------------------------------------------------------------
     if not args:
         raise ValueError("args is required and should be type ImportArguments")
     if not isinstance(args, ImportArguments):
@@ -34,7 +33,6 @@ def run(args, client):
     with open(pickled_reader_file, "wb") as pickle_file:
         cloudpickle.dump(args.file_reader, pickle_file)
 
-    # 2 - MAPPING ----------------------------------------------------------------------------------
     if resume_plan.should_run_mapping:
         futures = []
         for key, file_path in resume_plan.map_files:
@@ -54,17 +52,10 @@ def run(args, client):
             )
         resume_plan.wait_for_mapping(futures)
 
-    # 3 - BINNING ----------------------------------------------------------------------------------
     with resume_plan.print_progress(total=2, stage_name="Binning") as step_progress:
         raw_histogram = resume_plan.read_histogram(args.mapping_healpix_order)
         total_rows = int(raw_histogram.sum())
-
-        # Check expected row count if provided (if we're using row_count histogram).
-        if (
-            resume_plan.histogram_type == "row_count"
-            and args.expected_total_rows > 0
-            and args.expected_total_rows != total_rows
-        ):
+        if args.expected_total_rows > 0 and args.expected_total_rows != total_rows:
             raise ValueError(
                 f"Number of rows ({total_rows}) does not match expectation ({args.expected_total_rows})"
             )
@@ -82,8 +73,6 @@ def run(args, client):
         )
 
         step_progress.update(1)
-
-    # 4 - SPLITTING --------------------------------------------------------------------------------
 
     if resume_plan.should_run_splitting:
         futures = []
@@ -106,7 +95,6 @@ def run(args, client):
 
         resume_plan.wait_for_splitting(futures)
 
-    # 5 - REDUCING ---------------------------------------------------------------------------------
     if resume_plan.should_run_reducing:
         futures = []
         for (
@@ -151,9 +139,6 @@ def run(args, client):
                     args.catalog_path, create_thumbnail=True, thumbnail_threshold=args.pixel_threshold
                 )
                 if args.byte_pixel_threshold is None and total_rows > 0 and parquet_rows != total_rows:
-                    print(
-                        f"[run_import][ERROR] Parquet row count {parquet_rows} does not match expected {total_rows}"
-                    )
                     raise ValueError(
                         f"Number of rows in parquet ({parquet_rows}) "
                         f"does not match expectation ({total_rows})"
@@ -172,10 +157,10 @@ def run(args, client):
             resume_plan.clean_resume_files()
             step_progress.update(1)
             assert is_valid_catalog(args.catalog_path)
-            print("[run_import] Catalog is valid.")
             step_progress.update(1)
 
-        # If we used mem_size partitioning, overwrite the row-count histogram file with the updated one
+        # If we used mem_size partitioning, overwrite the row_count histogram file to match actual
+        # division of partitions (and their respective row counts).
         if resume_plan.histogram_type == "mem_size":
             import numpy as np
             from hats.loaders import read_hats
@@ -198,5 +183,3 @@ def run(args, client):
             SparseHistogram(
                 np.arange(len(updated_row_histogram)), updated_row_histogram, highest_order
             ).to_file(row_histogram_file)
-            print("[run_import] Updated row-count histogram written to catalog.")
-    print("[run_import] Pipeline finished.")
