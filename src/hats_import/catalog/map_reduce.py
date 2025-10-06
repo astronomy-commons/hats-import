@@ -22,6 +22,8 @@ from hats_import.pipeline_resume_plan import get_pixel_cache_directory, print_ta
 
 # pylint: disable=too-many-locals,too-many-arguments
 
+from pympler import asizeof
+
 
 def _has_named_index(dataframe):
     """Heuristic to determine if a dataframe has some meaningful index.
@@ -118,7 +120,17 @@ def map_to_pixels(
         if use_byte_threshold_histogram:
             mem_size_histo = HistogramAggregator(highest_order)
 
-        read_columns = [SPATIAL_INDEX_COLUMN] if use_healpix_29 else [ra_column, dec_column]
+        # Determine which columns to read from the input file. If we're using
+        # the byte-threshold histogram, we need to read all columns to accurately
+        # estimate memory usage.
+        if use_byte_threshold_histogram and use_healpix_29:
+            read_columns = None  # Is this ok?
+        if use_byte_threshold_histogram:
+            read_columns = None
+        elif use_healpix_29:
+            read_columns = [SPATIAL_INDEX_COLUMN]
+        else:
+            read_columns = [ra_column, dec_column]
 
         for _, chunk_data, mapped_pixels in _iterate_input_file(
             input_file,
@@ -133,9 +145,10 @@ def map_to_pixels(
             mapped_pixel, count_at_pixel = np.unique(mapped_pixels, return_counts=True)
             row_count_histo.add(SparseHistogram(mapped_pixel, count_at_pixel, highest_order))
 
-            # If requested, also add to memory-size histogram
+            # If specified, also add to memory-size histogram
             if use_byte_threshold_histogram:
-                data_mem_sizes = _get_mem_size_of_rows(chunk_data)
+                data_mem_sizes = _get_mem_size_of_chunk(chunk_data)
+
                 pixel_mem_sizes = defaultdict(int)
                 for pixel, mem_size in zip(mapped_pixels, data_mem_sizes, strict=True):
                     pixel_mem_sizes[pixel] += mem_size
@@ -160,18 +173,72 @@ def map_to_pixels(
         raise exception
 
 
-def _get_mem_size_of_rows(data):
-    """Given a 2D array of data, return a list of memory sizes for each row."""
-    # Handles pyarrow Table, pandas DataFrame, or numpy array
-    if isinstance(data, pa.Table):
-        rows = data.to_pylist()
-        mem_sizes = [sum(sys.getsizeof(item) for item in row.values()) for row in rows]
-    elif isinstance(data, pd.DataFrame):
-        mem_sizes = [
-            sum(sys.getsizeof(item) for item in row) for row in data.itertuples(index=False, name=None)
-        ]
+def _get_row_mem_size_data_frame(row):
+    """Given a pandas dataframe row (as a tuple), return the memory size of that row.
+
+    Args:
+        row (tuple): the row from the dataframe
+
+    Returns:
+        int: the memory size of the row in bytes
+    """
+    total = 0
+
+    # Add the memory overhead of the row object itself
+    total += sys.getsizeof(row)
+
+    # Then add the size of each item in the row
+    for item in row:
+        if isinstance(item, np.ndarray):
+            total += item.nbytes + sys.getsizeof(item)  # include object overhead
+        else:
+            total += sys.getsizeof(item)
+
+    return total
+
+
+def _get_row_mem_size_pa_table(table, row_index):
+    """Given a pyarrow table and a row index, return the memory size of that row.
+
+    Args:
+        table (pa.Table): the pyarrow table
+        row_index (int): the index of the row to measure
+
+    Returns:
+        int: the memory size of the row in bytes
+    """
+    total = 0
+
+    # Add the memory overhead of the row object itself
+    total += sys.getsizeof(row_index)
+
+    # Then add the size of each item in the row
+    for column in table.itercolumns():
+        item = column[row_index]
+        if isinstance(item, np.ndarray):
+            total += item.nbytes + sys.getsizeof(item)  # include object overhead
+        else:
+            total += sys.getsizeof(item.as_py())
+
+    return total
+
+
+def _get_mem_size_of_chunk(data):
+    """Given a 2D array of data, return a list of memory sizes for each row in the chunk.
+
+    Args:
+        data (pd.DataFrame or pa.Table): the data chunk to measure
+
+    Returns:
+        list[int]: list of memory sizes for each row in the chunk
+    """
+    print(f"Calculating memory sizes for chunk of type {type(data)} with {len(data)} rows")
+    if isinstance(data, pd.DataFrame):
+        mem_sizes = [_get_row_mem_size_data_frame(row) for row in data.itertuples(index=False, name=None)]
+    elif isinstance(data, pa.Table):
+        mem_sizes = [_get_row_mem_size_pa_table(data, i) for i in range(data.num_rows)]
     else:
-        mem_sizes = [sum(sys.getsizeof(item) for item in row) for row in data]
+        raise NotImplementedError(f"Unsupported data type {type(data)} for memory size calculation")
     return mem_sizes
 
 
