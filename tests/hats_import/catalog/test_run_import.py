@@ -17,7 +17,6 @@ from pyarrow.parquet import ParquetFile
 import hats_import.catalog.run_import as runner
 from hats_import.catalog.arguments import ImportArguments
 from hats_import.catalog.file_readers import CsvReader
-
 from hats_import.catalog.resume_plan import ResumePlan
 
 

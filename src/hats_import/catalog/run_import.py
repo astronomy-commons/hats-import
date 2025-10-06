@@ -1,3 +1,4 @@
+# pylint: disable=too-many-locals,too-many-statements
 """Import a set of non-hats files using dask for parallelization
 
 Methods in this file set up a dask pipeline using futures.
@@ -8,11 +9,16 @@ import os
 
 import cloudpickle
 import hats.io.file_io as io
+import numpy as np
 from hats.catalog import PartitionInfo
 from hats.io import paths
 from hats.io.parquet_metadata import write_parquet_metadata
 from hats.io.skymap import write_skymap
 from hats.io.validation import is_valid_catalog
+from hats.loaders import read_hats
+from hats.pixel_math import HealpixPixel
+from hats.pixel_math.partition_stats import generate_row_count_histogram_from_partitions
+from hats.pixel_math.sparse_histogram import SparseHistogram
 
 import hats_import.catalog.map_reduce as mr
 from hats_import.catalog.arguments import ImportArguments
@@ -162,12 +168,6 @@ def run(args, client):
         # If we used mem_size partitioning, overwrite the row_count histogram file to match actual
         # division of partitions (and their respective row counts).
         if resume_plan.histogram_type == "mem_size":
-            import numpy as np
-            from hats.loaders import read_hats
-            from hats.pixel_math import HealpixPixel
-            from hats.pixel_math.partition_stats import generate_row_count_histogram_from_partitions
-            from hats.pixel_math.sparse_histogram import SparseHistogram
-
             info_frame = read_hats(args.catalog_path).partition_info.as_dataframe()
             partition_files = [
                 paths.pixel_catalog_file(args.catalog_path, HealpixPixel(row["Norder"], row["Npix"]))

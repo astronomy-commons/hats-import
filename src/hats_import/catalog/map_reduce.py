@@ -22,8 +22,6 @@ from hats_import.pipeline_resume_plan import get_pixel_cache_directory, print_ta
 
 # pylint: disable=too-many-locals,too-many-arguments
 
-from pympler import asizeof
-
 
 def _has_named_index(dataframe):
     """Heuristic to determine if a dataframe has some meaningful index.
@@ -94,7 +92,7 @@ def map_to_pixels(
 
     Args:
         input_file (UPath): file to read for catalog data.
-        file_reader (hats_import.catalog.file_readers.InputReader): instance of input
+        pickled_reader_file (hats_import.catalog.file_readers.InputReader): instance of input
             reader that specifies arguments necessary for reading from the input file.
         resume_path (UPath): where to write resume partial results.
         mapping_key (str): unique counter for this input file, used
@@ -149,7 +147,7 @@ def map_to_pixels(
             if use_byte_threshold_histogram:
                 data_mem_sizes = _get_mem_size_of_chunk(chunk_data)
 
-                pixel_mem_sizes = defaultdict(int)
+                pixel_mem_sizes: dict[int, int] = defaultdict(int)
                 for pixel, mem_size in zip(mapped_pixels, data_mem_sizes, strict=True):
                     pixel_mem_sizes[pixel] += mem_size
 
@@ -157,14 +155,17 @@ def map_to_pixels(
                 mapped_pixel_ids = np.array(list(pixel_mem_sizes.keys()), dtype=np.int64)
                 mapped_pixel_mem_sizes = np.array(list(pixel_mem_sizes.values()), dtype=np.int64)
 
-                mem_size_histo.add(SparseHistogram(mapped_pixel_ids, mapped_pixel_mem_sizes, highest_order))
+                if mem_size_histo is not None:
+                    mem_size_histo.add(
+                        SparseHistogram(mapped_pixel_ids, mapped_pixel_mem_sizes, highest_order)
+                    )
 
         # Write row-count histogram to file.
         row_count_histo.to_sparse().to_file(
             ResumePlan.partial_histogram_file(tmp_path=resume_path, mapping_key=mapping_key)
         )
         # If using bytewise/memory thresholding, also write memory-size histogram to a separate file.
-        if use_byte_threshold_histogram:
+        if use_byte_threshold_histogram and mem_size_histo is not None:
             mem_size_histo.to_sparse().to_file(
                 ResumePlan.partial_histogram_file(tmp_path=resume_path, mapping_key=f"{mapping_key}_memsize")
             )
