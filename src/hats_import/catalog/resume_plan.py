@@ -148,11 +148,6 @@ class ResumePlan(PipelineResumePlan):
             list of mapping keys *not* found in files like /resume/path/mapping_key.npz
         """
         prefix = file_io.get_upath(self.tmp_path) / self.ROW_COUNT_HISTOGRAMS_DIR
-
-        # Support legacy directory name for histogram files.
-        if not file_io.does_file_or_directory_exist(prefix):
-            prefix = file_io.get_upath(self.tmp_path) / self.LEGACY_HISTOGRAMS_DIR
-
         map_file_pattern = re.compile(r"map_(\d+).npz")
         done_indexes = [int(map_file_pattern.match(path.name).group(1)) for path in prefix.glob("*.npz")]
         remaining_indexes = list(set(range(0, len(self.input_paths))) - (set(done_indexes)))
