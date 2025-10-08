@@ -12,6 +12,7 @@ from hats.io.file_io import get_upath
 from hats.io.paths import DATASET_DIR, PARTITION_ORDER
 from hats.io.validation import is_valid_catalog
 from hats.pixel_math import spatial_index
+from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, SPATIAL_INDEX_ORDER
 from typing_extensions import Self
 from upath import UPath
 
@@ -176,6 +177,13 @@ class ImportArguments(RuntimeArguments):
                 {
                     "hats_skymap_order": self.mapping_healpix_order,
                     "hats_skymap_alt_orders": self.skymap_alt_orders,
+                }
+            )
+        if self.add_healpix_29:
+            info.update(
+                {
+                    "hats_col_healpix": SPATIAL_INDEX_COLUMN,
+                    "hats_col_healpix_order": SPATIAL_INDEX_ORDER,
                 }
             )
         properties = TableProperties(**info)

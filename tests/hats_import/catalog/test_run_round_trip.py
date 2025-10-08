@@ -1217,6 +1217,34 @@ def test_import_indexed_csv(
 
 
 @pytest.mark.dask
+def test_import_healpix13(dask_client, formats_dir, tmp_path):
+    """Use catalog data with an existing spatial index NOT at order 29."""
+
+    args = ImportArguments(
+        output_artifact_name="healpix13",
+        input_file_list=formats_dir / "small_sky_healpix13.csv",
+        output_path=tmp_path,
+        file_reader="csv",
+        sort_columns="id",
+        pixel_threshold=3_000,
+        highest_healpix_order=2,
+        progress_bar=False,
+        add_healpix_29=False,
+        addl_hats_properties={"hats_col_healpix": "healpix13", "hats_col_healpix_order": 13},
+    )
+
+    runner.run(args, dask_client)
+
+    # Check that the catalog metadata file exists
+    catalog = read_hats(args.catalog_path)
+    assert catalog.on_disk
+    assert catalog.catalog_path == args.catalog_path
+    assert len(catalog.get_healpix_pixels()) == 1
+    assert catalog.has_healpix_column()
+    assert catalog.catalog_info.healpix_column == "healpix13"
+
+
+@pytest.mark.dask
 def test_pickled_reader_class_issue542(
     dask_client,
     formats_dir,
