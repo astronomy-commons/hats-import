@@ -551,20 +551,20 @@ def assert_stage_level_files_exist(base_intermediate_dir):
     # `small_sky_object_catalog` at order 0.
     expected_contents = [
         "alignment.pickle",
-        "histograms",  # directory containing sub-histograms
         "input_paths.txt",  # original input paths for subsequent comparison
         "mapping_done",  # stage-level done file
-        "mapping_histogram.npz",  # concatenated histogram file
         "order_0",  # all intermediate parquet files
         "reader.pickle",  # pickled InputReader
         "reducing",  # directory containing task-level done files
         "reducing_done",  # stage-level done file
+        "row_count_histograms",  # directory containing sub-histograms
+        "row_count_mapping_histogram.npz",  # concatenated histogram file
         "splitting",  # directory containing task-level done files
         "splitting_done",  # stage-level done file
     ]
     assert_directory_contains(base_intermediate_dir, expected_contents)
 
-    checking_dir = base_intermediate_dir / "histograms"
+    checking_dir = base_intermediate_dir / "row_count_histograms"
     assert_directory_contains(
         checking_dir, ["map_0.npz", "map_1.npz", "map_2.npz", "map_3.npz", "map_4.npz", "map_5.npz"]
     )
