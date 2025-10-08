@@ -170,3 +170,49 @@ def test_import_collection_resume_supplemental(
     ## of the pipeline, and were not included in the properties file at that time.
     assert set(collection.all_margins) == set(["small_sky_50arcs", "small_sky_5arcs"])
     assert collection.all_indexes == {"object_id": "small_sky_object_id", "source_id": "small_sky_source_id"}
+
+
+@pytest.mark.dask(timeout=150)
+def test_import_collection_healpix13(
+    dask_client,
+    formats_dir,
+    tmp_path,
+):
+    args = (
+        CollectionArguments(
+            output_artifact_name="small_sky_healpix13",
+            output_path=tmp_path,
+            tmp_dir=tmp_path,
+        )
+        .catalog(
+            input_file_list=formats_dir / "small_sky_healpix13.csv",
+            file_reader="csv",
+            pixel_threshold=3000,
+            row_group_kwargs={"num_rows": 1_000},
+            highest_healpix_order=2,
+            add_healpix_29=False,
+            addl_hats_properties={"hats_col_healpix": "healpix13", "hats_col_healpix_order": 13},
+            constant_healpix_order=1,
+        )
+        .add_margin(margin_threshold=3600, is_default=True)
+        .add_margin(margin_threshold=7200)
+        .add_index(
+            indexing_column="id",
+            include_healpix_29=False,
+            compute_partition_size=200_000,
+        )
+    )
+
+    run(args, dask_client)
+
+    collection = read_hats(tmp_path / "small_sky_healpix13")
+
+    catalog = collection.main_catalog
+    assert catalog.catalog_info.healpix_column == "healpix13"
+    assert catalog.catalog_info.healpix_order == 13
+    assert catalog.has_healpix_column()
+
+    catalog = read_hats(tmp_path / "small_sky_healpix13" / collection.default_margin)
+    assert catalog.catalog_info.healpix_column == "healpix13"
+    assert catalog.catalog_info.healpix_order == 13
+    assert catalog.has_healpix_column()

@@ -51,6 +51,8 @@ class MarginCacheArguments(RuntimeArguments):
             self.catalog = self.catalog.filter_from_pixel_list(self.debug_filter_pixel_list)
             if len(self.catalog.get_healpix_pixels()) == 0:
                 raise ValueError("debug_filter_pixel_list has created empty catalog")
+        if not self.catalog.has_healpix_column():
+            raise ValueError("Only catalogs with some healpix column (e.g. _healpix_29) can have a margin")
 
         if self.fine_filtering:
             raise NotImplementedError("Fine filtering temporarily removed.")
@@ -86,5 +88,7 @@ class MarginCacheArguments(RuntimeArguments):
             "margin_threshold": self.margin_threshold,
             "hats_order": highest_order,
             "moc_sky_fraction": f"{moc_sky_fraction:0.5f}",
+            "hats_col_healpix": self.catalog.catalog_info.healpix_column,
+            "hats_col_healpix_order": self.catalog.catalog_info.healpix_order,
         } | self.extra_property_dict()
         return TableProperties(**info)

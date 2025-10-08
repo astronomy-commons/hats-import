@@ -43,6 +43,7 @@ def test_to_pixel_shard_equator(tmp_path, basic_data_shard_df):
         pixel=HealpixPixel(1, 21),
         output_path=tmp_path,
         source_pixel=HealpixPixel(1, 0),
+        healpix_column="_healpix_29",
     )
 
     path = tmp_path / "order_1" / "dir_0" / "pixel_21" / "dataset" / "Norder=1" / "Dir=0" / "Npix=0.parquet"
@@ -59,6 +60,7 @@ def test_to_pixel_shard_polar(tmp_path, polar_data_shard_df):
         pixel=HealpixPixel(2, 15),
         output_path=tmp_path,
         source_pixel=HealpixPixel(2, 0),
+        healpix_column="_healpix_29",
     )
 
     path = tmp_path / "order_2" / "dir_0" / "pixel_15" / "dataset" / "Norder=2" / "Dir=0" / "Npix=0.parquet"
@@ -80,6 +82,8 @@ def test_map_pixel_shards_error(tmp_path, capsys):
             margin_pair_file="",
             output_path=tmp_path,
             margin_order=4,
+            healpix_column="_healpix_29",
+            healpix_order=29,
         )
 
     captured = capsys.readouterr()
@@ -99,6 +103,8 @@ def test_map_pixel_shards_coarse(tmp_path, test_data_dir, small_sky_source_catal
         margin_pair_file=test_data_dir / "margin_pairs" / "small_sky_source_pairs.csv",
         output_path=intermediate_dir,
         margin_order=3,
+        healpix_column="_healpix_29",
+        healpix_order=29,
     )
 
     path = (
