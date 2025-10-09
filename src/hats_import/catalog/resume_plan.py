@@ -39,8 +39,6 @@ class ResumePlan(PipelineResumePlan):
     SPLITTING_STAGE = "splitting"
     REDUCING_STAGE = "reducing"
 
-    LEGACY_HISTOGRAM_BINARY_FILE = "mapping_histogram.npz"
-    LEGACY_HISTOGRAMS_DIR = "histograms"
     ROW_COUNT_HISTOGRAM_BINARY_FILE = "row_count_mapping_histogram.npz"
     ROW_COUNT_HISTOGRAMS_DIR = "row_count_histograms"
 
@@ -161,16 +159,9 @@ class ResumePlan(PipelineResumePlan):
         - Otherwise, return an empty histogram
         """
         file_name = file_io.append_paths_to_pointer(self.tmp_path, self.ROW_COUNT_HISTOGRAM_BINARY_FILE)
-        legacy_file_name = file_io.append_paths_to_pointer(self.tmp_path, self.LEGACY_HISTOGRAM_BINARY_FILE)
-
-        # Fall back to the legacy histogram file name, if needed.
-        if not file_io.does_file_or_directory_exist(file_name) and file_io.does_file_or_directory_exist(
-            legacy_file_name
-        ):
-            file_name = legacy_file_name
 
         # Otherwise, read the histogram from partial histograms and combine.
-        elif not file_io.does_file_or_directory_exist(file_name):
+        if not file_io.does_file_or_directory_exist(file_name):
             remaining_map_files = self.get_remaining_map_keys()
             if len(remaining_map_files) > 0:
                 raise RuntimeError(f"{len(remaining_map_files)} map stages did not complete successfully.")
