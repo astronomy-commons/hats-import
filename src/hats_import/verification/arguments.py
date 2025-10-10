@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 import hats.io.paths
+from hats import read_hats
+from hats.catalog import CatalogCollection
 from hats.io import file_io
 from upath import UPath
 
@@ -18,6 +20,9 @@ class VerificationArguments:
     """Path to an existing catalog that will be inspected. This must be a directory
     containing (at least) the hats ancillary files and a 'dataset/' directory
     containing the parquet dataset. Can be supplied as a string or path object."""
+    input_collection_path: UPath = field(default=None)
+    """If the input path is a collection, we will do a full inspection of the 
+    primary catalog, and a metadata-level validation of the collection."""
     output_path: UPath = field()
     """Directory where the verification report should be written.
      Can be supplied as a string or path object."""
@@ -53,6 +58,13 @@ class VerificationArguments:
     def __post_init__(self) -> None:
         self.input_catalog_path = file_io.get_upath(self.input_catalog_path)
         self.output_path = file_io.get_upath(self.output_path)
+
+        catalog = read_hats(self.input_catalog_path)
+        if isinstance(catalog, CatalogCollection):
+            self.input_collection_path = self.input_catalog_path
+            self.input_catalog_path = catalog.main_catalog_dir
+            catalog = catalog.main_catalog
+        self.catalog_total_rows = catalog.catalog_info.total_rows
 
         if self.truth_schema is not None:
             self.truth_schema = file_io.append_paths_to_pointer(self.truth_schema)
