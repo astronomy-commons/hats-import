@@ -144,7 +144,7 @@ def test_resume_dask_runner_diff_pixel_order(
     ## Now set up our resume files to match previous work.
     resume_tmp = tmp_path / "tmp" / "resume_catalog"
     ResumePlan(tmp_path=resume_tmp, progress_bar=False)
-    SparseHistogram([11], [131], 0).to_dense_file(resume_tmp / "mapping_histogram.npz")
+    SparseHistogram([11], [131], 0).to_dense_file(resume_tmp / "row_count_mapping_histogram.npz")
     for file_index in range(0, 5):
         ResumePlan.touch_key_done_file(resume_tmp, ResumePlan.SPLITTING_STAGE, f"split_{file_index}")
 

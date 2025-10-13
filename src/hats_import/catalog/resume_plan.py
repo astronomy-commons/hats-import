@@ -39,8 +39,9 @@ class ResumePlan(PipelineResumePlan):
     SPLITTING_STAGE = "splitting"
     REDUCING_STAGE = "reducing"
 
-    HISTOGRAM_BINARY_FILE = "mapping_histogram.npz"
-    HISTOGRAMS_DIR = "histograms"
+    ROW_COUNT_HISTOGRAM_BINARY_FILE = "row_count_mapping_histogram.npz"
+    ROW_COUNT_HISTOGRAMS_DIR = "row_count_histograms"
+
     ALIGNMENT_FILE = "alignment.pickle"
 
     # pylint: disable=too-many-arguments
@@ -114,7 +115,7 @@ class ResumePlan(PipelineResumePlan):
             if self.should_run_mapping:
                 self.map_files = self.get_remaining_map_keys()
                 file_io.make_directory(
-                    file_io.append_paths_to_pointer(self.tmp_path, self.HISTOGRAMS_DIR),
+                    file_io.append_paths_to_pointer(self.tmp_path, self.ROW_COUNT_HISTOGRAMS_DIR),
                     exist_ok=True,
                 )
             if self.should_run_splitting:
@@ -144,7 +145,7 @@ class ResumePlan(PipelineResumePlan):
         Returns:
             list of mapping keys *not* found in files like /resume/path/mapping_key.npz
         """
-        prefix = file_io.get_upath(self.tmp_path) / self.HISTOGRAMS_DIR
+        prefix = file_io.get_upath(self.tmp_path) / self.ROW_COUNT_HISTOGRAMS_DIR
         map_file_pattern = re.compile(r"map_(\d+).npz")
         done_indexes = [int(map_file_pattern.match(path.name).group(1)) for path in prefix.glob("*.npz")]
         remaining_indexes = list(set(range(0, len(self.input_paths))) - (set(done_indexes)))
@@ -157,24 +158,27 @@ class ResumePlan(PipelineResumePlan):
         - Otherwise, combine histograms from partials
         - Otherwise, return an empty histogram
         """
-        file_name = file_io.append_paths_to_pointer(self.tmp_path, self.HISTOGRAM_BINARY_FILE)
+        file_name = file_io.append_paths_to_pointer(self.tmp_path, self.ROW_COUNT_HISTOGRAM_BINARY_FILE)
+
+        # Otherwise, read the histogram from partial histograms and combine.
         if not file_io.does_file_or_directory_exist(file_name):
-            # Read the histogram from partial histograms and combine.
             remaining_map_files = self.get_remaining_map_keys()
             if len(remaining_map_files) > 0:
                 raise RuntimeError(f"{len(remaining_map_files)} map stages did not complete successfully.")
-            histogram_files = file_io.find_files_matching_path(self.tmp_path, self.HISTOGRAMS_DIR, "*.npz")
+            histogram_files = file_io.find_files_matching_path(
+                self.tmp_path, self.ROW_COUNT_HISTOGRAMS_DIR, "*.npz"
+            )
             aggregate_histogram = HistogramAggregator(healpix_order)
             for partial_file_name in histogram_files:
                 partial = SparseHistogram.from_file(partial_file_name)
                 aggregate_histogram.add(partial)
 
-            file_name = file_io.append_paths_to_pointer(self.tmp_path, self.HISTOGRAM_BINARY_FILE)
+            file_name = file_io.append_paths_to_pointer(self.tmp_path, self.ROW_COUNT_HISTOGRAM_BINARY_FILE)
             with open(file_name, "wb+") as file_handle:
                 file_handle.write(aggregate_histogram.full_histogram)
             if self.delete_resume_log_files:
                 file_io.remove_directory(
-                    file_io.append_paths_to_pointer(self.tmp_path, self.HISTOGRAMS_DIR),
+                    file_io.append_paths_to_pointer(self.tmp_path, self.ROW_COUNT_HISTOGRAMS_DIR),
                     ignore_errors=True,
                 )
 
@@ -200,10 +204,10 @@ class ResumePlan(PipelineResumePlan):
             mapping_key (str): unique string for each mapping task (e.g. "map_57")
         """
         file_io.make_directory(
-            file_io.append_paths_to_pointer(tmp_path, cls.HISTOGRAMS_DIR),
+            file_io.append_paths_to_pointer(tmp_path, cls.ROW_COUNT_HISTOGRAMS_DIR),
             exist_ok=True,
         )
-        return file_io.append_paths_to_pointer(tmp_path, cls.HISTOGRAMS_DIR, f"{mapping_key}.npz")
+        return file_io.append_paths_to_pointer(tmp_path, cls.ROW_COUNT_HISTOGRAMS_DIR, f"{mapping_key}.npz")
 
     def get_remaining_split_keys(self):
         """Gather remaining keys, dropping successful split tasks from done file names.
@@ -266,7 +270,7 @@ class ResumePlan(PipelineResumePlan):
             highest_healpix_order (int):  the highest healpix order (e.g. 5-10)
             lowest_healpix_order (int): the lowest healpix order (e.g. 1-5). specifying a lowest order
                 constrains the partitioning to prevent spatially large pixels.
-            threshold (int): the maximum number of objects allowed in a single pixel
+            pixel_threshold (int): the maximum number of objects allowed in a single pixel
             drop_empty_siblings (bool):  if 3 of 4 pixels are empty, keep only the non-empty pixel
             expected_total_rows (int): number of expected rows found in the dataset.
 

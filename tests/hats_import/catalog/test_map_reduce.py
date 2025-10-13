@@ -87,14 +87,14 @@ def test_read_bad_fileformat(blank_data_file, capsys, tmp_path):
 
 def read_partial_histogram(tmp_path, mapping_key):
     """Helper to read in the former result of a map operation."""
-    histogram_file = tmp_path / "histograms" / f"{mapping_key}.npz"
+    histogram_file = tmp_path / "row_count_histograms" / f"{mapping_key}.npz"
     hist = SparseHistogram.from_file(histogram_file)
     return hist.to_array()
 
 
 def test_read_single_fits(tmp_path, formats_fits):
     """Success case - fits file that exists being read as fits"""
-    (tmp_path / "histograms").mkdir(parents=True)
+    (tmp_path / "row_count_histograms").mkdir(parents=True)
     mr.map_to_pixels(
         input_file=formats_fits,
         pickled_reader_file=pickle_file_reader(tmp_path, get_file_reader("fits")),
