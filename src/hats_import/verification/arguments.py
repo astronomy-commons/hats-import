@@ -20,9 +20,6 @@ class VerificationArguments:
     """Path to an existing catalog that will be inspected. This must be a directory
     containing (at least) the hats ancillary files and a 'dataset/' directory
     containing the parquet dataset. Can be supplied as a string or path object."""
-    input_collection_path: UPath = field(default=None)
-    """If the input path is a collection, we will do a full inspection of the 
-    primary catalog, and a metadata-level validation of the collection."""
     output_path: UPath = field()
     """Directory where the verification report should be written.
      Can be supplied as a string or path object."""
@@ -44,6 +41,17 @@ class VerificationArguments:
         - 'a': append to the end of file if it exists"""
     check_metadata: bool = False
     """Whether to check the metadata as well as the schema."""
+
+    input_collection_path: UPath = field(default=None)
+    """Constructed - not a user argument.
+    
+    If the ``input_catalog_path`` points to a collection, we will do a full inspection
+    of the primary catalog, and a metadata-level validation of the collection."""
+
+    catalog_total_rows: int = 0
+    """Constructed - not a user argument.
+    
+    The number of rows in the catalog's ``hats.properties`` file."""
 
     @property
     def input_dataset_path(self) -> UPath:
