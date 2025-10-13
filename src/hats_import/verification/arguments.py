@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 import hats.io.paths
+from hats import read_hats
+from hats.catalog import CatalogCollection
 from hats.io import file_io
 from upath import UPath
 
@@ -40,6 +42,17 @@ class VerificationArguments:
     check_metadata: bool = False
     """Whether to check the metadata as well as the schema."""
 
+    input_collection_path: UPath = field(default=None)
+    """Constructed - not a user argument.
+    
+    If the ``input_catalog_path`` points to a collection, we will do a full inspection
+    of the primary catalog, and a metadata-level validation of the collection."""
+
+    catalog_total_rows: int = 0
+    """Constructed - not a user argument.
+    
+    The number of rows in the catalog's ``hats.properties`` file."""
+
     @property
     def input_dataset_path(self) -> UPath:
         """Path to the directory under `input_catalog_path` that contains the parquet dataset."""
@@ -53,6 +66,13 @@ class VerificationArguments:
     def __post_init__(self) -> None:
         self.input_catalog_path = file_io.get_upath(self.input_catalog_path)
         self.output_path = file_io.get_upath(self.output_path)
+
+        catalog = read_hats(self.input_catalog_path)
+        if isinstance(catalog, CatalogCollection):
+            self.input_collection_path = self.input_catalog_path
+            self.input_catalog_path = catalog.main_catalog_dir
+            catalog = catalog.main_catalog
+        self.catalog_total_rows = catalog.catalog_info.total_rows
 
         if self.truth_schema is not None:
             self.truth_schema = file_io.append_paths_to_pointer(self.truth_schema)

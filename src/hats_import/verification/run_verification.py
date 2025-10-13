@@ -13,8 +13,6 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.dataset as pds
-from hats import read_hats
-from hats.catalog.catalog_collection import CatalogCollection
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN
 
 import hats_import
@@ -177,11 +175,20 @@ class Verifier:
         -------
             bool: True if the test passed, else False.
         """
-        test, description = "valid hats", "Test hats.io.validation.is_valid_catalog."
-        target = self.args.input_catalog_path
-        self.print_if_verbose(f"\nStarting: {description}")
 
-        passed = hats.io.validation.is_valid_catalog(target, strict=True, verbose=self.args.verbose)
+        if self.args.input_collection_path:
+            test, description = "valid hats", "Test hats.io.validation.is_valid_collection."
+            target = self.args.input_collection_path
+            self.print_if_verbose(f"\nStarting: {description}")
+
+            passed = hats.io.validation.is_valid_collection(target, strict=True, verbose=self.args.verbose)
+        else:
+            test, description = "valid hats", "Test hats.io.validation.is_valid_catalog."
+            target = self.args.input_catalog_path
+            self.print_if_verbose(f"\nStarting: {description}")
+
+            passed = hats.io.validation.is_valid_catalog(target, strict=True, verbose=self.args.verbose)
+
         self.results.append(Result(test=test, description=description, passed=passed, target=target.name))
         self.print_if_verbose(f"Result: {'PASSED' if passed else 'FAILED'}")
         return passed
@@ -231,11 +238,7 @@ class Verifier:
         description = "Test that number of rows are equal."
         self.print_if_verbose(f"\nStarting: {description}")
 
-        catalog = read_hats(self.args.input_catalog_path)
-
-        if isinstance(catalog, CatalogCollection):
-            catalog = catalog.main_catalog
-        catalog_prop_len = catalog.catalog_info.total_rows
+        catalog_prop_len = self.args.catalog_total_rows
 
         # get the number of rows in each file, indexed by file path. we treat this as truth.
         files_df = self._load_nrows(self.files_ds)
