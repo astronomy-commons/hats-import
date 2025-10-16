@@ -8,6 +8,7 @@ import os
 
 import cloudpickle
 import hats.io.file_io as io
+import nested_pandas as npd
 from hats.catalog import PartitionInfo
 from hats.io import paths
 from hats.io.parquet_metadata import write_parquet_metadata
@@ -147,7 +148,8 @@ def run(args, client):
                         f"Number of rows in parquet ({parquet_rows}) "
                         f"does not match expectation ({total_rows})"
                     )
-                column_names = _read_schema_from_metadata(args.catalog_path).names
+                nested_schema = npd.read_parquet(paths.get_common_metadata_pointer(args.catalog_path))
+                column_names = list(nested_schema.columns) + nested_schema.get_subcolumns()
             step_progress.update(1)
             if args.should_write_skymap:
                 io.write_fits_image(raw_histogram, paths.get_point_map_file_pointer(args.catalog_path))

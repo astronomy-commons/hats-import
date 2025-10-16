@@ -250,3 +250,21 @@ def test_run_reimport_association(dask_client, small_sky_object_source_associati
     assert not pointmap_file.exists()
     skymap_file = paths.get_skymap_file_pointer(args.catalog_path)
     assert not skymap_file.exists()
+
+
+@pytest.mark.dask(timeout=10)
+def test_reimport_with_nested(small_sky_nested_catalog, tmp_path, dask_client):
+    output_name = "small_sky_higher_order"
+    pixel_thresh = 100
+    args = ImportArguments.reimport_from_hats(
+        small_sky_nested_catalog,
+        tmp_path,
+        pixel_threshold=pixel_thresh,
+        output_artifact_name=output_name,
+        highest_healpix_order=1,
+        progress_bar=False,
+        addl_hats_properties={"hats_cols_default": ["id", "lc.mjd", "lc.mag", "lc.band"]},
+    )
+    assert isinstance(args, ImportArguments)
+
+    runner.run(args, dask_client)
