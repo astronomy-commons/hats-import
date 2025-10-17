@@ -21,6 +21,7 @@ dependencies = [
     "dask[complete]>=2025.3.0,<2025.4.0", # Includes dask expressions.
     "deprecated",
     "hats >=0.6.7",
+    "nested-pandas>=0.6.0",
     "numpy>=2.2.0,<3", 
     "pandas>=2.0",
 
