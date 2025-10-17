@@ -14,7 +14,6 @@ from hats.io import paths
 from hats.io.parquet_metadata import write_parquet_metadata
 from hats.io.skymap import write_skymap
 from hats.io.validation import is_valid_catalog
-from hats.loaders.read_hats import _read_schema_from_metadata
 
 import hats_import.catalog.map_reduce as mr
 from hats_import.catalog.arguments import ImportArguments

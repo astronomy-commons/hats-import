@@ -256,6 +256,7 @@ def test_run_reimport_association(dask_client, small_sky_object_source_associati
 def test_reimport_with_nested(small_sky_nested_catalog, tmp_path, dask_client):
     output_name = "small_sky_higher_order"
     pixel_thresh = 100
+    default_columns_with_nested = ["id", "lc.mjd", "lc.mag", "lc.band"]
     args = ImportArguments.reimport_from_hats(
         small_sky_nested_catalog,
         tmp_path,
@@ -263,8 +264,11 @@ def test_reimport_with_nested(small_sky_nested_catalog, tmp_path, dask_client):
         output_artifact_name=output_name,
         highest_healpix_order=1,
         progress_bar=False,
-        addl_hats_properties={"hats_cols_default": ["id", "lc.mjd", "lc.mag", "lc.band"]},
+        addl_hats_properties={"hats_cols_default": default_columns_with_nested},
     )
     assert isinstance(args, ImportArguments)
 
     runner.run(args, dask_client)
+
+    catalog = read_hats(args.catalog_path)
+    assert catalog.catalog_info.default_columns == default_columns_with_nested
