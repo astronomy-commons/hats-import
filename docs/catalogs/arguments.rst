@@ -121,6 +121,13 @@ There are a few ways to specify the files to read:
     in_file_paths = glob.glob("/data/object_and_source/object**.csv")
     in_file_paths.sort()
 
+.. important::
+    We will create one Dask task per element inside the ``input_file_list``. 
+
+    If you have only one large file, we can only read the file with one Dask worker.
+    If you have lots of files, you might want to consider the Indexed batching
+    strategy described below.
+
 How to read them?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
