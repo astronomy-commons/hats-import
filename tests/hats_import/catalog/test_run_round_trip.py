@@ -9,6 +9,7 @@ import glob
 import os
 from pathlib import Path
 
+import nested_pandas as npd
 import numpy as np
 import numpy.testing as npt
 import pandas as pd
@@ -1273,3 +1274,34 @@ def test_pickled_reader_class_issue542(
     # Check that the catalog metadata file exists
     catalog = read_hats(args.catalog_path)
     assert catalog.catalog_info.total_rows == 131
+
+
+@pytest.mark.dask
+def test_nested_columns_struct(formats_dir, tmp_path, dask_client):
+    """Check that nested array data are processed."""
+    args = ImportArguments(
+        output_artifact_name="re_nested",
+        input_file_list=formats_dir / "lightcurve.parquet",
+        file_reader="parquet",
+        ra_column="objra",
+        dec_column="objdec",
+        output_path=tmp_path,
+        dask_tmp=tmp_path,
+        highest_healpix_order=2,
+        add_healpix_29=False,
+        pixel_threshold=3_000,
+        progress_bar=False,
+    )
+    runner.run(args, dask_client)
+
+    # Check that the catalog metadata file exists
+    catalog = read_hats(args.catalog_path)
+    assert catalog.catalog_info.total_rows == 5
+    assert len(catalog.get_healpix_pixels()) == 1
+
+    output_file = args.catalog_path / "dataset" / "Norder=2" / "Dir=0" / "Npix=0.parquet"
+
+    pixel_data = pq.read_table(output_file)
+    assert pa.types.is_struct(pixel_data["lightcurve"].type)
+
+    npd.read_parquet(output_file, columns=["lightcurve.hmjd"])

@@ -4,6 +4,7 @@ import pickle
 
 import cloudpickle
 import hats.pixel_math.healpix_shim as hp
+import nested_pandas as npd
 import numpy as np
 import pandas as pd
 import pyarrow as pa
@@ -184,7 +185,7 @@ def split_pixels(
                     if _has_named_index(filtered_data):
                         filtered_data = filtered_data.reset_index()
                     filtered_data = pa.Table.from_pandas(
-                        filtered_data, preserve_index=False
+                        npd.NestedFrame(filtered_data).to_pandas(), preserve_index=False
                     ).replace_schema_metadata()
                 else:
                     filtered_data = data.filter(unique_inverse == unique_index)
