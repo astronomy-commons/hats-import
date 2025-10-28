@@ -11,6 +11,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from hats import pixel_math
 from hats.io import file_io, paths
+from hats.io.paths import PARTITION_PIXEL
 from hats.pixel_math.healpix_pixel import HealpixPixel
 from hats.pixel_math.sparse_histogram import HistogramAggregator, SparseHistogram
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, spatial_index_to_healpix
@@ -199,7 +200,7 @@ def split_pixels(
         raise exception
 
 
-# pylint: disable=too-many-positional-arguments
+# pylint: disable=too-many-positional-arguments,too-many-statements
 def reduce_pixel_shards(
     cache_shard_path,
     resume_path,
@@ -218,6 +219,7 @@ def reduce_pixel_shards(
     write_table_kwargs=None,
     row_group_kwargs=None,
     npix_suffix=".parquet",
+    npix_parquet_name=None,
 ):
     """Reduce sharded source pixels into destination pixels.
 
@@ -250,6 +252,9 @@ def reduce_pixel_shards(
         row_group_kwargs (dict): additional keyword arguments to use in
             creation of rowgroups when writing files to parquet.
         npix_suffix (str): suffix for Npix files. Defaults to ".parquet".
+        npix_parquet_name (str): name of the pixel parquet file to be used
+            when npix_suffix=/. By default, it will be named after the pixel
+            with a .parquet extension (e.g. 'Npix=10.parquet').
 
     Raises:
         ValueError: if the number of rows written doesn't equal provided
@@ -263,6 +268,13 @@ def reduce_pixel_shards(
 
         healpix_pixel = HealpixPixel(destination_pixel_order, destination_pixel_number)
         destination_file = paths.pixel_catalog_file(output_path, healpix_pixel, npix_suffix=npix_suffix)
+
+        if npix_parquet_name is None:
+            npix_parquet_name = f"{PARTITION_PIXEL}={healpix_pixel.pixel}.parquet"
+        if npix_suffix == "/":
+            destination_file.mkdir(exist_ok=True)
+            destination_file = destination_file / npix_parquet_name
+
         if destination_file.exists():
             rows_written = file_io.read_parquet_metadata(destination_file).num_rows
             if rows_written != destination_pixel_size:

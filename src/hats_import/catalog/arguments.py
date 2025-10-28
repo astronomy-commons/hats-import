@@ -52,7 +52,10 @@ class ImportArguments(RuntimeArguments):
     add_healpix_29: bool = True
     """add the healpix-based hats spatial index field alongside the data"""
     npix_suffix: str = ".parquet"
-    """Suffix for Npix files."""
+    """Suffix for pixel data. When specified as "/" each pixel will have a directory in its name."""
+    npix_parquet_name: str | None = None
+    """Name of the pixel parquet file to be used when npix_suffix=/. By default, it will be named
+    after the pixel with a .parquet extension (e.g. 'Npix=10.parquet')"""
     write_table_kwargs: dict | None = None
     """additional keyword arguments to use when writing files to parquet (e.g. compression schemes)."""
     row_group_kwargs: dict | None = None

@@ -384,3 +384,43 @@ def test_import_mismatch_expectation(
 
     with pytest.raises(ValueError, match="does not match expectation"):
         runner.run(args, dask_client)
+
+
+@pytest.mark.dask
+def test_import_with_npix_dir(dask_client, small_sky_parts_dir, tmp_path, assert_parquet_file_ids):
+    """Test that we can create a catalog where the partition data
+    is stored inside a directory: npix_suffix=/"""
+    args = ImportArguments(
+        output_artifact_name="small_sky_object_catalog",
+        input_path=small_sky_parts_dir,
+        file_reader="csv",
+        output_path=tmp_path,
+        dask_tmp=tmp_path,
+        tmp_dir=tmp_path,
+        highest_healpix_order=0,
+        pixel_threshold=1000,
+        npix_suffix="/",
+        progress_bar=False,
+    )
+    runner.run(args, dask_client)
+
+    catalog = read_hats(args.catalog_path)
+    assert catalog.catalog_info.total_rows == 131
+    assert len(catalog.get_healpix_pixels()) == 1
+    assert catalog.catalog_info.npix_suffix == "/"
+
+    pix_dir = Path(args.catalog_path) / "dataset" / "Norder=0" / "Dir=0" / "Npix=11"
+    expected_ids = [*range(700, 831)]
+
+    # The file exists and contains the expected object IDs
+    output_file = pix_dir / "Npix=11.parquet"
+    assert_parquet_file_ids(output_file, "id", expected_ids)
+
+    # Try with a custom npix_parquet_name
+    shutil.rmtree(tmp_path / "small_sky_object_catalog")
+    args.npix_parquet_name = "0.parquet"
+    runner.run(args, dask_client)
+
+    # The file exists and contains the expected object IDs
+    output_file = pix_dir / "0.parquet"
+    assert_parquet_file_ids(output_file, "id", expected_ids)
