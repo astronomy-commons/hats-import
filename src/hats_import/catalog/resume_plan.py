@@ -23,13 +23,16 @@ class ResumePlan(PipelineResumePlan):
     """Container class for holding the state of each file in the pipeline plan."""
 
     input_paths: list[UPath] = field(default_factory=list)
-    """resolved list of all files that will be used in the importer"""
+    """Resolved list of all files that will be used in the importer"""
     map_files: list[tuple[str, str]] = field(default_factory=list)
-    """list of files (and job keys) that have yet to be mapped"""
+    """List of files (and job keys) that have yet to be mapped"""
     split_keys: list[tuple[str, str]] = field(default_factory=list)
-    """set of files (and job keys) that have yet to be split"""
+    """Set of files (and job keys) that have yet to be split"""
     destination_pixel_map: dict[HealpixPixel, int] | None = None
     """Destination pixels and their expected final count"""
+    threshold_mode: str = "row_count"
+    """Which mode to use for partitioning: 'row_count' or 'mem_size'.
+    Determines whether to create additional mem_size histogram."""
     should_run_mapping: bool = True
     should_run_splitting: bool = True
     should_run_reducing: bool = True
@@ -63,6 +66,10 @@ class ResumePlan(PipelineResumePlan):
             if import_args.debug_stats_only:
                 run_stages = ["mapping", "finishing"]
             self.input_paths = import_args.input_paths
+
+            # Set threshold_mode based on byte_pixel_threshold
+            if hasattr(import_args, "byte_pixel_threshold") and import_args.byte_pixel_threshold is not None:
+                self.threshold_mode = "mem_size"
         else:
             super().__init__(
                 resume=resume,

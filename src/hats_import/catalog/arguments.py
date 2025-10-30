@@ -84,6 +84,11 @@ class ImportArguments(RuntimeArguments):
     """when determining bins for the final partitioning, the maximum number 
     of rows for a single resulting pixel. we may combine hierarchically until 
     we near the ``pixel_threshold``"""
+    byte_pixel_threshold: int | None = None
+    """when determining bins for the final partitioning, the maximum number
+    of rows for a single resulting pixel, expressed in bytes. we may combine hierarchically until
+    we near the ``byte_pixel_threshold``. if this is set, it will override
+    ``pixel_threshold``."""
     drop_empty_siblings: bool = True
     """when determining bins for the final partitioning, should we keep result pixels
     at a higher order (smaller area) if the 3 sibling pixels are empty. setting this to 
@@ -140,6 +145,13 @@ class ImportArguments(RuntimeArguments):
             self.add_healpix_29 = False
             if self.sort_columns:
                 raise ValueError("When using _healpix_29 for position, no sort columns should be added")
+
+        # Validate byte_pixel_threshold
+        if self.byte_pixel_threshold is not None:
+            if not isinstance(self.byte_pixel_threshold, int):
+                raise TypeError("byte_pixel_threshold must be an integer")
+            if self.byte_pixel_threshold < 0:
+                raise ValueError("byte_pixel_threshold must be non-negative")
 
         # Basic checks complete - make more checks and create directories where necessary
         self.input_paths = find_input_paths(self.input_path, "**/*.*", self.input_file_list)
