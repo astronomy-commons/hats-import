@@ -10,7 +10,7 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from hats import read_hats
+from hats import HealpixPixel, read_hats
 from hats.pixel_math.sparse_histogram import SparseHistogram
 from pyarrow.parquet import ParquetFile
 
@@ -424,3 +424,51 @@ def test_import_with_npix_dir(dask_client, small_sky_parts_dir, tmp_path, assert
     # The file exists and contains the expected object IDs
     output_file = pix_dir / "0.parquet"
     assert_parquet_file_ids(output_file, "id", expected_ids)
+
+
+@pytest.mark.dask
+def test_import_with_existing_pixels(dask_client, small_sky_parts_dir, tmp_path):
+    # The catalog imported at order 1 would include 4 pixels order 1 in range 44:48.
+    # Let's set pixel (2,180), which is the first child of (1,45) as an existing pixel.
+    args = ImportArguments(
+        output_artifact_name="small_sky_object_catalog",
+        input_path=small_sky_parts_dir,
+        file_reader="csv",
+        output_path=tmp_path,
+        dask_tmp=tmp_path,
+        tmp_dir=tmp_path,
+        highest_healpix_order=2,
+        pixel_threshold=1000,
+        progress_bar=False,
+        existing_pixels=[(2, 180)],
+    )
+    runner.run(args, dask_client)
+
+    catalog = read_hats(args.catalog_path)
+    assert catalog.on_disk
+    assert catalog.catalog_path == args.catalog_path
+    assert catalog.catalog_info.ra_column == "ra"
+    assert catalog.catalog_info.dec_column == "dec"
+    assert catalog.catalog_info.total_rows == 131
+    assert catalog.get_healpix_pixels() == [
+        HealpixPixel(1, 44),
+        HealpixPixel(1, 46),
+        HealpixPixel(1, 47),
+        *[HealpixPixel(2, p) for p in range(180, 184)],
+    ]
+
+
+def test_import_with_existing_pixels_invalid_highest_order(small_sky_parts_dir, tmp_path):
+    with pytest.raises(ValueError, match="current `existing_pixels` order"):
+        ImportArguments(
+            output_artifact_name="small_sky_object_catalog",
+            input_path=small_sky_parts_dir,
+            file_reader="csv",
+            output_path=tmp_path,
+            dask_tmp=tmp_path,
+            tmp_dir=tmp_path,
+            highest_healpix_order=0,
+            pixel_threshold=1000,
+            progress_bar=False,
+            existing_pixels=[(1, 44), (1, 45)],
+        )
