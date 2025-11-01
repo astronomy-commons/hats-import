@@ -32,7 +32,7 @@ dependencies = [
     "tqdm>=4.59.0",
 
     # NOTE: package PINNED at <0.3.0, see https://github.com/astronomy-commons/lsdb/issues/1047
-    "universal-pathlib>=0.2.2,<0.3.0",
+    "universal-pathlib>=0.2.2,<0.4.0",
 ]
 
 # On a mac, install optional dependencies with `pip install '.[dev]'` (include the single quotes)
