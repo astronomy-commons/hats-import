@@ -48,29 +48,10 @@ def run(args, client):
                     ra_column=args.ra_column,
                     dec_column=args.dec_column,
                     use_healpix_29=args.use_healpix_29,
+                    threshold_mode="mem_size",
                 )
             )
         resume_plan.wait_for_mapping(futures)
-
-        # If we are partitioning by memory size, run the mapping for the mem_size histogram as well.
-        if resume_plan.threshold_mode == "mem_size":
-            futures = []
-            for key, file_path in resume_plan.map_files:
-                futures.append(
-                    client.submit(
-                        mr.map_to_pixels,
-                        input_file=file_path,
-                        resume_path=resume_plan.tmp_path,
-                        pickled_reader_file=pickled_reader_file,
-                        mapping_key=key,
-                        highest_order=args.mapping_healpix_order,
-                        ra_column=args.ra_column,
-                        dec_column=args.dec_column,
-                        use_healpix_29=args.use_healpix_29,
-                        threshold_mode="mem_size",
-                    )
-                )
-            resume_plan.wait_for_mapping(futures)
 
     with resume_plan.print_progress(total=2, stage_name="Binning") as step_progress:
         raw_histogram = resume_plan.read_histogram(args.mapping_healpix_order, which_histogram="row_count")

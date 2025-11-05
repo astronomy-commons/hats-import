@@ -1,12 +1,13 @@
 """Test catalog resume logic"""
 
+from unittest.mock import MagicMock
+
 import numpy as np
 import numpy.testing as npt
 import pytest
-from unittest.mock import MagicMock
-
 from hats.pixel_math.healpix_pixel import HealpixPixel
 from hats.pixel_math.sparse_histogram import SparseHistogram
+
 from hats_import.catalog.resume_plan import ResumePlan
 
 
