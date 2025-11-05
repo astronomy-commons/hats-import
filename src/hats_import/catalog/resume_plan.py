@@ -211,15 +211,18 @@ class ResumePlan(PipelineResumePlan):
             ValueError: If the histogram from the previous execution is incompatible with
                 the highest Healpix order, or if `which_histogram` is invalid.
         """
+        # Temporarily skipping the next block from code coverage, as we will be calling it once we
+        # address the binning stage and onwards in the next PR.
+        # Mocking this in the meantime for temporary tests doesn't seem worth the complication).
         if which_histogram == "row_count":
             histogram_binary_file = self.ROW_COUNT_HISTOGRAM_BINARY_FILE
             histogram_directory = self.ROW_COUNT_HISTOGRAMS_DIR
-        elif which_histogram == "mem_size" and self.threshold_mode == "mem_size":
+        elif which_histogram == "mem_size" and self.threshold_mode == "mem_size":  # pragma: no cover
             histogram_binary_file = self.MEM_SIZE_HISTOGRAM_BINARY_FILE
             histogram_directory = self.MEM_SIZE_HISTOGRAMS_DIR
-        elif which_histogram == "mem_size":
+        elif which_histogram == "mem_size":  # pragma: no cover
             raise ValueError("Cannot read mem_size histogram when threshold_mode is not 'mem_size'.")
-        else:
+        else:  # pragma: no cover
             raise ValueError(f"Unrecognized which_histogram value: {which_histogram}")
 
         file_name = file_io.append_paths_to_pointer(self.tmp_path, histogram_binary_file)
