@@ -180,7 +180,11 @@ class ResumePlan(PipelineResumePlan):
             raise ValueError(f"Unrecognized which_histogram value: {which_histogram}")
 
         map_file_pattern = re.compile(r"map_(\d+).npz")
-        done_indexes = [int(map_file_pattern.match(path.name).group(1)) for path in prefix.glob("*.npz")]
+        done_indexes = [
+            int(match.group(1))
+            for path in prefix.glob("*.npz")
+            if (match := map_file_pattern.match(path.name))
+        ]
         remaining_indexes = list(set(range(0, len(self.input_paths))) - (set(done_indexes)))
         return [(f"map_{key}", self.input_paths[key]) for key in remaining_indexes]
 

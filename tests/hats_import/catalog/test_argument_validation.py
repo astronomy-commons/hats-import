@@ -295,3 +295,23 @@ def test_no_import_overwrite(small_sky_object_catalog, parquet_shards_dir):
             output_artifact_name=catalog_name,
             file_reader="parquet",
         )
+
+
+def test_bad_byte_pixel_thresholds(blank_data_dir, tmp_path):
+    """Test that invalid pixel thresholds raise errors."""
+    with pytest.raises(TypeError, match="byte_pixel_threshold must be an integer"):
+        ImportArguments(
+            output_artifact_name="catalog",
+            input_path=blank_data_dir,
+            file_reader="csv",
+            output_path=tmp_path,
+            byte_pixel_threshold=4.2,
+        )
+    with pytest.raises(ValueError, match="byte_pixel_threshold must be non-negative"):
+        ImportArguments(
+            output_artifact_name="catalog",
+            input_path=blank_data_dir,
+            file_reader="csv",
+            output_path=tmp_path,
+            byte_pixel_threshold=-5,
+        )
