@@ -435,6 +435,11 @@ def test_mem_size_thresholding(
     """Test that we can run with mem_size thresholding."""
     args = ImportArguments(
         output_artifact_name="small_sky_mem_size",
+        input_path=small_sky_parts_dir,
+        file_reader="csv",
+        output_path=tmp_path,
+        dask_tmp=tmp_path,
+        tmp_dir=tmp_path,
         highest_healpix_order=1,
         progress_bar=False,
         pixel_threshold=10_000,
