@@ -3,9 +3,10 @@
 import numpy as np
 import numpy.testing as npt
 import pytest
+from unittest.mock import MagicMock
+
 from hats.pixel_math.healpix_pixel import HealpixPixel
 from hats.pixel_math.sparse_histogram import SparseHistogram
-
 from hats_import.catalog.resume_plan import ResumePlan
 
 
@@ -258,3 +259,68 @@ def test_run_stages(tmp_path):
     assert not plan.should_run_splitting
     assert plan.should_run_reducing
     assert plan.should_run_finishing
+
+
+def test_resume_plan_with_byte_pixel_threshold(tmp_path):
+    """Test ResumePlan initialization with byte_pixel_threshold specified."""
+    # Mock import_args with necessary attributes
+    import_args = MagicMock()
+    import_args.resume_kwargs_dict.return_value = {"tmp_path": tmp_path}
+    import_args.debug_stats_only = False
+    import_args.byte_pixel_threshold = 100  # Simulate a specified byte_pixel_threshold
+    import_args.input_paths = ["file1", "file2"]
+
+    # Initialize ResumePlan with the mocked import_args
+    resume_plan = ResumePlan(import_args=import_args)
+
+    # Assert that threshold_mode is set to "mem_size"
+    assert resume_plan.threshold_mode == "mem_size"
+
+
+def test_gather_plan_mem_size_mode(tmp_path):
+    """Test gather_plan in mem_size mode."""
+    # Mock import_args with necessary attributes
+    import_args = MagicMock()
+    import_args.resume_kwargs_dict.return_value = {"tmp_path": tmp_path}
+    import_args.debug_stats_only = False
+    import_args.byte_pixel_threshold = 100  # Simulate a specified byte_pixel_threshold
+    import_args.input_paths = ["file1", "file2"]
+
+    # Initialize ResumePlan with the mocked import_args
+    plan = ResumePlan(import_args=import_args, tmp_path=tmp_path)
+
+    # Mock methods to avoid actual file operations
+    plan.get_remaining_map_keys = MagicMock(return_value=[("map_1", "file1"), ("map_2", "file2")])
+    plan.done_file_exists = MagicMock(return_value=False)
+    plan.check_original_input_paths = MagicMock(return_value=import_args.input_paths)
+    plan.print_progress = MagicMock()
+
+    # Call gather_plan and verify mem_size directory creation
+    plan.gather_plan()
+    plan.get_remaining_map_keys.assert_any_call(which_histogram="mem_size")
+
+
+def test_get_remaining_map_keys_mem_size_and_invalid(tmp_path):
+    """Test get_remaining_map_keys with mem_size and invalid options."""
+    # Create a ResumePlan instance with mem_size threshold_mode
+    plan = ResumePlan(tmp_path=tmp_path, progress_bar=False, input_paths=["file1", "file2"])
+    plan.threshold_mode = "mem_size"
+
+    # Mock the directory structure to simulate mem_size histogram files
+    mem_size_dir = tmp_path / plan.MEM_SIZE_HISTOGRAMS_DIR
+    mem_size_dir.mkdir()
+    (mem_size_dir / "map_0.npz").touch()
+
+    # Call get_remaining_map_keys with mem_size
+    remaining_keys = plan.get_remaining_map_keys(which_histogram="mem_size")
+    assert len(remaining_keys) == 1
+    assert remaining_keys[0] == ("map_1", "file2")
+
+    # Raise error if threshold_mode is not mem_size
+    plan.threshold_mode = "row_count"
+    with pytest.raises(ValueError, match="when threshold_mode is not 'mem_size'"):
+        plan.get_remaining_map_keys(which_histogram="mem_size")
+
+    # Call get_remaining_map_keys with an invalid option
+    with pytest.raises(ValueError, match="Unrecognized which_histogram value"):
+        plan.get_remaining_map_keys(which_histogram="invalid_option")
