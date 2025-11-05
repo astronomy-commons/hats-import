@@ -20,17 +20,11 @@ dependencies = [
     "cloudpickle>=3.0.0", # Reader serialisation, transitive dependency of Dask
     "dask[complete]>=2025.3.0,<2025.4.0", # Includes dask expressions.
     "deprecated",
-    "hats >=0.6.7",
+    "hats>=0.7",
     "nested-pandas>=0.6.0",
     "numpy>=2.2.0,<3", 
     "pandas>=2.0",
-
-    # NOTE: package PINNED at <21.0.0, see https://github.com/astronomy-commons/lsdb/issues/974
-    "pyarrow>=14.0.1,!=19.0.0,<21.0.0; platform_system == 'Windows'",
-
-    "pyarrow>=14.0.1,!=19.0.0; platform_system != 'Windows'",
     "tqdm>=4.59.0",
-
     # NOTE: package PINNED at <0.3.0, see https://github.com/astronomy-commons/lsdb/issues/1047
     "universal-pathlib>=0.2.2,<0.3.0",
 ]

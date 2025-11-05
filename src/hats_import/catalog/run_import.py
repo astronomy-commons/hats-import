@@ -141,6 +141,7 @@ def run(args, client):
                     write_table_kwargs=args.write_table_kwargs,
                     row_group_kwargs=args.row_group_kwargs,
                     npix_suffix=args.npix_suffix,
+                    npix_parquet_name=args.npix_parquet_name,
                 )
             )
 
