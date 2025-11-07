@@ -295,12 +295,12 @@ class ResumePlan(PipelineResumePlan):
                     threshold=pixel_threshold,
                     drop_empty_siblings=drop_empty_siblings,
                 )
-            with open(file_name, "wb") as pickle_file:
+            with file_name.open("wb") as pickle_file:
                 alignment = np.array([x if x is not None else [-1, -1, 0] for x in alignment], dtype=np.int64)
                 pickle.dump(alignment, pickle_file)
 
         if self.destination_pixel_map is None:
-            with open(file_name, "rb") as pickle_file:
+            with file_name.open("rb") as pickle_file:
                 alignment = pickle.load(pickle_file)
             pixel_list = np.unique(alignment, axis=0)
             self.destination_pixel_map = {
