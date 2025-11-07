@@ -125,16 +125,14 @@ class Verifier:
                 all_files.append(unquote(child.path))
 
         files_ds = pds.dataset(all_files, filesystem=parquet_fs)
-        metadata_ds = pds.parquet_dataset(
-            hats.io.paths.get_parquet_metadata_pointer(args.input_catalog_path), filesystem=parquet_fs
-        )
+        metadata_pointer = hats.io.paths.get_parquet_metadata_pointer(args.input_catalog_path)
+        metadata_ds = pds.parquet_dataset(metadata_pointer.path, filesystem=parquet_fs)
 
         input_truth_schema = None
         if args.truth_schema is not None:
             input_truth_schema = pds.parquet_dataset(args.truth_schema, filesystem=parquet_fs).schema
-        common_metadata_schema = pds.parquet_dataset(
-            hats.io.paths.get_common_metadata_pointer(args.input_catalog_path), filesystem=parquet_fs
-        ).schema
+        common_metadata_pointer = hats.io.paths.get_common_metadata_pointer(args.input_catalog_path)
+        common_metadata_schema = pds.parquet_dataset(common_metadata_pointer.path, filesystem=parquet_fs).schema
         constructed_truth_schema = cls._construct_truth_schema(
             input_truth_schema=input_truth_schema, common_metadata_schema=common_metadata_schema
         )

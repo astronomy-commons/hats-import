@@ -125,7 +125,7 @@ def _convert_partition_file(pixel, args, schema, ra_column, dec_column):
             / f"Npix={pixel.pixel}.parquet"
         )
 
-        table = pq.read_table(input_file, schema=schema)
+        table = pq.read_table(input_file.path, filesystem=input_file.fs, schema=schema)
 
         table = table.drop_columns(["_hipscat_index", "Norder", "Dir", "Npix"]).add_column(
             0,
