@@ -13,6 +13,7 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 from hats.pixel_math.sparse_histogram import SparseHistogram
+from nested_pandas.nestedframe import NestedFrame
 
 import hats_import.catalog.map_reduce as mr
 from hats_import.catalog.file_readers import get_file_reader
@@ -780,9 +781,6 @@ def test_get_mem_size_of_chunk():
 
 def test_get_mem_size_of_chunk_nested():
     """Test the _get_mem_size_of_chunk function with nested data."""
-    pytest.importorskip("nested_pandas")
-    from nested_pandas.nestedframe import NestedFrame  # pylint: disable=import-outside-toplevel
-
     # Create a small DataFrame and nest it
     df = pd.DataFrame(
         {
