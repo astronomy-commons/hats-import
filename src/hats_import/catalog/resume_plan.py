@@ -239,7 +239,7 @@ class ResumePlan(PipelineResumePlan):
                 aggregate_histogram.add(partial)
 
             file_name = file_io.append_paths_to_pointer(self.tmp_path, histogram_binary_file)
-            with open(file_name, "wb+") as file_handle:
+            with open(str(file_name), "wb+") as file_handle:
                 file_handle.write(aggregate_histogram.full_histogram)
             if self.delete_resume_log_files:
                 file_io.remove_directory(
@@ -247,7 +247,7 @@ class ResumePlan(PipelineResumePlan):
                     ignore_errors=True,
                 )
 
-        with open(file_name, "rb") as file_handle:
+        with open(str(file_name), "rb") as file_handle:
             full_histogram = frombuffer(file_handle.read(), dtype=np.int64)
 
         if len(full_histogram) != hp.order2npix(healpix_order):
