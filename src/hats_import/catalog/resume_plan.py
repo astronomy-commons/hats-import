@@ -239,7 +239,7 @@ class ResumePlan(PipelineResumePlan):
                 aggregate_histogram.add(partial)
 
             file_name = file_io.append_paths_to_pointer(self.tmp_path, histogram_binary_file)
-            with open(str(file_name), "wb+") as file_handle:
+            with file_name.open("wb+") as file_handle:
                 file_handle.write(aggregate_histogram.full_histogram)
             if self.delete_resume_log_files:
                 file_io.remove_directory(
