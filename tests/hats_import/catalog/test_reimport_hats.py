@@ -175,6 +175,7 @@ def test_run_reimport(
     assert catalog.catalog_info.default_columns == old_cat.catalog_info.default_columns
     assert catalog.catalog_info.__pydantic_extra__["obs_regime"] == "Optical"
     assert len(catalog.get_healpix_pixels()) == 4
+    assert catalog.schema == old_cat.schema
 
     # Check that the schema is correct for leaf parquet and _metadata files
     original_common_md = paths.get_common_metadata_pointer(old_cat.catalog_base_dir)
