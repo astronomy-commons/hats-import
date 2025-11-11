@@ -247,7 +247,7 @@ class ResumePlan(PipelineResumePlan):
                     ignore_errors=True,
                 )
 
-        with open(str(file_name), "rb") as file_handle:
+        with file_name.open("rb") as file_handle:
             full_histogram = frombuffer(file_handle.read(), dtype=np.int64)
 
         if len(full_histogram) != hp.order2npix(healpix_order):
