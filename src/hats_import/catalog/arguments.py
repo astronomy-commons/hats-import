@@ -9,7 +9,7 @@ import hats
 from hats.catalog import TableProperties
 from hats.catalog.catalog_collection import CatalogCollection
 from hats.io.file_io import get_upath
-from hats.io.paths import DATASET_DIR, PARTITION_ORDER
+from hats.io.paths import DATASET_DIR, HIVE_COLUMNS, PARTITION_ORDER
 from hats.io.validation import is_valid_catalog
 from hats.pixel_math import spatial_index
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, SPATIAL_INDEX_ORDER
@@ -234,7 +234,10 @@ class ImportArguments(RuntimeArguments):
         if not is_valid_catalog(path, strict=True):
             raise ValueError("path not a valid catalog")
 
-        column_names = catalog.schema.names if catalog.schema is not None else None
+        column_names = None
+        if catalog.schema is not None:
+            column_names = catalog.schema.names
+            column_names = [name for name in column_names if name not in HIVE_COLUMNS]
 
         in_file_paths = list(
             (path / DATASET_DIR).rglob(f"{PARTITION_ORDER}*/**/*{catalog.catalog_info.npix_suffix}")
