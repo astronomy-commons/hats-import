@@ -1,3 +1,4 @@
+import hats as hc
 from hats.catalog import PartitionInfo
 from hats.io import file_io, parquet_metadata, paths
 
@@ -18,10 +19,14 @@ def generate_margin_cache(args, client):
     resume_plan = MarginCachePlan(args)
     original_catalog_metadata = paths.get_common_metadata_pointer(args.input_catalog_path)
 
+    hc_catalog = hc.read_hats(args.input_catalog_path)
+
     if not resume_plan.is_mapping_done():
         futures = []
         for mapping_key, pix in resume_plan.get_remaining_map_keys():
-            partition_file = paths.pixel_catalog_file(args.input_catalog_path, pix)
+            partition_file = paths.pixel_catalog_file(
+                args.input_catalog_path, pix, npix_suffix=hc_catalog.catalog_info.npix_suffix
+            )
             futures.append(
                 client.submit(
                     mcmr.map_pixel_shards,
