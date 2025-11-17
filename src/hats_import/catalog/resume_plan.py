@@ -23,13 +23,16 @@ class ResumePlan(PipelineResumePlan):
     """Container class for holding the state of each file in the pipeline plan."""
 
     input_paths: list[UPath] = field(default_factory=list)
-    """resolved list of all files that will be used in the importer"""
+    """Resolved list of all files that will be used in the importer"""
     map_files: list[tuple[str, str]] = field(default_factory=list)
-    """list of files (and job keys) that have yet to be mapped"""
+    """List of files (and job keys) that have yet to be mapped"""
     split_keys: list[tuple[str, str]] = field(default_factory=list)
-    """set of files (and job keys) that have yet to be split"""
+    """Set of files (and job keys) that have yet to be split"""
     destination_pixel_map: dict[HealpixPixel, int] | None = None
     """Destination pixels and their expected final count"""
+    threshold_mode: str = "row_count"
+    """Which mode to use for partitioning: 'row_count' or 'mem_size'.
+    Determines whether to create additional mem_size histogram."""
     should_run_mapping: bool = True
     should_run_splitting: bool = True
     should_run_reducing: bool = True
@@ -41,6 +44,8 @@ class ResumePlan(PipelineResumePlan):
 
     ROW_COUNT_HISTOGRAM_BINARY_FILE = "row_count_mapping_histogram.npz"
     ROW_COUNT_HISTOGRAMS_DIR = "row_count_histograms"
+    MEM_SIZE_HISTOGRAM_BINARY_FILE = "mem_size_mapping_histogram.npz"
+    MEM_SIZE_HISTOGRAMS_DIR = "mem_size_histograms"
 
     ALIGNMENT_FILE = "alignment.pickle"
 
@@ -63,6 +68,10 @@ class ResumePlan(PipelineResumePlan):
             if import_args.debug_stats_only:
                 run_stages = ["mapping", "finishing"]
             self.input_paths = import_args.input_paths
+
+            # Set threshold_mode based on byte_pixel_threshold
+            if hasattr(import_args, "byte_pixel_threshold") and import_args.byte_pixel_threshold is not None:
+                self.threshold_mode = "mem_size"
         else:
             super().__init__(
                 resume=resume,
@@ -118,6 +127,13 @@ class ResumePlan(PipelineResumePlan):
                     file_io.append_paths_to_pointer(self.tmp_path, self.ROW_COUNT_HISTOGRAMS_DIR),
                     exist_ok=True,
                 )
+                # If using mem_size thresholding, gather those keys too.
+                if self.threshold_mode == "mem_size":
+                    self.get_remaining_map_keys(which_histogram="mem_size")
+                    file_io.make_directory(
+                        file_io.append_paths_to_pointer(self.tmp_path, self.MEM_SIZE_HISTOGRAMS_DIR),
+                        exist_ok=True,
+                    )
             if self.should_run_splitting:
                 if not (mapping_done or self.should_run_mapping):
                     raise ValueError("mapping must be complete before splitting")
@@ -139,50 +155,99 @@ class ResumePlan(PipelineResumePlan):
                 )
             step_progress.update(1)
 
-    def get_remaining_map_keys(self):
+    def get_remaining_map_keys(self, which_histogram: str = "row_count"):
         """Gather remaining keys, dropping successful mapping tasks from histogram names.
 
+        Args:
+            which_histogram (str): Which histogram to check for completed tasks, either 'row_count'
+                or 'mem_size'. Defaults to 'row_count'.
+
         Returns:
-            list of mapping keys *not* found in files like /resume/path/mapping_key.npz
+            list of tuple: The mapping keys *not* found in files like /resume/path/mapping_key.npz,
+                along with their corresponding input file paths.
+
+        Raises:
+            ValueError: If `which_histogram` is not recognized, or if which_histogram is
+                'mem_size' but the threshold_mode is not 'mem_size'.
         """
-        prefix = file_io.get_upath(self.tmp_path) / self.ROW_COUNT_HISTOGRAMS_DIR
+        if which_histogram == "row_count":
+            prefix = file_io.get_upath(self.tmp_path) / self.ROW_COUNT_HISTOGRAMS_DIR
+        elif which_histogram == "mem_size" and self.threshold_mode == "mem_size":
+            prefix = file_io.get_upath(self.tmp_path) / self.MEM_SIZE_HISTOGRAMS_DIR
+        elif which_histogram == "mem_size":
+            raise ValueError("Cannot get remaining mem_size map keys when threshold_mode is not 'mem_size'.")
+        else:
+            raise ValueError(f"Unrecognized which_histogram value: {which_histogram}")
+
         map_file_pattern = re.compile(r"map_(\d+).npz")
-        done_indexes = [int(map_file_pattern.match(path.name).group(1)) for path in prefix.glob("*.npz")]
+        done_indexes = [
+            int(match.group(1))
+            for path in prefix.glob("*.npz")
+            if (match := map_file_pattern.match(path.name))
+        ]
         remaining_indexes = list(set(range(0, len(self.input_paths))) - (set(done_indexes)))
         return [(f"map_{key}", self.input_paths[key]) for key in remaining_indexes]
 
-    def read_histogram(self, healpix_order):
-        """Return histogram with healpix_order'd shape
+    def read_histogram(self, healpix_order, which_histogram: str = "row_count"):
+        """Returns a histogram with the specified Healpix order's shape.
 
-        - Try to find a combined histogram
-        - Otherwise, combine histograms from partials
-        - Otherwise, return an empty histogram
+        This method attempts the following steps in order:
+        1. Tries to locate and return a combined histogram.
+        2. If a combined histogram is unavailable, combines partial histograms to create one.
+        3. If no partial histograms are found, returns an empty histogram.
+
+        Args:
+            healpix_order (int): The desired Healpix order for the histogram.
+            which_histogram (str): Which histogram to read, either "row_count" or "mem_size".
+                Defaults to "row_count".
+
+
+        Returns:
+            numpy.ndarray: A one-dimensional array representing the histogram with the
+                specified Healpix order.
+
+        Raises:
+            RuntimeError: If there are incomplete mapping stages.
+            ValueError: If the histogram from the previous execution is incompatible with
+                the highest Healpix order, or if `which_histogram` is invalid.
         """
-        file_name = file_io.append_paths_to_pointer(self.tmp_path, self.ROW_COUNT_HISTOGRAM_BINARY_FILE)
+        # Temporarily skipping the next block from code coverage, as we will be calling it once we
+        # address the binning stage and onwards in the next PR.
+        # Mocking this in the meantime for temporary tests doesn't seem worth the complication).
+        if which_histogram == "row_count":
+            histogram_binary_file = self.ROW_COUNT_HISTOGRAM_BINARY_FILE
+            histogram_directory = self.ROW_COUNT_HISTOGRAMS_DIR
+        elif which_histogram == "mem_size" and self.threshold_mode == "mem_size":  # pragma: no cover
+            histogram_binary_file = self.MEM_SIZE_HISTOGRAM_BINARY_FILE
+            histogram_directory = self.MEM_SIZE_HISTOGRAMS_DIR
+        elif which_histogram == "mem_size":  # pragma: no cover
+            raise ValueError("Cannot read mem_size histogram when threshold_mode is not 'mem_size'.")
+        else:  # pragma: no cover
+            raise ValueError(f"Unrecognized which_histogram value: {which_histogram}")
 
-        # Otherwise, read the histogram from partial histograms and combine.
+        file_name = file_io.append_paths_to_pointer(self.tmp_path, histogram_binary_file)
+
+        # If no file, read the histogram from partial histograms and combine.
         if not file_io.does_file_or_directory_exist(file_name):
             remaining_map_files = self.get_remaining_map_keys()
             if len(remaining_map_files) > 0:
                 raise RuntimeError(f"{len(remaining_map_files)} map stages did not complete successfully.")
-            histogram_files = file_io.find_files_matching_path(
-                self.tmp_path, self.ROW_COUNT_HISTOGRAMS_DIR, "*.npz"
-            )
+            histogram_files = file_io.find_files_matching_path(self.tmp_path, histogram_directory, "*.npz")
             aggregate_histogram = HistogramAggregator(healpix_order)
             for partial_file_name in histogram_files:
                 partial = SparseHistogram.from_file(partial_file_name)
                 aggregate_histogram.add(partial)
 
-            file_name = file_io.append_paths_to_pointer(self.tmp_path, self.ROW_COUNT_HISTOGRAM_BINARY_FILE)
-            with open(file_name, "wb+") as file_handle:
+            file_name = file_io.append_paths_to_pointer(self.tmp_path, histogram_binary_file)
+            with file_name.open("wb+") as file_handle:
                 file_handle.write(aggregate_histogram.full_histogram)
             if self.delete_resume_log_files:
                 file_io.remove_directory(
-                    file_io.append_paths_to_pointer(self.tmp_path, self.ROW_COUNT_HISTOGRAMS_DIR),
+                    file_io.append_paths_to_pointer(self.tmp_path, histogram_directory),
                     ignore_errors=True,
                 )
 
-        with open(file_name, "rb") as file_handle:
+        with file_name.open("rb") as file_handle:
             full_histogram = frombuffer(file_handle.read(), dtype=np.int64)
 
         if len(full_histogram) != hp.order2npix(healpix_order):
@@ -194,7 +259,7 @@ class ResumePlan(PipelineResumePlan):
         return full_histogram
 
     @classmethod
-    def partial_histogram_file(cls, tmp_path, mapping_key: str):
+    def partial_histogram_file(cls, tmp_path, mapping_key: str, which_histogram: str = "row_count"):
         """File name for writing a histogram file to a special intermediate directory.
 
         As a side effect, this method may create the special intermediate directory.
@@ -202,12 +267,24 @@ class ResumePlan(PipelineResumePlan):
         Args:
             tmp_path (str): where to write intermediate resume files.
             mapping_key (str): unique string for each mapping task (e.g. "map_57")
+            which_histogram (str): which histogram to write, either "row_count" or "mem_size".
+                Defaults to "row_count".
+
+        Returns:
+            str: Full path to the partial histogram file.
         """
+        if which_histogram == "row_count":
+            histograms_dir = cls.ROW_COUNT_HISTOGRAMS_DIR
+        elif which_histogram == "mem_size":
+            histograms_dir = cls.MEM_SIZE_HISTOGRAMS_DIR
+        else:
+            raise ValueError(f"Unrecognized which_histogram value: {which_histogram}")
+
         file_io.make_directory(
-            file_io.append_paths_to_pointer(tmp_path, cls.ROW_COUNT_HISTOGRAMS_DIR),
+            file_io.append_paths_to_pointer(tmp_path, histograms_dir),
             exist_ok=True,
         )
-        return file_io.append_paths_to_pointer(tmp_path, cls.ROW_COUNT_HISTOGRAMS_DIR, f"{mapping_key}.npz")
+        return file_io.append_paths_to_pointer(tmp_path, histograms_dir, f"{mapping_key}.npz")
 
     def get_remaining_split_keys(self):
         """Gather remaining keys, dropping successful split tasks from done file names.
@@ -305,12 +382,12 @@ class ResumePlan(PipelineResumePlan):
                     threshold=pixel_threshold,
                     drop_empty_siblings=drop_empty_siblings,
                 )
-            with open(file_name, "wb") as pickle_file:
+            with file_name.open("wb") as pickle_file:
                 alignment = np.array([x if x is not None else [-1, -1, 0] for x in alignment], dtype=np.int64)
                 pickle.dump(alignment, pickle_file)
 
         if self.destination_pixel_map is None:
-            with open(file_name, "rb") as pickle_file:
+            with file_name.open("rb") as pickle_file:
                 alignment = pickle.load(pickle_file)
             pixel_list = np.unique(alignment, axis=0)
             self.destination_pixel_map = {

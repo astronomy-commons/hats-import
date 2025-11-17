@@ -1,1 +1,2 @@
-git+https://github.com/astronomy-commons/hats.git@incremental-alignment
+hats @ git+https://github.com/astronomy-commons/hats.git@incremental-alignment
+nested-pandas @ git+https://github.com/lincc-frameworks/nested-pandas.git@main

@@ -427,6 +427,35 @@ def test_import_with_npix_dir(dask_client, small_sky_parts_dir, tmp_path, assert
 
 
 @pytest.mark.dask
+def test_mem_size_thresholding(
+    small_sky_parts_dir,
+    tmp_path,
+    dask_client,
+):
+    """Test that we can run with mem_size thresholding."""
+    args = ImportArguments(
+        output_artifact_name="small_sky_mem_size",
+        input_path=small_sky_parts_dir,
+        file_reader="csv",
+        output_path=tmp_path,
+        dask_tmp=tmp_path,
+        tmp_dir=tmp_path,
+        highest_healpix_order=1,
+        progress_bar=False,
+        pixel_threshold=10_000,
+        debug_stats_only=True,
+        run_stages=["mapping"],
+    )
+
+    runner.run(args, dask_client)
+
+    # Check that the catalog metadata file exists
+    catalog = read_hats(args.catalog_path)
+    assert catalog.on_disk
+    assert catalog.catalog_path == args.catalog_path
+
+
+@pytest.mark.dask
 def test_import_with_existing_pixels(dask_client, small_sky_parts_dir, tmp_path):
     # The catalog imported at order 1 would include 4 pixels order 1 in range 44:48.
     # Let's set pixel (2,180), which is the first child of (1,45) as an existing pixel.
