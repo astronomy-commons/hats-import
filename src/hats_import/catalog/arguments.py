@@ -236,8 +236,7 @@ class ImportArguments(RuntimeArguments):
 
         column_names = None
         if catalog.schema is not None:
-            column_names = catalog.schema.names
-            column_names = [name for name in column_names if name not in HIVE_COLUMNS]
+            column_names = [name for name in catalog.schema.names if name not in HIVE_COLUMNS]
 
         in_file_paths = list(
             (path / DATASET_DIR).rglob(f"{PARTITION_ORDER}*/**/*{catalog.catalog_info.npix_suffix}")
