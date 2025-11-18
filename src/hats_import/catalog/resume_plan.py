@@ -335,6 +335,7 @@ class ResumePlan(PipelineResumePlan):
         pixel_threshold,
         drop_empty_siblings,
         expected_total_rows,
+        existing_pixels=None,
     ) -> UPath:
         """Get a pointer to the existing alignment file for the pipeline, or
         generate a new alignment using provided arguments.
@@ -350,13 +351,22 @@ class ResumePlan(PipelineResumePlan):
             pixel_threshold (int): the maximum number of objects allowed in a single pixel
             drop_empty_siblings (bool):  if 3 of 4 pixels are empty, keep only the non-empty pixel
             expected_total_rows (int): number of expected rows found in the dataset.
+            existing_pixels (Sequence[tuple[int,int]]): the HEALPix pixels to include in the alignment
 
         Returns:
             path to cached alignment file.
         """
         file_name = file_io.append_paths_to_pointer(self.tmp_path, self.ALIGNMENT_FILE)
         if not file_io.does_file_or_directory_exist(file_name):
-            if constant_healpix_order >= 0:
+            if existing_pixels:
+                alignment = pixel_math.generate_incremental_alignment(
+                    raw_histogram,
+                    existing_pixels=existing_pixels,
+                    highest_order=highest_healpix_order,
+                    lowest_order=lowest_healpix_order,
+                    threshold=pixel_threshold,
+                )
+            elif constant_healpix_order >= 0:
                 alignment = np.full((len(raw_histogram), 3), [-1, -1, 0])
                 for pixel_num, pixel_sum in enumerate(raw_histogram):
                     alignment[pixel_num] = [

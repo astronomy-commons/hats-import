@@ -70,6 +70,7 @@ def run(args, client):
             args.pixel_threshold,
             args.drop_empty_siblings,
             total_rows,
+            args.existing_pixels,
         )
 
         step_progress.update(1)
