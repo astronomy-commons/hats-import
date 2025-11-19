@@ -54,22 +54,35 @@ def run(args, client):
         resume_plan.wait_for_mapping(futures)
 
     with resume_plan.print_progress(total=2, stage_name="Binning") as step_progress:
-        raw_histogram = resume_plan.read_histogram(args.mapping_healpix_order, which_histogram="row_count")
-        total_rows = int(raw_histogram.sum())
+        # Check total rows matches expectation.
+        raw_histogram_row_count = resume_plan.read_histogram(
+            args.mapping_healpix_order, which_histogram="row_count"
+        )
+        total_rows = int(raw_histogram_row_count.sum())
         if args.expected_total_rows > 0 and args.expected_total_rows != total_rows:
             raise ValueError(
                 f"Number of rows ({total_rows}) does not match expectation ({args.expected_total_rows})"
             )
 
+        # Read in mem_size histogram if we will be thresholding by memory size.
+        if resume_plan.threshold_mode == "mem_size":
+            raw_histogram_mem_size = resume_plan.read_histogram(
+                args.mapping_healpix_order, which_histogram="mem_size"
+            )
+        else:
+            raw_histogram_mem_size = None
+
+        # Get alignment file.
         step_progress.update(1)
         alignment_file = resume_plan.get_alignment_file(
-            raw_histogram,
+            raw_histogram_row_count,
             args.constant_healpix_order,
             args.highest_healpix_order,
             args.lowest_healpix_order,
             args.pixel_threshold,
             args.drop_empty_siblings,
             total_rows,
+            raw_histogram_mem_size,
         )
 
         step_progress.update(1)
