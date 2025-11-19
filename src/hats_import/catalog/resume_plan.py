@@ -335,6 +335,7 @@ class ResumePlan(PipelineResumePlan):
         pixel_threshold,
         drop_empty_siblings,
         expected_total_rows,
+        raw_histogram_mem_size=None,
     ) -> UPath:
         """Get a pointer to the existing alignment file for the pipeline, or
         generate a new alignment using provided arguments.
@@ -350,20 +351,25 @@ class ResumePlan(PipelineResumePlan):
             pixel_threshold (int): the maximum number of objects allowed in a single pixel
             drop_empty_siblings (bool):  if 3 of 4 pixels are empty, keep only the non-empty pixel
             expected_total_rows (int): number of expected rows found in the dataset.
+            raw_histogram_mem_size (:obj:`np.array`): one-dimensional numpy array of long integers
+                where the value at each index corresponds to the memory size in bytes of objects
+                found at the healpix pixel. Only required if threshold_mode is 'mem_size'.
 
         Returns:
             path to cached alignment file.
         """
         file_name = file_io.append_paths_to_pointer(self.tmp_path, self.ALIGNMENT_FILE)
         if not file_io.does_file_or_directory_exist(file_name):
+
+            # If constant_healpix_order is set, create a simple alignment.
             if constant_healpix_order >= 0:
-                alignment = np.full((len(raw_histogram), 3), [-1, -1, 0])
-                for pixel_num, pixel_sum in enumerate(raw_histogram):
-                    alignment[pixel_num] = [
-                        constant_healpix_order,
-                        pixel_num,
-                        pixel_sum,
-                    ]
+                alignment = self._generate_constant_healpix_order_alignment(
+                    raw_histogram,
+                    constant_healpix_order,
+                    raw_histogram_mem_size,
+                )
+
+            # Else, generate alignment based on thresholds.
             else:
                 alignment = pixel_math.generate_alignment(
                     raw_histogram,
@@ -371,18 +377,33 @@ class ResumePlan(PipelineResumePlan):
                     lowest_order=lowest_healpix_order,
                     threshold=pixel_threshold,
                     drop_empty_siblings=drop_empty_siblings,
+                    mem_size_histogram=None,
                 )
             with file_name.open("wb") as pickle_file:
                 alignment = np.array([x if x is not None else [-1, -1, 0] for x in alignment], dtype=np.int64)
                 pickle.dump(alignment, pickle_file)
 
+        # Check that the destination pixel map matches expected total rows.
         if self.destination_pixel_map is None:
             with file_name.open("rb") as pickle_file:
                 alignment = pickle.load(pickle_file)
             pixel_list = np.unique(alignment, axis=0)
-            self.destination_pixel_map = {
-                HealpixPixel(order, pix): count for (order, pix, count) in pixel_list if int(count) > 0
-            }
+
+            # In row_count mode, alignment tuples are (order, pixel, row_count)
+            if raw_histogram_mem_size is None:
+                self.destination_pixel_map = {
+                    HealpixPixel(order, pix): row_count
+                    for (order, pix, row_count) in pixel_list
+                    if int(row_count) > 0
+                }
+            # In mem_size mode, alignment tuples are (order, pixel, mem_size, row_count)
+            else:
+                self.destination_pixel_map = {
+                    HealpixPixel(order, pix): row_count
+                    for (order, pix, mem_size, row_count) in pixel_list
+                    if int(row_count) > 0
+                }
+
         total_rows = sum(self.destination_pixel_map.values())
         if total_rows != expected_total_rows:
             raise ValueError(
@@ -390,6 +411,48 @@ class ResumePlan(PipelineResumePlan):
             )
 
         return file_name
+
+    def _generate_constant_healpix_order_alignment(
+        self,
+        raw_histogram_row_count,
+        constant_healpix_order,
+        raw_histogram_mem_size=None,
+    ):
+        """Generate alignment where all non-empty pixels are at the same healpix order.
+
+        Args:
+            raw_histogram_row_count (:obj:`np.array`): one-dimensional numpy array of long integers
+                where the value at each index corresponds to the number of objects found at the
+                healpix pixel.
+            constant_healpix_order (int): the healpix order to assign to all non-empty pixels.
+            raw_histogram_mem_size (:obj:`np.array`, optional): one-dimensional numpy array of long
+                integers where the value at each index corresponds to the memory size of the objects
+                found at the healpix pixel. Only required if threshold_mode is 'mem_size'.
+
+        Returns:
+            np.array: alignment array where each entry is [order, pixel, row_count] or
+                [order, pixel, mem_size, row_count] depending on threshold_mode.
+        """
+        # In row_count mode, alignment lists are [order, pixel, row_count]
+        if raw_histogram_mem_size is None:
+            alignment = np.full((len(raw_histogram_row_count), 3), [-1, -1, 0])
+            for pixel_num, pixel_row_count_sum in enumerate(raw_histogram_row_count):
+                alignment[pixel_num] = [
+                    constant_healpix_order,
+                    pixel_num,
+                    pixel_row_count_sum,
+                ]
+        # In mem_size mode, alignment lists are [order, pixel, mem_size, row_count]
+        else:
+            alignment = np.full((len(raw_histogram_mem_size), 4), [-1, -1, 0, 0])
+            for pixel_num, pixel_mem_size_sum in enumerate(raw_histogram_mem_size):
+                alignment[pixel_num] = [
+                    constant_healpix_order,
+                    pixel_num,
+                    pixel_mem_size_sum,
+                    raw_histogram_row_count[pixel_num],
+                ]
+        return alignment
 
     def wait_for_splitting(self, futures):
         """Wait for splitting futures to complete."""
