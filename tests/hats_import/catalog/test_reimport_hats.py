@@ -175,6 +175,7 @@ def test_run_reimport(
     assert catalog.catalog_info.default_columns == old_cat.catalog_info.default_columns
     assert catalog.catalog_info.__pydantic_extra__["obs_regime"] == "Optical"
     assert len(catalog.get_healpix_pixels()) == 4
+    assert catalog.schema == old_cat.schema
 
     # Check that the schema is correct for leaf parquet and _metadata files
     original_common_md = paths.get_common_metadata_pointer(old_cat.catalog_base_dir)
@@ -272,3 +273,20 @@ def test_reimport_with_nested(small_sky_nested_catalog, tmp_path, dask_client):
 
     catalog = read_hats(args.catalog_path)
     assert catalog.catalog_info.default_columns == default_columns_with_nested
+
+
+@pytest.mark.dask(timeout=10)
+def test_reimport_with_existing_pixels(small_sky_object_catalog, tmp_path, dask_client):
+    args = ImportArguments.reimport_from_hats(
+        small_sky_object_catalog,
+        tmp_path,
+        output_artifact_name="small_sky_existing_pixels",
+        lowest_healpix_order=0,
+        highest_healpix_order=2,
+        progress_bar=False,
+        existing_pixels=[(1, 44)],
+    )
+    assert isinstance(args, ImportArguments)
+    runner.run(args, dask_client)
+    catalog = read_hats(args.catalog_path)
+    assert catalog.get_healpix_pixels() == [HealpixPixel(1, p) for p in range(44, 48)]

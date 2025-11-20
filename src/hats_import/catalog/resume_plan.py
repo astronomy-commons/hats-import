@@ -332,6 +332,7 @@ class ResumePlan(PipelineResumePlan):
         pixel_threshold,
         drop_empty_siblings,
         expected_total_rows,
+        existing_pixels=None,
         raw_histogram_mem_size=None,
     ) -> UPath:
         """Get a pointer to the existing alignment file for the pipeline, or
@@ -348,6 +349,7 @@ class ResumePlan(PipelineResumePlan):
             pixel_threshold (int): the maximum number of objects allowed in a single pixel
             drop_empty_siblings (bool):  if 3 of 4 pixels are empty, keep only the non-empty pixel
             expected_total_rows (int): number of expected rows found in the dataset.
+            existing_pixels (Sequence[tuple[int,int]]): the HEALPix pixels to include in the alignment
             raw_histogram_mem_size (:obj:`np.array`): one-dimensional numpy array of long integers
                 where the value at each index corresponds to the memory size in bytes of objects
                 found at the healpix pixel. Only required if threshold_mode is 'mem_size'.
@@ -357,16 +359,23 @@ class ResumePlan(PipelineResumePlan):
         """
         file_name = file_io.append_paths_to_pointer(self.tmp_path, self.ALIGNMENT_FILE)
         if not file_io.does_file_or_directory_exist(file_name):
-
+            # If existing_pixels, create an incremental alignment.
+            if existing_pixels:
+                alignment = pixel_math.generate_incremental_alignment(
+                    raw_histogram,
+                    existing_pixels=existing_pixels,
+                    highest_order=highest_healpix_order,
+                    lowest_order=lowest_healpix_order,
+                    threshold=pixel_threshold,
+                )
             # If constant_healpix_order is set, create a simple alignment.
-            if constant_healpix_order >= 0:
+            elif constant_healpix_order >= 0:
                 alignment = self._generate_constant_healpix_order_alignment(
                     raw_histogram,
                     constant_healpix_order,
                     raw_histogram_mem_size,
                 )
-
-            # Else, generate alignment based on thresholds.
+            # Else, generate standard alignment based on thresholds.
             else:
                 alignment = pixel_math.generate_alignment(
                     raw_histogram,

@@ -82,6 +82,7 @@ def run(args, client):
             args.pixel_threshold,
             args.drop_empty_siblings,
             total_rows,
+            args.existing_pixels,
             raw_histogram_mem_size,
         )
 

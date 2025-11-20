@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Sequence
 
 import hats
 from hats.catalog import TableProperties
 from hats.catalog.catalog_collection import CatalogCollection
 from hats.io.file_io import get_upath
-from hats.io.paths import DATASET_DIR, PARTITION_ORDER
+from hats.io.paths import DATASET_DIR, HIVE_COLUMNS, PARTITION_ORDER
 from hats.io.validation import is_valid_catalog
 from hats.pixel_math import spatial_index
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, SPATIAL_INDEX_ORDER
@@ -114,6 +115,8 @@ class ImportArguments(RuntimeArguments):
     from your input files"""
     should_write_skymap: bool = True
     """main catalogs should contain skymap fits files"""
+    existing_pixels: Sequence[tuple[int, int]] | None = None
+    """the list of HEALPix pixels to include in the alignment"""
 
     def __post_init__(self):
         self._check_arguments()
@@ -135,6 +138,11 @@ class ImportArguments(RuntimeArguments):
             if not 100 <= self.pixel_threshold <= 1_000_000_000:
                 raise ValueError("pixel_threshold should be between 100 and 1,000,000,000")
             self.mapping_healpix_order = self.highest_healpix_order
+
+        if self.existing_pixels:
+            max_existing_order = max(p[0] for p in self.existing_pixels)
+            if self.mapping_healpix_order < max_existing_order:
+                raise ValueError("`highest_order` needs to be >= current `existing_pixels` order")
 
         if self.catalog_type not in self.allowed_catalog_types:
             raise ValueError(f"catalog_type should be one of {self.allowed_catalog_types}")
@@ -234,7 +242,9 @@ class ImportArguments(RuntimeArguments):
         if not is_valid_catalog(path, strict=True):
             raise ValueError("path not a valid catalog")
 
-        column_names = catalog.schema.names if catalog.schema is not None else None
+        column_names = None
+        if catalog.schema is not None:
+            column_names = [name for name in catalog.schema.names if name not in HIVE_COLUMNS]
 
         in_file_paths = list(
             (path / DATASET_DIR).rglob(f"{PARTITION_ORDER}*/**/*{catalog.catalog_info.npix_suffix}")
@@ -252,6 +262,10 @@ class ImportArguments(RuntimeArguments):
         if "addl_hats_properties" in kwargs:
             addl_hats_properties.update(kwargs.pop("addl_hats_properties"))
 
+        existing_pixels = None
+        if "existing_pixels" in kwargs:
+            existing_pixels = kwargs.pop("existing_pixels")
+
         import_args = {
             "catalog_type": catalog.catalog_info.catalog_type,
             "ra_column": catalog.catalog_info.ra_column,
@@ -265,6 +279,7 @@ class ImportArguments(RuntimeArguments):
             "use_schema_file": hats.io.paths.get_common_metadata_pointer(catalog.catalog_base_dir),
             "expected_total_rows": catalog.catalog_info.total_rows,
             "addl_hats_properties": addl_hats_properties,
+            "existing_pixels": existing_pixels,
         }
 
         import_args.update(**kwargs)
