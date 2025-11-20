@@ -450,7 +450,6 @@ def test_mem_size_thresholding(
         create_thumbnail=True,
         progress_bar=False,
         byte_pixel_threshold=10_000,
-        # delete_resume_log_files=False,
     )
 
     runner.run(args, dask_client)
