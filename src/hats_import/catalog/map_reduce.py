@@ -282,9 +282,6 @@ def split_pixels(
             for unique_index, pixel_alignment_count in enumerate(unique_pixels):
                 order = pixel_alignment_count[0]
                 pixel = pixel_alignment_count[1]
-                if order < 0 or pixel < 0:
-                    # This indicates that this pixel was dropped in the alignment step.
-                    continue
                 pixel_dir = get_pixel_cache_directory(cache_shard_path, HealpixPixel(order, pixel))
                 file_io.make_directory(pixel_dir, exist_ok=True)
                 output_file = file_io.append_paths_to_pointer(
