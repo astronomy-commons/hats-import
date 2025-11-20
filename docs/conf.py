@@ -42,6 +42,7 @@ extensions = [
     "sphinx_copybutton",
     "nbsphinx",
     "sphinx.ext.autosummary",
+    "sphinxcontrib.mermaid",
 ]
 
 # -- autoapi configuration ----------------------------------------

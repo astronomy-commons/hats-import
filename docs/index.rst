@@ -56,5 +56,6 @@ large or custom catalogs into HATS format.
    :maxdepth: 1
    :caption: Developers
 
+   guide/import_pipeline
    guide/contributing
    API Reference <reference>

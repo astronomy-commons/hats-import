@@ -8,4 +8,5 @@ nbsphinx
 sphinx
 sphinx-copybutton
 sphinx-book-theme
+sphinxcontrib-mermaid
 git+https://github.com/astronomy-commons/hats.git@main
