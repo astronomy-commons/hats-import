@@ -428,23 +428,29 @@ def test_import_with_npix_dir(dask_client, small_sky_parts_dir, tmp_path, assert
 
 @pytest.mark.dask
 def test_mem_size_thresholding(
+    dask_client,
     small_sky_parts_dir,
     tmp_path,
-    dask_client,
 ):
-    """Test that we can run with mem_size thresholding."""
+    """Test basic execution and the types of the written data."""
     args = ImportArguments(
-        output_artifact_name="small_sky_mem_size",
+        output_artifact_name="small_sky_mem_size_object_catalog",
         input_path=small_sky_parts_dir,
-        file_reader="csv",
+        file_reader=CsvReader(
+            type_map={
+                "ra": np.float32,
+                "dec": np.float32,
+                "ra_error": np.float32,
+                "dec_error": np.float32,
+            }
+        ),
         output_path=tmp_path,
         dask_tmp=tmp_path,
-        tmp_dir=tmp_path,
         highest_healpix_order=1,
+        create_thumbnail=True,
         progress_bar=False,
-        pixel_threshold=10_000,
-        debug_stats_only=True,
-        run_stages=["mapping"],
+        byte_pixel_threshold=10_000,
+        # delete_resume_log_files=False,
     )
 
     runner.run(args, dask_client)
@@ -453,3 +459,7 @@ def test_mem_size_thresholding(
     catalog = read_hats(args.catalog_path)
     assert catalog.on_disk
     assert catalog.catalog_path == args.catalog_path
+    assert catalog.catalog_info.ra_column == "ra"
+    assert catalog.catalog_info.dec_column == "dec"
+    assert catalog.catalog_info.total_rows == 131
+    assert len(catalog.get_healpix_pixels()) == 1
