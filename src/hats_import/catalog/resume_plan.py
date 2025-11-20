@@ -418,8 +418,6 @@ class ResumePlan(PipelineResumePlan):
 
         return file_name
 
-    # python -c "import pickle; print(pickle.load(open('/Users/orl/code/lsdb-plus/tmp/small_sky_mem_size_object_catalog/intermediate/alignment.pickle', 'rb')))"
-
     def _generate_constant_healpix_order_alignment(
         self,
         raw_histogram_row_count,
