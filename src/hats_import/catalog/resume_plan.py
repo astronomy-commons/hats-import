@@ -211,25 +211,22 @@ class ResumePlan(PipelineResumePlan):
             ValueError: If the histogram from the previous execution is incompatible with
                 the highest Healpix order, or if `which_histogram` is invalid.
         """
-        # Temporarily skipping the next block from code coverage, as we will be calling it once we
-        # address the binning stage and onwards in the next PR.
-        # Mocking this in the meantime for temporary tests doesn't seem worth the complication).
         if which_histogram == "row_count":
             histogram_binary_file = self.ROW_COUNT_HISTOGRAM_BINARY_FILE
             histogram_directory = self.ROW_COUNT_HISTOGRAMS_DIR
-        elif which_histogram == "mem_size" and self.threshold_mode == "mem_size":  # pragma: no cover
+        elif which_histogram == "mem_size" and self.threshold_mode == "mem_size":
             histogram_binary_file = self.MEM_SIZE_HISTOGRAM_BINARY_FILE
             histogram_directory = self.MEM_SIZE_HISTOGRAMS_DIR
-        elif which_histogram == "mem_size":  # pragma: no cover
+        elif which_histogram == "mem_size":
             raise ValueError("Cannot read mem_size histogram when threshold_mode is not 'mem_size'.")
-        else:  # pragma: no cover
+        else:
             raise ValueError(f"Unrecognized which_histogram value: {which_histogram}")
 
         file_name = file_io.append_paths_to_pointer(self.tmp_path, histogram_binary_file)
 
         # If no file, read the histogram from partial histograms and combine.
         if not file_io.does_file_or_directory_exist(file_name):
-            remaining_map_files = self.get_remaining_map_keys()
+            remaining_map_files = self.get_remaining_map_keys(which_histogram=which_histogram)
             if len(remaining_map_files) > 0:
                 raise RuntimeError(f"{len(remaining_map_files)} map stages did not complete successfully.")
             histogram_files = file_io.find_files_matching_path(self.tmp_path, histogram_directory, "*.npz")
@@ -377,13 +374,22 @@ class ResumePlan(PipelineResumePlan):
                     lowest_order=lowest_healpix_order,
                     threshold=pixel_threshold,
                     drop_empty_siblings=drop_empty_siblings,
-                    mem_size_histogram=None,
+                    mem_size_histogram=raw_histogram_mem_size,
                 )
+
+            # Write alignment to file.
             with file_name.open("wb") as pickle_file:
-                alignment = np.array([x if x is not None else [-1, -1, 0] for x in alignment], dtype=np.int64)
+                if raw_histogram_mem_size is None:
+                    alignment = np.array(
+                        [x if x is not None else [-1, -1, 0] for x in alignment], dtype=np.int64
+                    )
+                else:
+                    alignment = np.array(
+                        [x if x is not None else [-1, -1, 0, 0] for x in alignment], dtype=np.int64
+                    )
                 pickle.dump(alignment, pickle_file)
 
-        # Check that the destination pixel map matches expected total rows.
+        # Check that the destination pixel map (alignment file) matches expected total rows.
         if self.destination_pixel_map is None:
             with file_name.open("rb") as pickle_file:
                 alignment = pickle.load(pickle_file)
@@ -411,6 +417,8 @@ class ResumePlan(PipelineResumePlan):
             )
 
         return file_name
+
+    # python -c "import pickle; print(pickle.load(open('/Users/orl/code/lsdb-plus/tmp/small_sky_mem_size_object_catalog/intermediate/alignment.pickle', 'rb')))"
 
     def _generate_constant_healpix_order_alignment(
         self,

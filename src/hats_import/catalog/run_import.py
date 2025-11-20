@@ -166,6 +166,10 @@ def run(args, client):
                 column_names = list(nested_schema.columns) + nested_schema.get_subcolumns()
             step_progress.update(1)
             if args.should_write_skymap:
+                if raw_histogram_mem_size is not None:
+                    raw_histogram = raw_histogram_mem_size
+                else:
+                    raw_histogram = raw_histogram_row_count
                 io.write_fits_image(raw_histogram, paths.get_point_map_file_pointer(args.catalog_path))
                 write_skymap(
                     histogram=raw_histogram, catalog_dir=args.catalog_path, orders=args.skymap_alt_orders
