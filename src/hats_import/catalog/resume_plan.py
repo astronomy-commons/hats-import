@@ -411,11 +411,11 @@ class ResumePlan(PipelineResumePlan):
                     for (order, pix, row_count) in pixel_list
                     if int(row_count) > 0
                 }
-            # In mem_size mode, alignment tuples are (order, pixel, mem_size, row_count)
+            # In mem_size mode, alignment tuples are (order, pixel, row_count, mem_size)
             else:
                 self.destination_pixel_map = {
                     HealpixPixel(order, pix): row_count
-                    for (order, pix, mem_size, row_count) in pixel_list
+                    for (order, pix, row_count, mem_size) in pixel_list
                     if int(row_count) > 0
                 }
 
@@ -446,7 +446,7 @@ class ResumePlan(PipelineResumePlan):
 
         Returns:
             np.array: alignment array where each entry is [order, pixel, row_count] or
-                [order, pixel, mem_size, row_count] depending on threshold_mode.
+                [order, pixel, row_count, mem_size] depending on threshold_mode.
         """
         # In row_count mode, alignment lists are [order, pixel, row_count]
         if raw_histogram_mem_size is None:
@@ -457,15 +457,15 @@ class ResumePlan(PipelineResumePlan):
                     pixel_num,
                     pixel_row_count_sum,
                 ]
-        # In mem_size mode, alignment lists are [order, pixel, mem_size, row_count]
+        # In mem_size mode, alignment lists are [order, pixel, row_count, mem_size]
         else:
             alignment = np.full((len(raw_histogram_mem_size), 4), [-1, -1, 0, 0])
             for pixel_num, pixel_mem_size_sum in enumerate(raw_histogram_mem_size):
                 alignment[pixel_num] = [
                     constant_healpix_order,
                     pixel_num,
-                    pixel_mem_size_sum,
                     raw_histogram_row_count[pixel_num],
+                    pixel_mem_size_sum,
                 ]
         return alignment
 
