@@ -74,12 +74,15 @@ def run(args, client):
 
         # Get alignment file.
         step_progress.update(1)
+        threshold = (
+            args.pixel_threshold if resume_plan.threshold_mode == "row_count" else args.byte_pixel_threshold
+        )
         alignment_file = resume_plan.get_alignment_file(
             raw_histogram_row_count,
             args.constant_healpix_order,
             args.highest_healpix_order,
             args.lowest_healpix_order,
-            args.pixel_threshold,
+            threshold,
             args.drop_empty_siblings,
             total_rows,
             args.existing_pixels,
@@ -156,7 +159,7 @@ def run(args, client):
                 parquet_rows = write_parquet_metadata(
                     args.catalog_path,
                     create_thumbnail=args.create_thumbnail,
-                    thumbnail_threshold=args.pixel_threshold,
+                    thumbnail_threshold=threshold,
                 )
                 if total_rows > 0 and parquet_rows != total_rows:
                     raise ValueError(

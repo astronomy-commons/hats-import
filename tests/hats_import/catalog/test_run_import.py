@@ -434,7 +434,7 @@ def test_mem_size_thresholding(
 ):
     """Test basic execution and the types of the written data."""
     args = ImportArguments(
-        output_artifact_name="small_sky_mem_size_object_catalog",
+        output_artifact_name="small_sky_mem_size_catalog",
         input_path=small_sky_parts_dir,
         file_reader=CsvReader(
             type_map={
@@ -442,14 +442,15 @@ def test_mem_size_thresholding(
                 "dec": np.float32,
                 "ra_error": np.float32,
                 "dec_error": np.float32,
+                "lorem": str,
             }
         ),
         output_path=tmp_path,
         dask_tmp=tmp_path,
-        highest_healpix_order=1,
+        highest_healpix_order=2,
         create_thumbnail=True,
         progress_bar=False,
-        byte_pixel_threshold=10_000,
+        byte_pixel_threshold=5_000,
     )
 
     runner.run(args, dask_client)
@@ -461,7 +462,17 @@ def test_mem_size_thresholding(
     assert catalog.catalog_info.ra_column == "ra"
     assert catalog.catalog_info.dec_column == "dec"
     assert catalog.catalog_info.total_rows == 131
-    assert len(catalog.get_healpix_pixels()) == 1
+    assert len(catalog.get_healpix_pixels()) == 13
+
+    # Check that the catalog parquet files are all below the threshold
+    for pixel in catalog.get_healpix_pixels():
+        pix_path = Path(args.catalog_path) / "dataset" / f"Norder={pixel.order}" / "Dir=0"
+        parquet_file = pix_path / f"Npix={pixel.pixel}.parquet"
+        file_size = os.path.getsize(parquet_file)
+        assert file_size <= args.byte_pixel_threshold, (
+            f"Pixel {pixel} has size {file_size} bytes, "
+            f"which exceeds the threshold of {args.byte_pixel_threshold} bytes"
+        )
 
 
 @pytest.mark.dask
