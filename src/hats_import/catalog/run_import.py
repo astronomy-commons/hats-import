@@ -54,23 +54,39 @@ def run(args, client):
         resume_plan.wait_for_mapping(futures)
 
     with resume_plan.print_progress(total=2, stage_name="Binning") as step_progress:
-        raw_histogram = resume_plan.read_histogram(args.mapping_healpix_order, which_histogram="row_count")
-        total_rows = int(raw_histogram.sum())
+        # Check total rows matches expectation.
+        raw_histogram_row_count = resume_plan.read_histogram(
+            args.mapping_healpix_order, which_histogram="row_count"
+        )
+        total_rows = int(raw_histogram_row_count.sum())
         if args.expected_total_rows > 0 and args.expected_total_rows != total_rows:
             raise ValueError(
                 f"Number of rows ({total_rows}) does not match expectation ({args.expected_total_rows})"
             )
 
+        # Read in mem_size histogram if we will be thresholding by memory size.
+        if resume_plan.threshold_mode == "mem_size":
+            raw_histogram_mem_size = resume_plan.read_histogram(
+                args.mapping_healpix_order, which_histogram="mem_size"
+            )
+        else:
+            raw_histogram_mem_size = None
+
+        # Get alignment file.
         step_progress.update(1)
+        threshold = (
+            args.pixel_threshold if resume_plan.threshold_mode == "row_count" else args.byte_pixel_threshold
+        )
         alignment_file = resume_plan.get_alignment_file(
-            raw_histogram,
+            raw_histogram_row_count,
             args.constant_healpix_order,
             args.highest_healpix_order,
             args.lowest_healpix_order,
-            args.pixel_threshold,
+            threshold,
             args.drop_empty_siblings,
             total_rows,
             args.existing_pixels,
+            raw_histogram_mem_size,
         )
 
         step_progress.update(1)
@@ -143,7 +159,7 @@ def run(args, client):
                 parquet_rows = write_parquet_metadata(
                     args.catalog_path,
                     create_thumbnail=args.create_thumbnail,
-                    thumbnail_threshold=args.pixel_threshold,
+                    thumbnail_threshold=threshold,
                 )
                 if total_rows > 0 and parquet_rows != total_rows:
                     raise ValueError(
@@ -154,9 +170,13 @@ def run(args, client):
                 column_names = list(nested_schema.columns) + nested_schema.get_subcolumns()
             step_progress.update(1)
             if args.should_write_skymap:
-                io.write_fits_image(raw_histogram, paths.get_point_map_file_pointer(args.catalog_path))
+                io.write_fits_image(
+                    raw_histogram_row_count, paths.get_point_map_file_pointer(args.catalog_path)
+                )
                 write_skymap(
-                    histogram=raw_histogram, catalog_dir=args.catalog_path, orders=args.skymap_alt_orders
+                    histogram=raw_histogram_row_count,
+                    catalog_dir=args.catalog_path,
+                    orders=args.skymap_alt_orders,
                 )
                 step_progress.update(1)
             catalog_info = args.to_table_properties(
