@@ -44,17 +44,6 @@ def test_catalog_name(tmp_path):
         )
 
 
-def test_invalid_paths(tmp_path):
-    """Required arguments are provided, but paths aren't found."""
-    ## Bad temp path
-    with pytest.raises(FileNotFoundError):
-        RuntimeArguments(output_artifact_name="catalog", output_path=tmp_path, tmp_dir="/foo/path")
-
-    ## Bad dask temp path
-    with pytest.raises(FileNotFoundError):
-        RuntimeArguments(output_artifact_name="catalog", output_path=tmp_path, dask_tmp="/foo/path")
-
-
 def test_good_paths(tmp_path):
     """Required arguments are provided, and paths are found."""
     _ = RuntimeArguments(
@@ -71,11 +60,9 @@ def test_tmp_path_creation(tmp_path):
     output_path = tmp_path / "unique_output_directory"
     temp_path = tmp_path / "unique_tmp_directory"
     dask_tmp_path = tmp_path / "unique_dask_directory"
-    output_path.mkdir(parents=True)
-    temp_path.mkdir(parents=True)
-    dask_tmp_path.mkdir(parents=True)
 
-    ## If no tmp paths are given, use the output directory
+    ## If no tmp paths are given, use the output directory.
+    ## It is created automatically if it does not exist.
     args = RuntimeArguments(
         output_artifact_name="special_catalog",
         output_path=output_path,
@@ -84,12 +71,15 @@ def test_tmp_path_creation(tmp_path):
     assert "special_catalog" in str(args.tmp_path)
     assert "unique_output_directory" in str(args.tmp_path)
 
-    ## Use the tmp path if provided
+    ## Use the tmp path if provided. If any of the paths exist
+    ## they will be recreated since `resume` is False.
+    temp_path.mkdir(parents=True)
     args = RuntimeArguments(
         output_artifact_name="special_catalog",
         output_path=output_path,
         tmp_dir=temp_path,
         progress_bar=False,
+        resume=False,
     )
     assert "special_catalog" in str(args.tmp_path)
     assert "unique_tmp_directory" in str(args.tmp_path)
