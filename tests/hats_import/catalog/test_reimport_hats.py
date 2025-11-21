@@ -173,7 +173,11 @@ def test_run_reimport(
     assert catalog.catalog_info.total_rows == old_cat.catalog_info.total_rows
     assert len(old_cat.catalog_info.default_columns) > 0
     assert catalog.catalog_info.default_columns == old_cat.catalog_info.default_columns
-    assert catalog.catalog_info.__pydantic_extra__["obs_regime"] == "Optical"
+    extra_properties = catalog.catalog_info.extra_dict()
+    old_extra_properties = old_cat.catalog_info.extra_dict()
+    assert extra_properties["obs_regime"] == "Optical"
+    assert extra_properties["hats_creation_date"] != old_extra_properties["hats_creation_date"]
+    assert extra_properties["hats_builder"] != old_extra_properties["hats_builder"]
     assert len(catalog.get_healpix_pixels()) == 4
     assert catalog.schema == old_cat.schema
 
