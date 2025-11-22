@@ -88,6 +88,11 @@ def small_sky_source_catalog(test_data_dir):
 
 
 @pytest.fixture
+def small_sky_source_npix_dir_catalog(test_data_dir):
+    return test_data_dir / "small_sky_source_npix_dir_catalog"
+
+
+@pytest.fixture
 def small_sky_nested_catalog(test_data_dir):
     return test_data_dir / "small_sky_nested_catalog"
 

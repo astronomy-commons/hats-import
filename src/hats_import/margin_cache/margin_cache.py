@@ -21,7 +21,9 @@ def generate_margin_cache(args, client):
     if not resume_plan.is_mapping_done():
         futures = []
         for mapping_key, pix in resume_plan.get_remaining_map_keys():
-            partition_file = paths.pixel_catalog_file(args.input_catalog_path, pix)
+            partition_file = paths.pixel_catalog_file(
+                args.input_catalog_path, pix, npix_suffix=args.catalog.catalog_info.npix_suffix
+            )
             futures.append(
                 client.submit(
                     mcmr.map_pixel_shards,

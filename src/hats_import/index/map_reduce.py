@@ -48,7 +48,11 @@ def create_index(args, client):
         read_leaf_file,
         [
             (
-                paths.pixel_catalog_file(catalog_base_dir=args.input_catalog.catalog_base_dir, pixel=pixel),
+                paths.pixel_catalog_file(
+                    catalog_base_dir=args.input_catalog.catalog_base_dir,
+                    pixel=pixel,
+                    npix_suffix=args.input_catalog.catalog_info.npix_suffix,
+                ),
                 pixel,
             )
             for pixel in args.input_catalog.get_healpix_pixels()

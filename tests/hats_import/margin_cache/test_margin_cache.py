@@ -13,6 +13,11 @@ from hats_import.margin_cache.margin_cache_arguments import MarginCacheArguments
 
 
 @pytest.mark.dask(timeout=150)
+@pytest.mark.parametrize(
+    "small_sky_source_catalog",
+    ["small_sky_source_catalog", "small_sky_source_npix_dir_catalog"],
+    indirect=True,
+)
 def test_margin_cache_gen(small_sky_source_catalog, tmp_path, dask_client):
     """Test that margin cache generation works end to end."""
     args = MarginCacheArguments(
