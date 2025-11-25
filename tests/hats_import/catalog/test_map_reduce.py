@@ -476,7 +476,7 @@ def test_reduce_different_expectation(parquet_shards_dir, tmp_path):
         sort_columns="id",
         delete_input_files=False,
     )
-    with pytest.raises(ValueError, match="Unexpected number of objects in RESUMED"):
+    with pytest.raises(ValueError, match="Unexpected number of objects"):
         mr.reduce_pixel_shards(
             cache_shard_path=parquet_shards_dir,
             resume_path=tmp_path,
