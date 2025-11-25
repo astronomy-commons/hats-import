@@ -379,20 +379,22 @@ def reduce_pixel_shards(
             destination_file.mkdir(exist_ok=True)
             destination_file = destination_file / npix_parquet_name
 
-        if destination_file.exists():
-            rows_written = file_io.read_parquet_metadata(destination_file).num_rows
-            if rows_written != destination_pixel_size:
-                raise ValueError(
-                    "Unexpected number of objects in RESUMED pixel data "
-                    f"({healpix_pixel})."
-                    f" Expected {destination_pixel_size}, found {rows_written}"
-                )
-            if delete_input_files:
-                pixel_dir = get_pixel_cache_directory(cache_shard_path, healpix_pixel)
-                file_io.remove_directory(pixel_dir, ignore_errors=True)
+        # If the destination file exists, and has the right number of rows, return early.
+        # If there's anything wrong with the destination file, attempt to write it again.
+        try:
+            _check_destination_file(
+                destination_file,
+                destination_pixel_size,
+                healpix_pixel,
+                delete_input_files,
+                cache_shard_path,
+                resume_path,
+                reducing_key,
+            )
 
-            ResumePlan.reducing_key_done(tmp_path=resume_path, reducing_key=reducing_key)
             return
+        except:  # pylint: disable=bare-except
+            pass
 
         schema = None
         if use_schema_file:
@@ -454,17 +456,49 @@ def reduce_pixel_shards(
                 writer.write_table(table)
         del merged_table, rowgroup_tables
 
-        if delete_input_files:
-            pixel_dir = get_pixel_cache_directory(cache_shard_path, healpix_pixel)
-            file_io.remove_directory(pixel_dir, ignore_errors=True)
-
-        ResumePlan.reducing_key_done(tmp_path=resume_path, reducing_key=reducing_key)
+        _check_destination_file(
+            destination_file,
+            destination_pixel_size,
+            healpix_pixel,
+            delete_input_files,
+            cache_shard_path,
+            resume_path,
+            reducing_key,
+        )
     except Exception as exception:  # pylint: disable=broad-exception-caught
         print_task_failure(
             f"Failed REDUCING stage for shard: {destination_pixel_order} {destination_pixel_number}",
             exception,
         )
         raise exception
+
+
+def _check_destination_file(
+    destination_file,
+    destination_pixel_size,
+    healpix_pixel,
+    delete_input_files,
+    cache_shard_path,
+    resume_path,
+    reducing_key,
+):
+    if not destination_file.exists():
+        raise FileNotFoundError(f"Reduced file not found where expected ({destination_file})")
+
+    rows_written = file_io.read_parquet_metadata(destination_file).num_rows
+
+    if rows_written != destination_pixel_size:
+        raise ValueError(
+            "Unexpected number of objects in RESUMED pixel data "
+            f"({healpix_pixel})."
+            f" Expected {destination_pixel_size}, found {rows_written}"
+        )
+    if delete_input_files:
+        pixel_dir = get_pixel_cache_directory(cache_shard_path, healpix_pixel)
+        file_io.remove_directory(pixel_dir, ignore_errors=True)
+
+    ResumePlan.reducing_key_done(tmp_path=resume_path, reducing_key=reducing_key)
+    return True
 
 
 def _split_to_row_groups(table, row_group_kwargs, pixel_order):

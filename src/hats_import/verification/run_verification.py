@@ -19,7 +19,6 @@ import hats_import
 from hats_import.verification.arguments import VerificationArguments
 
 
-# pylint: disable=too-many-lines
 def run(args: VerificationArguments) -> "Verifier":
     """Create a `Verifier` using `args`, run all tests, and write a verification report.
 
