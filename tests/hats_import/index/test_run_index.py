@@ -66,6 +66,11 @@ def test_run_index(
 
 
 @pytest.mark.dask
+@pytest.mark.parametrize(
+    "small_sky_source_catalog",
+    ["small_sky_source_catalog", "small_sky_source_npix_dir_catalog"],
+    indirect=True,
+)
 def test_run_index_on_source(
     small_sky_source_catalog,
     tmp_path,
