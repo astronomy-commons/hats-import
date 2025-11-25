@@ -95,8 +95,8 @@ def test_margin_cache_gen_negative_pixels(small_sky_source_catalog, tmp_path, da
 
 
 @pytest.mark.dask(timeout=150)
-def test_margin_too_small(small_sky_object_catalog, tmp_path, dask_client):
-    """Test that margin cache generation works end to end."""
+def test_generate_empty_margin_catalog(small_sky_object_catalog, tmp_path, dask_client):
+    """Test that margin cache generation works with empty catalogs."""
     args = MarginCacheArguments(
         margin_threshold=10.0,
         input_catalog_path=small_sky_object_catalog,
@@ -106,8 +106,40 @@ def test_margin_too_small(small_sky_object_catalog, tmp_path, dask_client):
         progress_bar=False,
     )
 
-    with pytest.raises(ValueError, match="Margin cache contains no rows"):
-        mc.generate_margin_cache(args, dask_client)
+    mc.generate_margin_cache(args, dask_client)
+
+    # Verify that an empty catalog was created with the correct metadata
+    catalog = read_hats(args.catalog_path)
+    object_cat = read_hats(small_sky_object_catalog)
+    assert catalog.on_disk
+    assert catalog.catalog_path == args.catalog_path
+    assert catalog.catalog_info.total_rows == 0
+    assert catalog.catalog_info.hats_order == args.catalog.catalog_info.hats_order
+    assert len(catalog.get_healpix_pixels()) == 0
+    assert len(catalog.pixel_tree) == 0
+    assert catalog.catalog_info.ra_column == "ra"
+    assert catalog.catalog_info.dec_column == "dec"
+    assert catalog.schema == object_cat.schema
+
+    # Check that the metadata files exist
+    assert (args.catalog_path / "dataset" / "_metadata").exists()
+    assert (args.catalog_path / "dataset" / "_common_metadata").exists()
+    assert (args.catalog_path / "partition_info.csv").exists()
+    assert (args.catalog_path / "hats.properties").exists()
+
+    # Check both pyarrow metadata files are correct
+    metadata_path = (args.catalog_path / "dataset" / "_metadata")
+    metadata = read_parquet_metadata(metadata_path)
+    assert metadata.num_rows == 0
+    assert metadata.num_row_groups == 0
+    assert metadata.schema.to_arrow_schema() == object_cat.schema
+
+    common_metadata_path = (args.catalog_path / "dataset" / "_common_metadata")
+    common_metadata = read_parquet_metadata(common_metadata_path)
+    assert common_metadata.num_rows == 0
+    assert common_metadata.num_row_groups == 0
+    assert common_metadata.schema.to_arrow_schema() == object_cat.schema
+
 
 
 @pytest.mark.dask(timeout=150)
