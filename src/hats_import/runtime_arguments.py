@@ -98,21 +98,19 @@ class RuntimeArguments:
         file_io.make_directory(self.catalog_path, exist_ok=True)
 
         if self.tmp_dir and str(self.tmp_dir) != str(self.output_path):
-            if not file_io.does_file_or_directory_exist(self.tmp_dir):
-                raise FileNotFoundError(f"tmp_dir ({self.tmp_dir}) not found on local storage")
             self.tmp_path = file_io.append_paths_to_pointer(
                 self.tmp_dir, self.output_artifact_name, "intermediate"
             )
             self.tmp_base_path = file_io.append_paths_to_pointer(self.tmp_dir, self.output_artifact_name)
         elif self.dask_tmp and str(self.dask_tmp) != str(self.output_path):
-            if not file_io.does_file_or_directory_exist(self.dask_tmp):
-                raise FileNotFoundError(f"dask_tmp ({self.dask_tmp}) not found on local storage")
             self.tmp_path = file_io.append_paths_to_pointer(
                 self.dask_tmp, self.output_artifact_name, "intermediate"
             )
             self.tmp_base_path = file_io.append_paths_to_pointer(self.dask_tmp, self.output_artifact_name)
         else:
             self.tmp_path = file_io.append_paths_to_pointer(self.catalog_path, "intermediate")
+        if not self.resume:
+            file_io.remove_directory(self.tmp_path, ignore_errors=True)
         file_io.make_directory(self.tmp_path, exist_ok=True)
         if self.resume_tmp:
             self.resume_tmp = file_io.append_paths_to_pointer(self.resume_tmp, self.output_artifact_name)
