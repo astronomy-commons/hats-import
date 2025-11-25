@@ -378,16 +378,23 @@ def reduce_pixel_shards(
         if npix_suffix == "/":
             destination_file.mkdir(exist_ok=True)
             destination_file = destination_file / npix_parquet_name
-        if _destination_file_good(
-            destination_file,
-            destination_pixel_size,
-            healpix_pixel,
-            delete_input_files,
-            cache_shard_path,
-            resume_path,
-            reducing_key,
-        ):
+
+        # If the destination file exists, and has the right number of rows, return early.
+        # If there's anything wrong with the destination file, attempt to write it again.
+        try:
+            _check_destination_file(
+                destination_file,
+                destination_pixel_size,
+                healpix_pixel,
+                delete_input_files,
+                cache_shard_path,
+                resume_path,
+                reducing_key,
+            )
+
             return
+        except:  # pylint: disable=bare-except
+            pass
 
         schema = None
         if use_schema_file:
@@ -449,7 +456,7 @@ def reduce_pixel_shards(
                 writer.write_table(table)
         del merged_table, rowgroup_tables
 
-        if not _destination_file_good(
+        _check_destination_file(
             destination_file,
             destination_pixel_size,
             healpix_pixel,
@@ -457,8 +464,7 @@ def reduce_pixel_shards(
             cache_shard_path,
             resume_path,
             reducing_key,
-        ):
-            raise ValueError(f"Something has gone wrong in writing parquet file for pixel ({healpix_pixel}).")
+        )
     except Exception as exception:  # pylint: disable=broad-exception-caught
         print_task_failure(
             f"Failed REDUCING stage for shard: {destination_pixel_order} {destination_pixel_number}",
@@ -467,7 +473,7 @@ def reduce_pixel_shards(
         raise exception
 
 
-def _destination_file_good(
+def _check_destination_file(
     destination_file,
     destination_pixel_size,
     healpix_pixel,
@@ -477,12 +483,9 @@ def _destination_file_good(
     reducing_key,
 ):
     if not destination_file.exists():
-        return False
+        raise FileNotFoundError(f"Reduced file not found where expected ({destination_file})")
 
-    try:
-        rows_written = file_io.read_parquet_metadata(destination_file).num_rows
-    except:  # pylint: disable=bare-except
-        return False
+    rows_written = file_io.read_parquet_metadata(destination_file).num_rows
 
     if rows_written != destination_pixel_size:
         raise ValueError(
