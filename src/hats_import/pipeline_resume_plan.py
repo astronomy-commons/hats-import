@@ -33,6 +33,11 @@ class PipelineResumePlan:
     """if displaying a progress bar, use a text-only simple progress
     bar instead of widget. this can be useful in some environments when running
     in a notebook where ipywidgets cannot be used (see `progress_bar` argument)"""
+    tqdm_kwargs: dict | None = None
+    """Additional arguments to pass to the tqdm progress bar. 
+    See details https://tqdm.github.io/docs/tqdm/"""
+    pipeline_name: str | None = None
+    """human-readable name of this pipeline, to be used in progress reporting"""
     delete_resume_log_files: bool = True
     """should we delete task-level done files once each stage is complete?
     if False, we will keep all sub-histograms from the mapping stage, and all
@@ -191,8 +196,10 @@ class PipelineResumePlan:
             iterable=iterable,
             total=total,
             stage_name=stage_name,
+            pipeline_name=self.pipeline_name,
             use_progress_bar=self.progress_bar,
             simple_progress_bar=self.simple_progress_bar,
+            tqdm_kwargs=self.tqdm_kwargs,
         )
 
     def check_original_input_paths(self, input_paths):
@@ -270,7 +277,7 @@ def print_task_failure(custom_message, exception):
     dask_print(exception)
 
 
-def get_formatted_stage_name(stage_name) -> str:
+def get_formatted_stage_name(stage_name, pipeline_name=None) -> str:
     """Create a stage name of consistent minimum length. Ensures that the tqdm
     progress bars can line up nicely when multiple stages must run.
 
@@ -280,11 +287,20 @@ def get_formatted_stage_name(stage_name) -> str:
     if stage_name is None or len(stage_name) == 0:
         stage_name = "progress"
 
-    return f"{stage_name.capitalize(): <10}"
+    if pipeline_name is None or len(pipeline_name) == 0:
+        return f"{stage_name.capitalize(): <10}"
+
+    return f"{pipeline_name.capitalize()}: {stage_name.capitalize(): <10}"
 
 
 def print_progress(
-    iterable=None, total=None, stage_name=None, use_progress_bar=True, simple_progress_bar=False
+    iterable=None,
+    total=None,
+    stage_name=None,
+    pipeline_name=None,
+    use_progress_bar=True,
+    simple_progress_bar=False,
+    tqdm_kwargs=None,
 ):
     """Create a progress bar that will provide user with task feedback.
 
@@ -301,17 +317,20 @@ def print_progress(
             in a particular notebook where ipywidgets cannot be used
             (only used when ``use_progress_bar`` is True)
     """
+    tqdm_kwargs = tqdm_kwargs or {}
     if simple_progress_bar:
         return std_tqdm(
             iterable,
-            desc=get_formatted_stage_name(stage_name),
+            desc=get_formatted_stage_name(stage_name, pipeline_name),
             total=total,
             disable=not use_progress_bar,
+            **tqdm_kwargs,
         )
 
     return auto_tqdm(
         iterable,
-        desc=get_formatted_stage_name(stage_name),
+        desc=get_formatted_stage_name(stage_name, pipeline_name),
         total=total,
         disable=not use_progress_bar,
+        **tqdm_kwargs,
     )

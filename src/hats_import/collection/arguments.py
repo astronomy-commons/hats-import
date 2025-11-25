@@ -212,6 +212,7 @@ class CollectionArguments(RuntimeArguments):
             "resume": self.resume,
             "progress_bar": self.progress_bar,
             "simple_progress_bar": self.simple_progress_bar,
+            "tqdm_kwargs": self.tqdm_kwargs,
             "delete_intermediate_parquet_files": self.delete_intermediate_parquet_files,
             "delete_resume_log_files": self.delete_resume_log_files,
         }

@@ -44,6 +44,7 @@ def generate_margin_cache(args, client):
         total_rows = resume_plan.get_mapping_total()
         if not total_rows:
             raise ValueError("Margin cache contains no rows. Increase margin size and re-run.")
+        step_progress.update(1)
 
     if not resume_plan.is_reducing_done():
         futures = []

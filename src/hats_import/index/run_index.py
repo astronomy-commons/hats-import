@@ -19,8 +19,10 @@ def run(args, client):
     with print_progress(
         total=3,
         stage_name="Finishing",
+        pipeline_name="index",
         use_progress_bar=args.progress_bar,
         simple_progress_bar=args.simple_progress_bar,
+        tqdm_kwargs=args.tqdm_kwargs,
     ) as step_progress:
         index_catalog_info = args.to_table_properties(int(rows_written))
         index_catalog_info.to_properties_file(args.catalog_path)

@@ -45,6 +45,9 @@ class RuntimeArguments:
     """if displaying a progress bar, use a text-only simple progress
     bar instead of widget. this can be useful in some environments when running
     in a notebook where ipywidgets cannot be used (see `progress_bar` argument)"""
+    tqdm_kwargs: dict | None = None
+    """Additional arguments to pass to the tqdm progress bar. 
+    See details https://tqdm.github.io/docs/tqdm/"""
     dask_tmp: str | Path | UPath | None = None
     """directory for dask worker space. this should be local to
     the execution of the pipeline, for speed of reads and writes"""
@@ -136,6 +139,7 @@ class RuntimeArguments:
             "tmp_base_path": self.tmp_base_path,
             "delete_resume_log_files": self.delete_resume_log_files,
             "delete_intermediate_parquet_files": self.delete_intermediate_parquet_files,
+            "tqdm_kwargs": self.tqdm_kwargs,
         }
 
 
