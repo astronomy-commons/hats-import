@@ -102,7 +102,6 @@ def test_generate_empty_margin_catalog(small_sky_object_catalog, tmp_path, dask_
         input_catalog_path=small_sky_object_catalog,
         output_path=tmp_path,
         output_artifact_name="catalog_cache",
-        margin_order=8,
         progress_bar=False,
     )
 
@@ -119,6 +118,7 @@ def test_generate_empty_margin_catalog(small_sky_object_catalog, tmp_path, dask_
     assert len(catalog.pixel_tree) == 0
     assert catalog.catalog_info.ra_column == "ra"
     assert catalog.catalog_info.dec_column == "dec"
+    assert catalog.catalog_info.margin_threshold == 10.0
     assert catalog.schema == object_cat.schema
 
     # Check that the metadata files exist
