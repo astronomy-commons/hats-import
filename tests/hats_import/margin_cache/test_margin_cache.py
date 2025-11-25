@@ -125,14 +125,15 @@ def test_generate_empty_margin_catalog(small_sky_object_catalog, tmp_path, dask_
     assert (args.catalog_path / "partition_info.csv").exists()
     assert (args.catalog_path / "hats.properties").exists()
 
-    metadata_path = (args.catalog_path / "dataset" / "_metadata")
-    common_metadata_path = (args.catalog_path / "dataset" / "_common_metadata")
+    metadata_path = args.catalog_path / "dataset" / "_metadata"
+    common_metadata_path = args.catalog_path / "dataset" / "_common_metadata"
     assert metadata_path.exists()
     assert common_metadata_path.exists()
 
     # Verify that the catalog contains no data files
     data_files = [
-        f for f in (args.catalog_path / "dataset").rglob("*")
+        f
+        for f in (args.catalog_path / "dataset").rglob("*")
         if f.is_file() and f not in (metadata_path, common_metadata_path)
     ]
     assert len(list(data_files)) == 0
@@ -147,7 +148,6 @@ def test_generate_empty_margin_catalog(small_sky_object_catalog, tmp_path, dask_
     assert common_metadata.num_rows == 0
     assert common_metadata.num_row_groups == 0
     assert common_metadata.schema.to_arrow_schema() == object_cat.schema
-
 
 
 @pytest.mark.dask(timeout=150)
