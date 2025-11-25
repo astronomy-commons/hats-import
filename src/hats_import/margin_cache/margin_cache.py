@@ -1,6 +1,6 @@
+import pyarrow.parquet as pq
 from hats.catalog import PartitionInfo
 from hats.io import file_io, parquet_metadata, paths
-import pyarrow.parquet as pq
 
 import hats_import.margin_cache.margin_cache_map_reduce as mcmr
 from hats_import.margin_cache.margin_cache_resume_plan import MarginCachePlan
@@ -76,12 +76,8 @@ def generate_margin_cache(args, client):
             metadata_path = paths.get_parquet_metadata_pointer(args.catalog_path)
             common_metadata_path = paths.get_common_metadata_pointer(args.catalog_path)
             file_io.make_directory(metadata_path.parent, exist_ok=True)
-            pq.write_metadata(
-                schema, metadata_path.path, filesystem=metadata_path.fs
-            )
-            pq.write_metadata(
-                schema, common_metadata_path.path, filesystem=common_metadata_path.fs
-            )
+            pq.write_metadata(schema, metadata_path.path, filesystem=metadata_path.fs)
+            pq.write_metadata(schema, common_metadata_path.path, filesystem=common_metadata_path.fs)
 
             step_progress.update(1)
 
@@ -93,7 +89,11 @@ def generate_margin_cache(args, client):
         partition_info.write_to_file(partition_info_file)
         step_progress.update(1)
 
-        highest_order = args.catalog.partition_info.get_highest_order() if total_rows == 0 else partition_info.get_highest_order()
+        highest_order = (
+            args.catalog.partition_info.get_highest_order()
+            if total_rows == 0
+            else partition_info.get_highest_order()
+        )
 
         margin_catalog_info = args.to_table_properties(
             int(total_rows),
