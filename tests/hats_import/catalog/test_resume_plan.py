@@ -317,11 +317,25 @@ def test_get_remaining_map_keys_mem_size_and_invalid(tmp_path):
     assert len(remaining_keys) == 1
     assert remaining_keys[0] == ("map_1", "file2")
 
+    # Call get_remaining_map_keys with an invalid option
+    with pytest.raises(ValueError, match="Unrecognized which_histogram value"):
+        plan.get_remaining_map_keys(which_histogram="invalid_option")
+
     # Raise error if threshold_mode is not mem_size
     plan.threshold_mode = "row_count"
     with pytest.raises(ValueError, match="when threshold_mode is not 'mem_size'"):
         plan.get_remaining_map_keys(which_histogram="mem_size")
 
-    # Call get_remaining_map_keys with an invalid option
+
+def test_read_histogram_wrong_modes(tmp_path):
+    """Test read_histogram with mem_size and invalid options."""
+    plan = ResumePlan(tmp_path=tmp_path, progress_bar=False, input_paths=["file1", "file2"])
+    assert plan.threshold_mode == "row_count"
+
+    # Raise error for invalid which_histogram option when reading histogram
+    with pytest.raises(ValueError, match="Cannot read mem_size histogram"):
+        plan.read_histogram(2, which_histogram="mem_size")
+
+    # Raise error for unrecognized which_histogram option
     with pytest.raises(ValueError, match="Unrecognized which_histogram value"):
-        plan.get_remaining_map_keys(which_histogram="invalid_option")
+        plan.read_histogram(2, which_histogram="invalid_option")
