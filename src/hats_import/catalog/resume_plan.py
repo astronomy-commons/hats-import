@@ -371,9 +371,7 @@ class ResumePlan(PipelineResumePlan):
             # If constant_healpix_order is set, create a simple alignment.
             elif constant_healpix_order >= 0:
                 alignment = self._generate_constant_healpix_order_alignment(
-                    raw_histogram,
-                    constant_healpix_order,
-                    raw_histogram_mem_size,
+                    raw_histogram, constant_healpix_order
                 )
             # Else, generate standard alignment based on thresholds.
             else:
@@ -410,12 +408,7 @@ class ResumePlan(PipelineResumePlan):
 
         return file_name
 
-    def _generate_constant_healpix_order_alignment(
-        self,
-        raw_histogram_row_count,
-        constant_healpix_order,
-        raw_histogram_mem_size=None,
-    ):
+    def _generate_constant_healpix_order_alignment(self, raw_histogram_row_count, constant_healpix_order):
         """Generate alignment where all non-empty pixels are at the same healpix order.
 
         Args:
@@ -423,33 +416,18 @@ class ResumePlan(PipelineResumePlan):
                 where the value at each index corresponds to the number of objects found at the
                 healpix pixel.
             constant_healpix_order (int): the healpix order to assign to all non-empty pixels.
-            raw_histogram_mem_size (:obj:`np.array`, optional): one-dimensional numpy array of long
-                integers where the value at each index corresponds to the memory size of the objects
-                found at the healpix pixel. Only required if threshold_mode is 'mem_size'.
 
         Returns:
             np.array: alignment array where each entry is [order, pixel, row_count] or
                 [order, pixel, row_count, mem_size] depending on threshold_mode.
         """
-        # In row_count mode, alignment lists are [order, pixel, row_count]
-        if raw_histogram_mem_size is None:
-            alignment = np.full((len(raw_histogram_row_count), 3), [-1, -1, 0])
-            for pixel_num, pixel_row_count_sum in enumerate(raw_histogram_row_count):
-                alignment[pixel_num] = [
-                    constant_healpix_order,
-                    pixel_num,
-                    pixel_row_count_sum,
-                ]
-        # In mem_size mode, alignment lists are [order, pixel, row_count, mem_size]
-        else:
-            alignment = np.full((len(raw_histogram_mem_size), 4), [-1, -1, 0, 0])
-            for pixel_num, pixel_mem_size_sum in enumerate(raw_histogram_mem_size):
-                alignment[pixel_num] = [
-                    constant_healpix_order,
-                    pixel_num,
-                    raw_histogram_row_count[pixel_num],
-                    pixel_mem_size_sum,
-                ]
+        alignment = np.full((len(raw_histogram_row_count), 3), [-1, -1, 0])
+        for pixel_num, pixel_row_count_sum in enumerate(raw_histogram_row_count):
+            alignment[pixel_num] = [
+                constant_healpix_order,
+                pixel_num,
+                pixel_row_count_sum,
+            ]
         return alignment
 
     def wait_for_splitting(self, futures):
