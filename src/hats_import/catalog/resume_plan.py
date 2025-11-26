@@ -388,14 +388,7 @@ class ResumePlan(PipelineResumePlan):
 
             # Write alignment to file.
             with file_name.open("wb") as pickle_file:
-                if raw_histogram_mem_size is None:
-                    alignment = np.array(
-                        [x if x is not None else [-1, -1, 0] for x in alignment], dtype=np.int64
-                    )
-                else:
-                    alignment = np.array(
-                        [x if x is not None else [-1, -1, 0, 0] for x in alignment], dtype=np.int64
-                    )
+                alignment = np.array([x if x is not None else [-1, -1, 0] for x in alignment], dtype=np.int64)
                 pickle.dump(alignment, pickle_file)
 
         # Check that the destination pixel map (alignment file) matches expected total rows.
@@ -403,21 +396,11 @@ class ResumePlan(PipelineResumePlan):
             with file_name.open("rb") as pickle_file:
                 alignment = pickle.load(pickle_file)
             pixel_list = np.unique(alignment, axis=0)
-
-            # In row_count mode, alignment tuples are (order, pixel, row_count)
-            if raw_histogram_mem_size is None:
-                self.destination_pixel_map = {
-                    HealpixPixel(order, pix): row_count
-                    for (order, pix, row_count) in pixel_list
-                    if int(row_count) > 0
-                }
-            # In mem_size mode, alignment tuples are (order, pixel, row_count, mem_size)
-            else:
-                self.destination_pixel_map = {
-                    HealpixPixel(order, pix): row_count
-                    for (order, pix, row_count, mem_size) in pixel_list
-                    if int(row_count) > 0
-                }
+            self.destination_pixel_map = {
+                HealpixPixel(order, pix): row_count
+                for (order, pix, row_count) in pixel_list
+                if int(row_count) > 0
+            }
 
         total_rows = sum(self.destination_pixel_map.values())
         if total_rows != expected_total_rows:

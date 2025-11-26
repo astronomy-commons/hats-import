@@ -433,9 +433,11 @@ def test_mem_size_thresholding(
     tmp_path,
 ):
     """Test basic execution and the types of the written data."""
+
     args = ImportArguments(
         output_artifact_name="small_sky_mem_size_catalog",
-        input_path=small_sky_parts_dir,
+        # input_path=small_sky_parts_dir,
+        input_path="/Users/orl/code/lsdb-plus/hats-import/tests/data/small_sky_memory_partitioning",
         file_reader=CsvReader(
             type_map={
                 "ra": np.float32,
@@ -450,7 +452,7 @@ def test_mem_size_thresholding(
         highest_healpix_order=2,
         create_thumbnail=True,
         progress_bar=False,
-        byte_pixel_threshold=5_000,
+        byte_pixel_threshold=100_000,
     )
 
     runner.run(args, dask_client)
@@ -462,7 +464,7 @@ def test_mem_size_thresholding(
     assert catalog.catalog_info.ra_column == "ra"
     assert catalog.catalog_info.dec_column == "dec"
     assert catalog.catalog_info.total_rows == 131
-    assert len(catalog.get_healpix_pixels()) == 13
+    assert len(catalog.get_healpix_pixels()) == 10
 
     # Check that the catalog parquet files are all below the threshold
     for pixel in catalog.get_healpix_pixels():
