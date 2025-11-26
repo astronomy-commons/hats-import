@@ -29,8 +29,10 @@ def run(args, client):
     with print_progress(
         total=2,
         stage_name="Finishing",
+        pipeline_name="Collection",
         use_progress_bar=args.progress_bar,
         simple_progress_bar=args.simple_progress_bar,
+        tqdm_kwargs=args.tqdm_kwargs,
     ) as step_progress:
         collection_info = args.to_collection_properties()
         collection_info.to_properties_file(args.catalog_path)

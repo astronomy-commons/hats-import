@@ -29,7 +29,7 @@ class MarginCachePlan(PipelineResumePlan):
     def __init__(self, args: MarginCacheArguments):
         if not args.tmp_path:  # pragma: no cover (not reachable, but required for mypy)
             raise ValueError("tmp_path is required")
-        super().__init__(**args.resume_kwargs_dict())
+        super().__init__(pipeline_name="margin", **args.resume_kwargs_dict())
         self._gather_plan(args)
 
     def _gather_plan(self, args):

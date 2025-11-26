@@ -21,7 +21,9 @@ def generate_margin_cache(args, client):
     if not resume_plan.is_mapping_done():
         futures = []
         for mapping_key, pix in resume_plan.get_remaining_map_keys():
-            partition_file = paths.pixel_catalog_file(args.input_catalog_path, pix)
+            partition_file = paths.pixel_catalog_file(
+                args.input_catalog_path, pix, npix_suffix=args.catalog.catalog_info.npix_suffix
+            )
             futures.append(
                 client.submit(
                     mcmr.map_pixel_shards,
@@ -42,6 +44,7 @@ def generate_margin_cache(args, client):
         total_rows = resume_plan.get_mapping_total()
         if not total_rows:
             raise ValueError("Margin cache contains no rows. Increase margin size and re-run.")
+        step_progress.update(1)
 
     if not resume_plan.is_reducing_done():
         futures = []

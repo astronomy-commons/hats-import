@@ -64,7 +64,7 @@ class ResumePlan(PipelineResumePlan):
         import_args=None,
     ):
         if import_args:
-            super().__init__(**import_args.resume_kwargs_dict())
+            super().__init__(pipeline_name="catalog", **import_args.resume_kwargs_dict())
             if import_args.debug_stats_only:
                 run_stages = ["mapping", "finishing"]
             self.input_paths = import_args.input_paths

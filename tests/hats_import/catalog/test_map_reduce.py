@@ -476,7 +476,7 @@ def test_reduce_different_expectation(parquet_shards_dir, tmp_path):
         sort_columns="id",
         delete_input_files=False,
     )
-    with pytest.raises(ValueError, match="Unexpected number of objects in RESUMED"):
+    with pytest.raises(ValueError, match="Unexpected number of objects"):
         mr.reduce_pixel_shards(
             cache_shard_path=parquet_shards_dir,
             resume_path=tmp_path,
@@ -492,30 +492,40 @@ def test_reduce_different_expectation(parquet_shards_dir, tmp_path):
         )
 
 
-def test_reduce_resume_corrupted(parquet_shards_dir, tmp_path):
-    """Test reducing into one large pixel.
+def test_reduce_resume_corrupted(parquet_shards_dir, tmp_path, assert_parquet_file_ids):
+    """Test resuming a task that results in a corrupted file.
 
-    This will succeed the first time, but we change the size expectation the second time,
-    and the original file is in error."""
+    See also: https://github.com/astronomy-commons/hats-import/issues/634
+    """
     (tmp_path / "reducing").mkdir(parents=True)
     output_dir = tmp_path / "dataset" / "Norder=0" / "Dir=0"
     output_dir.mkdir(parents=True)
     with open(output_dir / "Npix=11.parquet", "w", encoding="utf-8") as file_handle:
         file_handle.write("Not a good parquet file")
-    with pytest.raises(pa.lib.ArrowInvalid, match="the file is corrupted or this is not a parquet file"):
-        mr.reduce_pixel_shards(
-            cache_shard_path=parquet_shards_dir,
-            resume_path=tmp_path,
-            reducing_key="0_11",
-            destination_pixel_order=0,
-            destination_pixel_number=11,
-            destination_pixel_size=131,
-            output_path=tmp_path,
-            ra_column="ra",
-            dec_column="dec",
-            sort_columns="id",
-            delete_input_files=False,
-        )
+
+    mr.reduce_pixel_shards(
+        cache_shard_path=parquet_shards_dir,
+        resume_path=tmp_path,
+        reducing_key="0_11",
+        destination_pixel_order=0,
+        destination_pixel_number=11,
+        destination_pixel_size=131,
+        output_path=tmp_path,
+        ra_column="ra",
+        dec_column="dec",
+        sort_columns="id",
+        delete_input_files=False,
+    )
+
+    output_file = tmp_path / "dataset" / "Norder=0" / "Dir=0" / "Npix=11.parquet"
+
+    expected_ids = [*range(700, 831)]
+    assert_parquet_file_ids(output_file, "id", expected_ids)
+    data_frame = pd.read_parquet(output_file, engine="pyarrow")
+    npt.assert_array_equal(
+        data_frame.columns,
+        ["_healpix_29", "id", "ra", "dec", "ra_error", "dec_error"],
+    )
 
 
 def test_reduce_bad_expectation(parquet_shards_dir, tmp_path):
