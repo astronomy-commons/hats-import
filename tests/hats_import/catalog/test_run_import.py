@@ -428,23 +428,29 @@ def test_import_with_npix_dir(dask_client, small_sky_parts_dir, tmp_path, assert
 
 @pytest.mark.dask
 def test_mem_size_thresholding(
-    small_sky_parts_dir,
-    tmp_path,
     dask_client,
+    small_sky_lumpy_cat,
+    tmp_path,
 ):
-    """Test that we can run with mem_size thresholding."""
+    """Test basic execution and the types of the written data."""
+
     args = ImportArguments(
-        output_artifact_name="small_sky_mem_size",
-        input_path=small_sky_parts_dir,
-        file_reader="csv",
+        output_artifact_name="small_sky_mem_size_catalog",
+        input_file_list=[small_sky_lumpy_cat],
+        file_reader=CsvReader(
+            type_map={
+                "ra": np.float32,
+                "dec": np.float32,
+                "ra_error": np.float32,
+                "dec_error": np.float32,
+                "lorem": str,
+            }
+        ),
         output_path=tmp_path,
         dask_tmp=tmp_path,
-        tmp_dir=tmp_path,
-        highest_healpix_order=1,
+        highest_healpix_order=2,
         progress_bar=False,
-        pixel_threshold=10_000,
-        debug_stats_only=True,
-        run_stages=["mapping"],
+        byte_pixel_threshold=100_000,
     )
 
     runner.run(args, dask_client)
@@ -453,6 +459,20 @@ def test_mem_size_thresholding(
     catalog = read_hats(args.catalog_path)
     assert catalog.on_disk
     assert catalog.catalog_path == args.catalog_path
+    assert catalog.catalog_info.ra_column == "ra"
+    assert catalog.catalog_info.dec_column == "dec"
+    assert catalog.catalog_info.total_rows == 131
+    assert len(catalog.get_healpix_pixels()) == 10
+
+    # Check that the catalog parquet files are all below the threshold
+    for pixel in catalog.get_healpix_pixels():
+        pix_path = Path(args.catalog_path) / "dataset" / f"Norder={pixel.order}" / "Dir=0"
+        parquet_file = pix_path / f"Npix={pixel.pixel}.parquet"
+        file_size = os.path.getsize(parquet_file)
+        assert file_size <= args.byte_pixel_threshold, (
+            f"Pixel {pixel} has size {file_size} bytes, "
+            f"which exceeds the threshold of {args.byte_pixel_threshold} bytes"
+        )
 
 
 @pytest.mark.dask

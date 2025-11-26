@@ -211,25 +211,22 @@ class ResumePlan(PipelineResumePlan):
             ValueError: If the histogram from the previous execution is incompatible with
                 the highest Healpix order, or if `which_histogram` is invalid.
         """
-        # Temporarily skipping the next block from code coverage, as we will be calling it once we
-        # address the binning stage and onwards in the next PR.
-        # Mocking this in the meantime for temporary tests doesn't seem worth the complication).
         if which_histogram == "row_count":
             histogram_binary_file = self.ROW_COUNT_HISTOGRAM_BINARY_FILE
             histogram_directory = self.ROW_COUNT_HISTOGRAMS_DIR
-        elif which_histogram == "mem_size" and self.threshold_mode == "mem_size":  # pragma: no cover
+        elif which_histogram == "mem_size" and self.threshold_mode == "mem_size":
             histogram_binary_file = self.MEM_SIZE_HISTOGRAM_BINARY_FILE
             histogram_directory = self.MEM_SIZE_HISTOGRAMS_DIR
-        elif which_histogram == "mem_size":  # pragma: no cover
+        elif which_histogram == "mem_size":
             raise ValueError("Cannot read mem_size histogram when threshold_mode is not 'mem_size'.")
-        else:  # pragma: no cover
+        else:
             raise ValueError(f"Unrecognized which_histogram value: {which_histogram}")
 
         file_name = file_io.append_paths_to_pointer(self.tmp_path, histogram_binary_file)
 
         # If no file, read the histogram from partial histograms and combine.
         if not file_io.does_file_or_directory_exist(file_name):
-            remaining_map_files = self.get_remaining_map_keys()
+            remaining_map_files = self.get_remaining_map_keys(which_histogram=which_histogram)
             if len(remaining_map_files) > 0:
                 raise RuntimeError(f"{len(remaining_map_files)} map stages did not complete successfully.")
             histogram_files = file_io.find_files_matching_path(self.tmp_path, histogram_directory, "*.npz")
@@ -336,6 +333,7 @@ class ResumePlan(PipelineResumePlan):
         drop_empty_siblings,
         expected_total_rows,
         existing_pixels=None,
+        raw_histogram_mem_size=None,
     ) -> UPath:
         """Get a pointer to the existing alignment file for the pipeline, or
         generate a new alignment using provided arguments.
@@ -352,12 +350,16 @@ class ResumePlan(PipelineResumePlan):
             drop_empty_siblings (bool):  if 3 of 4 pixels are empty, keep only the non-empty pixel
             expected_total_rows (int): number of expected rows found in the dataset.
             existing_pixels (Sequence[tuple[int,int]]): the HEALPix pixels to include in the alignment
+            raw_histogram_mem_size (:obj:`np.array`): one-dimensional numpy array of long integers
+                where the value at each index corresponds to the memory size in bytes of objects
+                found at the healpix pixel. Only required if threshold_mode is 'mem_size'.
 
         Returns:
             path to cached alignment file.
         """
         file_name = file_io.append_paths_to_pointer(self.tmp_path, self.ALIGNMENT_FILE)
         if not file_io.does_file_or_directory_exist(file_name):
+            # If existing_pixels, create an incremental alignment.
             if existing_pixels:
                 alignment = pixel_math.generate_incremental_alignment(
                     raw_histogram,
@@ -366,14 +368,12 @@ class ResumePlan(PipelineResumePlan):
                     lowest_order=lowest_healpix_order,
                     threshold=pixel_threshold,
                 )
+            # If constant_healpix_order is set, create a simple alignment.
             elif constant_healpix_order >= 0:
-                alignment = np.full((len(raw_histogram), 3), [-1, -1, 0])
-                for pixel_num, pixel_sum in enumerate(raw_histogram):
-                    alignment[pixel_num] = [
-                        constant_healpix_order,
-                        pixel_num,
-                        pixel_sum,
-                    ]
+                alignment = self._generate_constant_healpix_order_alignment(
+                    raw_histogram, constant_healpix_order
+                )
+            # Else, generate standard alignment based on thresholds.
             else:
                 alignment = pixel_math.generate_alignment(
                     raw_histogram,
@@ -381,18 +381,25 @@ class ResumePlan(PipelineResumePlan):
                     lowest_order=lowest_healpix_order,
                     threshold=pixel_threshold,
                     drop_empty_siblings=drop_empty_siblings,
+                    mem_size_histogram=raw_histogram_mem_size,
                 )
+
+            # Write alignment to file.
             with file_name.open("wb") as pickle_file:
                 alignment = np.array([x if x is not None else [-1, -1, 0] for x in alignment], dtype=np.int64)
                 pickle.dump(alignment, pickle_file)
 
+        # Check that the destination pixel map (alignment file) matches expected total rows.
         if self.destination_pixel_map is None:
             with file_name.open("rb") as pickle_file:
                 alignment = pickle.load(pickle_file)
             pixel_list = np.unique(alignment, axis=0)
             self.destination_pixel_map = {
-                HealpixPixel(order, pix): count for (order, pix, count) in pixel_list if int(count) > 0
+                HealpixPixel(order, pix): row_count
+                for (order, pix, row_count) in pixel_list
+                if int(row_count) > 0
             }
+
         total_rows = sum(self.destination_pixel_map.values())
         if total_rows != expected_total_rows:
             raise ValueError(
@@ -400,6 +407,28 @@ class ResumePlan(PipelineResumePlan):
             )
 
         return file_name
+
+    def _generate_constant_healpix_order_alignment(self, raw_histogram_row_count, constant_healpix_order):
+        """Generate alignment where all non-empty pixels are at the same healpix order.
+
+        Args:
+            raw_histogram_row_count (:obj:`np.array`): one-dimensional numpy array of long integers
+                where the value at each index corresponds to the number of objects found at the
+                healpix pixel.
+            constant_healpix_order (int): the healpix order to assign to all non-empty pixels.
+
+        Returns:
+            np.array: alignment array where each entry is [order, pixel, row_count] or
+                [order, pixel, row_count, mem_size] depending on threshold_mode.
+        """
+        alignment = np.full((len(raw_histogram_row_count), 3), [-1, -1, 0])
+        for pixel_num, pixel_row_count_sum in enumerate(raw_histogram_row_count):
+            alignment[pixel_num] = [
+                constant_healpix_order,
+                pixel_num,
+                pixel_row_count_sum,
+            ]
+        return alignment
 
     def wait_for_splitting(self, futures):
         """Wait for splitting futures to complete."""
