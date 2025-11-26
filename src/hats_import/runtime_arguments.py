@@ -27,7 +27,7 @@ class RuntimeArguments:
     """short, convenient name for the catalog"""
     addl_hats_properties: dict | None = None
     """Any additional keyword arguments you would like to provide when writing
-    the `properties` file for the final HATS table. e.g. 
+    the `hats.properties` file for the final HATS table. e.g. 
     {"hats_cols_default":"id, mjd", "hats_cols_survey_id":"unique_id", 
     "creator_did": "ivo://CDS/P/2MASS/J"}"""
 

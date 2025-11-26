@@ -62,6 +62,17 @@ index files, and returns a list of paths to be read by your method.
             input_file=input_file, upath_kwargs=self.upath_kwargs, **self.kwargs
         )
 
+Pandas vs Pyarrow
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``read`` method can either yield a ``pandas.DataFrame`` object or a ``pyarrow.Table``.
+If yielding a pandas dataframe, note that further pipeline stages will convert 
+into a ``pyarrow.Table`` anyway.
+
+We provide alternative implementations of some common readers that will use pyarrow file
+readers. This can be faster, as it avoids unneccessary conversion between table
+formats, but you may encounter rougher edges. 
+
 .. currentmodule:: hats_import.catalog.file_readers
 
 Built-in Classes and Functions
@@ -75,8 +86,8 @@ Built-in Classes and Functions
     CsvReader
     CsvPyarrowReader
     IndexedCsvReader
+    ParquetReader
+    ParquetPyarrowReader
+    IndexedParquetReader 
     AstropyEcsvReader
     FitsReader
-    ParquetPyarrowReader
-    ParquetReader
-    IndexedParquetReader
