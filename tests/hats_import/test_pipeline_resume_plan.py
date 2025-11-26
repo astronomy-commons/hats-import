@@ -81,7 +81,13 @@ def test_wait_for_futures_progress(tmp_path, dask_client, capsys):
     """Test that we can wait around for futures to complete.
 
     Additionally test that relevant parts of the traceback are printed to stdout."""
-    plan = PipelineResumePlan(tmp_path=tmp_path, progress_bar=True, simple_progress_bar=True, resume=False)
+    plan = PipelineResumePlan(
+        tmp_path=tmp_path,
+        progress_bar=True,
+        simple_progress_bar=True,
+        resume=False,
+        tqdm_kwargs={"ncols": 80},
+    )
 
     def error_on_even(argument):
         """Silly little method used to test futures that fail under predictable conditions"""
@@ -128,6 +134,21 @@ def test_formatted_stage_name():
 
     formatted = get_formatted_stage_name("very long stage name")
     assert formatted == "Very long stage name"
+
+
+def test_formatted_stage_name_with_pipeline():
+    """Test that we make pretty stage names for presenting in progress bars"""
+    formatted = get_formatted_stage_name(None, None)
+    assert formatted == "Progress  "
+
+    formatted = get_formatted_stage_name("", None)
+    assert formatted == "Progress  "
+
+    formatted = get_formatted_stage_name("stage", "pipeline")
+    assert formatted == "Pipeline: Stage     "
+
+    formatted = get_formatted_stage_name("very long stage name", "shorter pipeline")
+    assert formatted == "Shorter pipeline: Very long stage name"
 
 
 def test_check_original_input_paths(tmp_path, mixed_schema_csv_dir):
