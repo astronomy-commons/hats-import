@@ -449,7 +449,6 @@ def test_mem_size_thresholding(
         output_path=tmp_path,
         dask_tmp=tmp_path,
         highest_healpix_order=2,
-        create_thumbnail=True,
         progress_bar=False,
         byte_pixel_threshold=100_000,
     )
