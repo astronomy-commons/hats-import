@@ -154,7 +154,7 @@ This is when storage shifts from intermediate files to the real output files.
 Finishing stage
 ...............................................................................
 
-Here, we will write out a few additional final files (e.g. ``properties``, ``_metadata``).
+Here, we will write out a few additional final files (e.g. ``hats.properties``, ``_metadata``).
 Additionally, we will clean up any straggling intermediate resume files. 
 This includes all text log files, and the summed histogram file. 
 After this stage, we should have zero intermediate files.

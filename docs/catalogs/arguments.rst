@@ -42,7 +42,7 @@ arguments:
 
 ``dask_tmp`` - ``str`` - directory for dask worker space. this should be local to
 the execution of the pipeline, for speed of reads and writes. For much more 
-information, see :doc:`temp_files`
+information, see :doc:`temp_files`.
 
 ``dask_n_workers`` - ``int`` - number of workers for the dask client. Defaults to 1.
 
@@ -95,10 +95,24 @@ files created by the previous runs of the ``hats-import`` pipeline. You should a
 remove the output directory if it has any content. The resume argument performs these
 cleaning operations automatically for you.
 
+For more information about the kinds of files we write to enable this feature,
+see :doc:`temp_files`.
+
+By default, these notes files, and the intermediate parquet leaf files are removed
+once they're no longer needed by the pipeline. If, for whatever reason, you would
+like to retain these files, you can use flags:
+
+- ``delete_resume_log_files=False`` will keep resume notes/logs files
+- ``delete_intermediate_parquet_files=False`` will retain ALL of the intermediate 
+  parquet leaf files.
+
 Reading input files
 -------------------------------------------------------------------------------
 
 Catalog import reads through a list of files and converts them into a hats-sharded catalog.
+
+If you already know the size of your catalog, and would like us to verify that 
+the same number of rows exists at each checkpoint in the pipeline, pass ``expected_total_rows=<int>``.
 
 Which files?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -106,7 +120,7 @@ Which files?
 There are a few ways to specify the files to read:
 
 * ``input_path``: 
-    will search for files the indicated directory.
+    will include all files in the indicated directory.
 * ``input_file_list``: 
     a list of fully-specified paths you want to read.
 
@@ -235,7 +249,7 @@ should adjust your parameters.
 For more discussion of the ``pixel_threshold`` argument and a strategy for setting
 this parameter, see notebook :doc:`/notebooks/estimate_pixel_threshold`
 
-For more discussion of the "Binning" and all other stages, see :doc:`temp_files`
+For more discussion of the "Binning" and all other stages, see :doc:`temp_files`.
 
 Sparse Datasets
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -250,7 +264,7 @@ catalog that occupy the same large region in the sky. Using more pixels of highe
 order will have some inefficiencies in terms of on-disk storage, but will be 
 easier to compute joins and cross-matches to large datasets.
 
-There are two strategies for tweaking the partitioning:
+There are a few strategies for tweaking the partitioning:
 
 * **order range** - use the ``lowest_healpix_order`` argument, in addition
   to the ``highest_healpix_order``.
@@ -258,6 +272,10 @@ There are two strategies for tweaking the partitioning:
   **ignore** the ``pixel_threshold``, ``highest_healpix_order``, and 
   ``lowest_healpix_order`` arguments and the catalog will be partitioned by 
   healpix pixels at the ``constant_healpix_order``.
+* **drop empty siblings** - by default, the ``drop_empty_siblings`` flag is
+  set to ``True``, and will try to use smaller area pixels in sparse regions
+  of the sky. This can make the catalog footprint closer to the actual survey
+  footprint, but can be disabled if desired.
 
 Progress Reporting
 -------------------------------------------------------------------------------
@@ -278,11 +296,14 @@ reporting to look like the following:
     Reducing : 100%|██████████| 10895/10895 [7:46:07<00:00,  2.57s/it]
     Finishing: 100%|██████████| 6/6 [08:03<00:00, 80.65s/it]
 
-``tqdm`` will try to make a guess about the type of output to provide: plain
+We use ``tqdm`` to render these beautiful progress bars. ``tqdm`` will try to 
+make a guess about the type of output to provide: plain
 text as for a command line, or a pretty ipywidget. If it tries to use a pretty
 widget but your execution environment can't support the widget, you can 
 force the pipeline to use a simple progress bar with the ``simple_progress_bar``
-argument.
+argument. If you want to configure the progress bar any further, pass 
+values to the ``tqdm_kwargs`` parameter. You can find more details on available
+arguments at `the tqdm documentation <https://tqdm.github.io/docs/tqdm/>`__.
 
 For very long-running pipelines (e.g. multi-TB inputs), you can get an 
 email notification when the pipeline completes using the 
@@ -314,11 +335,49 @@ Most users are going to be ok with simply setting the ``tmp_dir`` for all interm
 file use. For more information on these parameters, when you would use each, 
 and demonstrations of temporary file use see :doc:`temp_files`
 
-How?
+How to write the parquet files?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You may want to tweak parameters of the final catalog output, and we have helper 
 arguments for a few of those.
+
+``write_table_kwargs`` - any additional arguments to customize the 
+``pyarrow.parquet.ParquetWriter``. This can be used for alternative compression
+strategies. By default we use ZSTD compression at level 15.
+
+Parquet compression is also effected by the row groups. We can attempt to split 
+the data partition into row group chunks according to a few strategies:
+
+- **Number of rows** - Chunk according to integer number of rows in ``num_rows`` arg.
+
+- **HEALPix subtiles** - Chunk according to finer spatial divisions within the HEALPix pixel of the data partition.
+  This is controlled via the ``subtile_order_delta``. Reasonable values here are ``1``, ``2``, or ``3``.
+
+.. hint::
+    This behavior may be confusing, so let's talk about it a little bit more. 
+
+    Say we're writing a data partition for a HEALPix order 6 tile.
+
+    - With a ``1``, there are 4 maximum row groups, for each of the 4 subtiles 
+      of HEALPix order 7.
+    - With a ``2``, there are 16 maximum row groups, for each of the 16 subtiles 
+      of HEALPix order 8.
+    - With a ``3``, there are 64 maximum row groups, for each of the 64 subtiles 
+      of HEALPix order 9.
+    - With a value any higher, there will be so many row groups in each file that
+      you will likely stop seeing the benefits of these divisions.
+
+    Within **the same pipeline**, we would also write some partitions at HEALPix order 4,
+    and they would have a similar number of row group divisions:
+
+    - With a ``1``, there are 4 subtiles of HEALPix order 5.
+    - With a ``2``, there are 16 subtiles of HEALPix order 6.
+    - With a ``3``, there are 64 subtiles of HEALPix order 7.
+
+    This is why we describe the subdivisions as a "delta", instead of an absolute HEALPix order.
+
+If you're interested in other row group strategies, please reach out and we 
+can consider adding them.
 
 ``add_healpix_29`` - ``bool`` - whether or not to add the hats spatial index
 as a column in the resulting catalog. The ``_healpix_29`` field is designed to make many 
@@ -344,25 +403,53 @@ parquet files with the catalog data, and will only generate root-level metadata
 files representing the full statistics of the final catalog. This can be useful
 when probing the import process for effectiveness on processing a target dataset.
 
+How to write the metadata files?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ``catalog_type`` - ``"object"`` or ``"source"``. Indicates the level of catalog data,
 using the LSST nomenclature:
 
 - object - things in the sky (e.g. stars, galaxies)
 - source - detections of things in the sky at some point in time.
+- map - non-point-source catalogs (e.g. dust maps)
 
 Some data providers split detection-level data into a separate catalog, to make object
 catalogs smaller, and reflects a relational data model.
 
-Additional catalog properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The HATS format allows for many additional key-values in the high-level ``properties``
+``create_thumbnail`` - optionally create a ``dataset/data_thumbnail.parquet`` file, 
+that will contain the first row of each data partition. This can be useful as a 
+representative sample of the catalog data.
+
+``should_write_skymap`` - defaults to ``True``, but you can disable writing 
+a ``skymap.fits`` file with this argument. Further, to create several down-sampled
+skymaps, pass a list of HEALPix orders to ``skymap_alt_orders`` (e.g.
+``skymap_alt_orders=[2,4,6]``).
+
+The HATS format allows for many additional key-values in the high-level ``hats.properties``
 file. Many of these values are automatically set by the import process itself, but 
 catalog providers may want to set additional fields for data provenance.
 
 This full set of properties is outlined on a separate page (:doc:`properties`), 
 but you can pass these key-value sets to the import process with the ``addl_hats_properties`` 
-argument, and they will appear in the final ``properties`` file:
+argument, and they will appear in the final ``hats.properties`` file:
 
 .. code-block::
 
     addl_hats_properties={"hats_cols_default": "id, mjd", "obs_regime": "Optical"},
+
+Incremental catalogs
+-------------------------------------------------------------------------------
+
+An "incremental catalog" is one that can be appended to by adding more files into
+the leaf data partition directory.
+
+We need to start with a catalog that has leaf directories instead of leaf parquet files.
+You can import the starting data with additional arguments:
+
+- ``npix_suffix="/"`` - this tells the pipeline to create a directory per-leaf.
+- ``npix_parquet_name`` - this is the file name given to the first file in the 
+  directory. By default, this will be ``Npix=M.parquet``.
+
+To append to an incremental catalog, the pipeline should be run with the same
+partitioning, potentially adding new pixels to fill in coverage gaps.
+To make sure the same set of pixels are used, provide ``existing_pixels`` 
+as a list of HEALPix ``(order, pixel)`` tuples.
