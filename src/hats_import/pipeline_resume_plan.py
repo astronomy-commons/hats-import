@@ -284,10 +284,10 @@ def get_formatted_stage_name(stage_name, pipeline_name=None) -> str:
     Args:
         stage_name (str): name of the stage (e.g. mapping, reducing)
     """
-    if stage_name is None or len(stage_name) == 0:
+    if not stage_name:
         stage_name = "progress"
 
-    if pipeline_name is None or len(pipeline_name) == 0:
+    if not pipeline_name:
         return f"{stage_name.capitalize(): <10}"
 
     return f"{pipeline_name.capitalize()}: {stage_name.capitalize(): <10}"
