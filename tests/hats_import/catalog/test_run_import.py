@@ -429,15 +429,14 @@ def test_import_with_npix_dir(dask_client, small_sky_parts_dir, tmp_path, assert
 @pytest.mark.dask
 def test_mem_size_thresholding(
     dask_client,
-    small_sky_parts_dir,
+    small_sky_lumpy_cat,
     tmp_path,
 ):
     """Test basic execution and the types of the written data."""
 
     args = ImportArguments(
         output_artifact_name="small_sky_mem_size_catalog",
-        # input_path=small_sky_parts_dir,
-        input_path="/Users/orl/code/lsdb-plus/hats-import/tests/data/small_sky_memory_partitioning",
+        input_file_list=[small_sky_lumpy_cat],
         file_reader=CsvReader(
             type_map={
                 "ra": np.float32,

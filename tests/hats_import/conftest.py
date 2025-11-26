@@ -138,6 +138,11 @@ def formats_fits(test_data_dir):
 
 
 @pytest.fixture
+def small_sky_lumpy_cat(test_data_dir):
+    return test_data_dir / "test_formats" / "small_sky_lumpy.csv"
+
+
+@pytest.fixture
 def formats_fits_nested(test_data_dir):
     """10 first rows of a 21GB file
 
