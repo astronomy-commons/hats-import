@@ -2,7 +2,7 @@
 HATS properties
 ===============================================================================
 
-The HATS format allows for many additional key-values in the high-level ``properties``
+The HATS format allows for many additional key-values in the high-level ``hats.properties``
 file. Many of these values are automatically set by the import process itself, but 
 catalog providers may want to set additional fields for data provenance.
 
@@ -87,8 +87,8 @@ User-provided Properties
 -------------------------------------------------------------------------------
 
 In addition, catalog providers can set provenance-related fields in the
-``properties`` file by setting the ``addl_hats_properties`` argument on import. 
-This will carry key-value pairs into the final ``properties`` file.
+``hats.properties`` file by setting the ``addl_hats_properties`` argument on import. 
+This will carry key-value pairs into the final ``hats.properties`` file.
 
 All of these fields are optional.
 

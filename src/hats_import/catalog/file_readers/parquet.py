@@ -33,7 +33,7 @@ class ParquetReader(InputReader):
 
 
 class ParquetPyarrowReader(InputReader):
-    """Parquet reader for the most common Parquet reading arguments.
+    """Parquet reader that uses the pyarrow library for reading.
 
     Attributes:
         chunksize (int): number of rows of the file to process at once.

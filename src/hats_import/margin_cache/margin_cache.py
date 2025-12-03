@@ -1,3 +1,4 @@
+import pyarrow.parquet as pq
 from hats.catalog import PartitionInfo
 from hats.io import file_io, parquet_metadata, paths
 
@@ -42,8 +43,6 @@ def generate_margin_cache(args, client):
 
     with resume_plan.print_progress(total=1, stage_name="Binning") as step_progress:
         total_rows = resume_plan.get_mapping_total()
-        if not total_rows:
-            raise ValueError("Margin cache contains no rows. Increase margin size and re-run.")
         step_progress.update(1)
 
     if not resume_plan.is_reducing_done():
@@ -63,20 +62,42 @@ def generate_margin_cache(args, client):
         resume_plan.wait_for_reducing(futures)
 
     with resume_plan.print_progress(total=4, stage_name="Finishing") as step_progress:
-        metadata_total_rows = parquet_metadata.write_parquet_metadata(args.catalog_path)
-        if metadata_total_rows != total_rows:
-            raise ValueError(
-                f"Wrote unexpected number of rows ({total_rows} expected, {metadata_total_rows} written)"
-            )
-        step_progress.update(1)
-        metadata_path = paths.get_parquet_metadata_pointer(args.catalog_path)
-        partition_info = PartitionInfo.read_from_file(metadata_path)
+        if total_rows > 0:
+            metadata_total_rows = parquet_metadata.write_parquet_metadata(args.catalog_path)
+            if metadata_total_rows != total_rows:
+                raise ValueError(
+                    f"Wrote unexpected number of rows ({total_rows} expected, {metadata_total_rows} written)"
+                )
+            step_progress.update(1)
+            metadata_path = paths.get_parquet_metadata_pointer(args.catalog_path)
+            partition_info = PartitionInfo.read_from_file(metadata_path)
+        else:
+            schema = args.catalog.schema
+            metadata_path = paths.get_parquet_metadata_pointer(args.catalog_path)
+            common_metadata_path = paths.get_common_metadata_pointer(args.catalog_path)
+            file_io.make_directory(metadata_path.parent, exist_ok=True)
+            pq.write_metadata(schema, metadata_path.path, filesystem=metadata_path.fs)
+            pq.write_metadata(schema, common_metadata_path.path, filesystem=common_metadata_path.fs)
+
+            step_progress.update(1)
+
+            # Create empty partition info
+            partition_info = PartitionInfo.from_healpix([])
+
+        # For empty catalogs, create a minimal partition info file directly
         partition_info_file = paths.get_partition_info_pointer(args.catalog_path)
         partition_info.write_to_file(partition_info_file)
         step_progress.update(1)
+
+        highest_order = (
+            args.catalog.partition_info.get_highest_order()
+            if total_rows == 0
+            else partition_info.get_highest_order()
+        )
+
         margin_catalog_info = args.to_table_properties(
             int(total_rows),
-            partition_info.get_highest_order(),
+            highest_order,
             partition_info.calculate_fractional_coverage(),
         )
         margin_catalog_info.to_properties_file(args.catalog_path)
