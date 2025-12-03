@@ -392,7 +392,7 @@ def test_dask_runner_omit_metadata(
 
     # Check that the catalog was made correctly, but the metadata file does NOT exist
     catalog = read_hats(args.catalog_path)
-    # assert catalog.catalog_info.total_rows == 131
+    assert catalog.catalog_info.total_rows == 131
     assert catalog.on_disk
     metadata_filename = os.path.join(args.catalog_path, "dataset", "_metadata")
     assert not os.path.exists(metadata_filename)

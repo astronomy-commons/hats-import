@@ -1,5 +1,7 @@
 """Tests of map reduce operations"""
 
+import os
+
 import numpy.testing as npt
 import pandas as pd
 import pytest
@@ -190,4 +192,26 @@ def test_margin_gen_nested_catalog(small_sky_nested_catalog, tmp_path, dask_clie
 
     catalog = read_hats(args.catalog_path)
     assert catalog.on_disk
+    assert catalog.catalog_path == args.catalog_path
+
+
+@pytest.mark.dask(timeout=150)
+def test_margin_cache_omit_metadata(small_sky_source_catalog, tmp_path, dask_client):
+    args = MarginCacheArguments(
+        margin_threshold=180.0,
+        input_catalog_path=small_sky_source_catalog,
+        output_path=tmp_path,
+        output_artifact_name="catalog_cache",
+        margin_order=8,
+        progress_bar=False,
+        create_metadata=False,
+    )
+    mc.generate_margin_cache(args, dask_client)
+
+    # Check that the catalog was made correctly, but the metadata file does NOT exist
+    catalog = read_hats(args.catalog_path)
+    assert catalog.catalog_info.total_rows == 1717
+    assert catalog.on_disk
+    metadata_filename = os.path.join(args.catalog_path, "dataset", "_metadata")
+    assert not os.path.exists(metadata_filename)
     assert catalog.catalog_path == args.catalog_path
