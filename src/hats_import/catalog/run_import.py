@@ -160,6 +160,7 @@ def run(args, client):
                     args.catalog_path,
                     create_thumbnail=args.create_thumbnail,
                     thumbnail_threshold=threshold,
+                    create_metadata=args.create_metadata,
                 )
                 if total_rows > 0 and parquet_rows != total_rows:
                     raise ValueError(
