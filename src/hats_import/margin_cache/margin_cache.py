@@ -72,9 +72,7 @@ def generate_margin_cache(args, client):
                 )
             step_progress.update(1)
             metadata_path = paths.get_parquet_metadata_pointer(args.catalog_path)
-            partition_info = PartitionInfo.read_from_dir(
-                args.catalog_path, compute_from_catalog=(not args.create_metadata)
-            )
+            partition_info = PartitionInfo.read_from_dir(args.catalog_path)
         else:
             schema = args.catalog.schema
             common_metadata_path = paths.get_common_metadata_pointer(args.catalog_path)
