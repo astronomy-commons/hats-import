@@ -65,6 +65,8 @@ class ImportArguments(RuntimeArguments):
     """Additional alternative healpix orders to write a HEALPix skymap."""
     create_thumbnail: bool = False
     """Create /dataset/data_thumbnail.parquet from one row of each data partition."""
+    create_metadata: bool = True
+    """Create /dataset/_metadata parquet from all data partitions."""
 
     use_schema_file: str | Path | UPath | None = None
     """path to a parquet file with schema metadata. this will be used for column
