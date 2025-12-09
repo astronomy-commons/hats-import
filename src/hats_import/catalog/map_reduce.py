@@ -13,7 +13,6 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from hats import pixel_math
 from hats.io import file_io, paths
-from hats.io.paths import PARTITION_PIXEL
 from hats.pixel_math.healpix_pixel import HealpixPixel
 from hats.pixel_math.sparse_histogram import HistogramAggregator, SparseHistogram
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, spatial_index_to_healpix
@@ -367,19 +366,10 @@ def reduce_pixel_shards(
             `destination_pixel_size`
     """
     try:
-        destination_dir = paths.pixel_directory(
-            output_path, destination_pixel_order, destination_pixel_number
-        )
-        file_io.make_directory(destination_dir, exist_ok=True)
-
         healpix_pixel = HealpixPixel(destination_pixel_order, destination_pixel_number)
-        destination_file = paths.pixel_catalog_file(output_path, healpix_pixel, npix_suffix=npix_suffix)
-
-        if npix_parquet_name is None:
-            npix_parquet_name = f"{PARTITION_PIXEL}={healpix_pixel.pixel}.parquet"
-        if npix_suffix == "/":
-            destination_file.mkdir(exist_ok=True)
-            destination_file = destination_file / npix_parquet_name
+        destination_file = paths.new_pixel_catalog_file(
+            output_path, healpix_pixel, npix_suffix=npix_suffix, npix_parquet_name=npix_parquet_name
+        )
 
         # If the destination file exists, and has the right number of rows, return early.
         # If there's anything wrong with the destination file, attempt to write it again.

@@ -30,6 +30,15 @@ class RuntimeArguments:
     the `hats.properties` file for the final HATS table. e.g. 
     {"hats_cols_default":"id, mjd", "hats_cols_survey_id":"unique_id", 
     "creator_did": "ivo://CDS/P/2MASS/J"}"""
+    npix_suffix: str = ".parquet"
+    """Suffix for pixel data. When specified as "/" each pixel will have a directory in its name."""
+    npix_parquet_name: str | None = None
+    """Name of the pixel parquet file to be used when npix_suffix=/. By default, it will be named
+    after the pixel with a .parquet extension (e.g. 'Npix=10.parquet')"""
+    write_table_kwargs: dict | None = None
+    """additional keyword arguments to use when writing files to parquet (e.g. compression schemes)."""
+    row_group_kwargs: dict | None = None
+    """additional keyword arguments to use in creation of rowgroups when writing files to parquet."""
 
     ## Execution
     tmp_dir: str | Path | UPath | None = None
@@ -119,6 +128,14 @@ class RuntimeArguments:
             self.resume_tmp = file_io.append_paths_to_pointer(self.resume_tmp, self.output_artifact_name)
         else:
             self.resume_tmp = self.tmp_path
+
+        if self.write_table_kwargs is None:
+            self.write_table_kwargs = {}
+        if "compression" not in self.write_table_kwargs:
+            self.write_table_kwargs = self.write_table_kwargs | {
+                "compression": "ZSTD",
+                "compression_level": 15,
+            }
 
     def extra_property_dict(self):
         """Generate additional HATS properties for this import run as a dictionary."""

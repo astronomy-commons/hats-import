@@ -57,6 +57,9 @@ def generate_margin_cache(args, client):
                     partition_order=pix.order,
                     partition_pixel=pix.pixel,
                     delete_intermediate_parquet_files=args.delete_intermediate_parquet_files,
+                    npix_suffix=args.npix_suffix,
+                    npix_parquet_name=args.npix_parquet_name,
+                    write_table_kwargs=args.write_table_kwargs,
                 )
             )
         resume_plan.wait_for_reducing(futures)
