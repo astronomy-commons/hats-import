@@ -51,12 +51,6 @@ class ImportArguments(RuntimeArguments):
     but the provided sorting will be used for any rows within the same higher-order pixel space."""
     add_healpix_29: bool = True
     """add the healpix-based hats spatial index field alongside the data"""
-    skymap_alt_orders: list[int] | None = None
-    """Additional alternative healpix orders to write a HEALPix skymap."""
-    create_thumbnail: bool = False
-    """Create /dataset/data_thumbnail.parquet from one row of each data partition."""
-    create_metadata: bool = True
-    """Create /dataset/_metadata parquet from all data partitions."""
 
     use_schema_file: str | Path | UPath | None = None
     """path to a parquet file with schema metadata. this will be used for column
@@ -105,8 +99,6 @@ class ImportArguments(RuntimeArguments):
     file_reader: InputReader | str | None = None
     """instance of input reader that specifies arguments necessary for reading
     from your input files"""
-    should_write_skymap: bool = True
-    """main catalogs should contain skymap fits files"""
     existing_pixels: Sequence[tuple[int, int]] | None = None
     """the list of HEALPix pixels to include in the alignment"""
 
