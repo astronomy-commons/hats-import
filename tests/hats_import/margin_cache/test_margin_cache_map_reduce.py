@@ -170,6 +170,9 @@ def test_reduce_margin_shards(tmp_path):
         1,
         21,
         delete_intermediate_parquet_files=False,
+        npix_suffix=".parquet",
+        npix_parquet_name=None,
+        write_table_kwargs=None,
     )
 
     result_path = paths.pixel_catalog_file(tmp_path, HealpixPixel(1, 21))
@@ -185,6 +188,9 @@ def test_reduce_margin_shards(tmp_path):
         1,
         21,
         delete_intermediate_parquet_files=True,
+        npix_suffix=None,
+        npix_parquet_name=None,
+        write_table_kwargs=None,
     )
 
     result_path = paths.pixel_catalog_file(tmp_path, HealpixPixel(1, 21))

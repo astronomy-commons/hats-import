@@ -208,6 +208,10 @@ class CollectionArguments(RuntimeArguments):
         useful_kwargs = {
             "output_path": self.catalog_path,
             "addl_hats_properties": self.addl_hats_properties,
+            "npix_suffix": self.npix_suffix,
+            "npix_parquet_name": self.npix_parquet_name,
+            "write_table_kwargs": self.write_table_kwargs,
+            "row_group_kwargs": self.row_group_kwargs,
             "tmp_dir": self.tmp_path,
             "resume": self.resume,
             "progress_bar": self.progress_bar,

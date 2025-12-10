@@ -2,7 +2,7 @@
 
 import pytest
 
-from hats_import.catalog.arguments import ImportArguments, check_healpix_order_range
+from hats_import.catalog.arguments import ImportArguments
 
 # pylint: disable=protected-access
 
@@ -260,28 +260,6 @@ def test_to_table_properties_missing_default(blank_data_dir, tmp_path):
         args.to_table_properties(
             total_rows=10, highest_order=4, moc_sky_fraction=22 / 7, column_names=["id", "ra", "dec"]
         )
-
-
-def test_check_healpix_order_range():
-    """Test method check_healpix_order_range"""
-    check_healpix_order_range(5, "order_field")
-    check_healpix_order_range(5, "order_field", lower_bound=0, upper_bound=19)
-
-    with pytest.raises(ValueError, match="positive"):
-        check_healpix_order_range(5, "order_field", lower_bound=-1)
-
-    with pytest.raises(ValueError, match="29"):
-        check_healpix_order_range(5, "order_field", upper_bound=30)
-
-    with pytest.raises(ValueError, match="order_field"):
-        check_healpix_order_range(-1, "order_field")
-    with pytest.raises(ValueError, match="order_field"):
-        check_healpix_order_range(30, "order_field")
-
-    with pytest.raises(TypeError, match="not supported"):
-        check_healpix_order_range("two", "order_field")
-    with pytest.raises(TypeError, match="not supported"):
-        check_healpix_order_range(5, "order_field", upper_bound="ten")
 
 
 def test_no_import_overwrite(small_sky_object_catalog, parquet_shards_dir):

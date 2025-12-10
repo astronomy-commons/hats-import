@@ -2,7 +2,7 @@
 
 import pytest
 
-from hats_import.runtime_arguments import RuntimeArguments
+from hats_import.runtime_arguments import RuntimeArguments, check_healpix_order_range
 
 # pylint: disable=protected-access
 
@@ -111,3 +111,25 @@ def test_dask_args(tmp_path):
             dask_n_workers=1,
             dask_threads_per_worker=-10,
         )
+
+
+def test_check_healpix_order_range():
+    """Test method check_healpix_order_range"""
+    check_healpix_order_range(5, "order_field")
+    check_healpix_order_range(5, "order_field", lower_bound=0, upper_bound=19)
+
+    with pytest.raises(ValueError, match="positive"):
+        check_healpix_order_range(5, "order_field", lower_bound=-1)
+
+    with pytest.raises(ValueError, match="29"):
+        check_healpix_order_range(5, "order_field", upper_bound=30)
+
+    with pytest.raises(ValueError, match="order_field"):
+        check_healpix_order_range(-1, "order_field")
+    with pytest.raises(ValueError, match="order_field"):
+        check_healpix_order_range(30, "order_field")
+
+    with pytest.raises(TypeError, match="not supported"):
+        check_healpix_order_range("two", "order_field")
+    with pytest.raises(TypeError, match="not supported"):
+        check_healpix_order_range(5, "order_field", upper_bound="ten")

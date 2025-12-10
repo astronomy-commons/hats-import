@@ -12,14 +12,13 @@ from hats.catalog.catalog_collection import CatalogCollection
 from hats.io.file_io import get_upath
 from hats.io.paths import DATASET_DIR, HIVE_COLUMNS, PARTITION_ORDER
 from hats.io.validation import is_valid_catalog
-from hats.pixel_math import spatial_index
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, SPATIAL_INDEX_ORDER
 from typing_extensions import Self
 from upath import UPath
 
 from hats_import.catalog.file_readers import InputReader, get_file_reader
 from hats_import.catalog.file_readers.parquet import ParquetPyarrowReader
-from hats_import.runtime_arguments import RuntimeArguments, find_input_paths
+from hats_import.runtime_arguments import RuntimeArguments, check_healpix_order_range, find_input_paths
 
 # pylint: disable=too-many-locals,too-many-arguments,too-many-instance-attributes,too-many-branches,too-few-public-methods
 
@@ -52,21 +51,6 @@ class ImportArguments(RuntimeArguments):
     but the provided sorting will be used for any rows within the same higher-order pixel space."""
     add_healpix_29: bool = True
     """add the healpix-based hats spatial index field alongside the data"""
-    npix_suffix: str = ".parquet"
-    """Suffix for pixel data. When specified as "/" each pixel will have a directory in its name."""
-    npix_parquet_name: str | None = None
-    """Name of the pixel parquet file to be used when npix_suffix=/. By default, it will be named
-    after the pixel with a .parquet extension (e.g. 'Npix=10.parquet')"""
-    write_table_kwargs: dict | None = None
-    """additional keyword arguments to use when writing files to parquet (e.g. compression schemes)."""
-    row_group_kwargs: dict | None = None
-    """additional keyword arguments to use in creation of rowgroups when writing files to parquet."""
-    skymap_alt_orders: list[int] | None = None
-    """Additional alternative healpix orders to write a HEALPix skymap."""
-    create_thumbnail: bool = False
-    """Create /dataset/data_thumbnail.parquet from one row of each data partition."""
-    create_metadata: bool = True
-    """Create /dataset/_metadata parquet from all data partitions."""
 
     use_schema_file: str | Path | UPath | None = None
     """path to a parquet file with schema metadata. this will be used for column
@@ -115,8 +99,6 @@ class ImportArguments(RuntimeArguments):
     file_reader: InputReader | str | None = None
     """instance of input reader that specifies arguments necessary for reading
     from your input files"""
-    should_write_skymap: bool = True
-    """main catalogs should contain skymap fits files"""
     existing_pixels: Sequence[tuple[int, int]] | None = None
     """the list of HEALPix pixels to include in the alignment"""
 
@@ -168,14 +150,6 @@ class ImportArguments(RuntimeArguments):
 
         # Basic checks complete - make more checks and create directories where necessary
         self.input_paths = find_input_paths(self.input_path, "**/*.*", self.input_file_list)
-
-        if self.write_table_kwargs is None:
-            self.write_table_kwargs = {}
-        if "compression" not in self.write_table_kwargs:
-            self.write_table_kwargs = self.write_table_kwargs | {
-                "compression": "ZSTD",
-                "compression_level": 15,
-            }
 
     def to_table_properties(
         self,
@@ -286,26 +260,3 @@ class ImportArguments(RuntimeArguments):
 
         import_args.update(**kwargs)
         return cls(**import_args)  # type: ignore
-
-
-def check_healpix_order_range(
-    order, field_name, lower_bound=0, upper_bound=spatial_index.SPATIAL_INDEX_ORDER
-):
-    """Helper method to check if the ``order`` is within the range determined by the
-    ``lower_bound`` and ``upper_bound``, inclusive.
-
-    Args:
-        order (int): healpix order to check
-        field_name (str): field name to use in the error message
-        lower_bound (int): lower bound of range
-        upper_bound (int): upper bound of range
-    Raise:
-        ValueError: if the order is outside the specified range, or bounds
-            are unreasonable.
-    """
-    if lower_bound < 0:
-        raise ValueError("healpix orders must be positive")
-    if upper_bound > spatial_index.SPATIAL_INDEX_ORDER:
-        raise ValueError(f"healpix order should be <= {spatial_index.SPATIAL_INDEX_ORDER}")
-    if not lower_bound <= order <= upper_bound:
-        raise ValueError(f"{field_name} should be between {lower_bound} and {upper_bound}")
