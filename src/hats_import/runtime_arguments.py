@@ -11,6 +11,7 @@ import pandas as pd
 from hats.catalog import TableProperties
 from hats.io import file_io
 from hats.io.validation import is_valid_catalog
+from hats.pixel_math import spatial_index
 from upath import UPath
 
 # pylint: disable=too-many-instance-attributes
@@ -201,3 +202,26 @@ def _estimate_dir_size(target_dir):
         else:
             total_size += item.stat().st_size
     return total_size
+
+
+def check_healpix_order_range(
+    order, field_name, lower_bound=0, upper_bound=spatial_index.SPATIAL_INDEX_ORDER
+):
+    """Helper method to check if the ``order`` is within the range determined by the
+    ``lower_bound`` and ``upper_bound``, inclusive.
+
+    Args:
+        order (int): healpix order to check
+        field_name (str): field name to use in the error message
+        lower_bound (int): lower bound of range
+        upper_bound (int): upper bound of range
+    Raise:
+        ValueError: if the order is outside the specified range, or bounds
+            are unreasonable.
+    """
+    if lower_bound < 0:
+        raise ValueError("healpix orders must be positive")
+    if upper_bound > spatial_index.SPATIAL_INDEX_ORDER:
+        raise ValueError(f"healpix order should be <= {spatial_index.SPATIAL_INDEX_ORDER}")
+    if not lower_bound <= order <= upper_bound:
+        raise ValueError(f"{field_name} should be between {lower_bound} and {upper_bound}")

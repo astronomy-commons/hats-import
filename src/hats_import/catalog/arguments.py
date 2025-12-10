@@ -12,14 +12,13 @@ from hats.catalog.catalog_collection import CatalogCollection
 from hats.io.file_io import get_upath
 from hats.io.paths import DATASET_DIR, HIVE_COLUMNS, PARTITION_ORDER
 from hats.io.validation import is_valid_catalog
-from hats.pixel_math import spatial_index
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, SPATIAL_INDEX_ORDER
 from typing_extensions import Self
 from upath import UPath
 
 from hats_import.catalog.file_readers import InputReader, get_file_reader
 from hats_import.catalog.file_readers.parquet import ParquetPyarrowReader
-from hats_import.runtime_arguments import RuntimeArguments, find_input_paths
+from hats_import.runtime_arguments import RuntimeArguments, check_healpix_order_range, find_input_paths
 
 # pylint: disable=too-many-locals,too-many-arguments,too-many-instance-attributes,too-many-branches,too-few-public-methods
 
@@ -269,26 +268,3 @@ class ImportArguments(RuntimeArguments):
 
         import_args.update(**kwargs)
         return cls(**import_args)  # type: ignore
-
-
-def check_healpix_order_range(
-    order, field_name, lower_bound=0, upper_bound=spatial_index.SPATIAL_INDEX_ORDER
-):
-    """Helper method to check if the ``order`` is within the range determined by the
-    ``lower_bound`` and ``upper_bound``, inclusive.
-
-    Args:
-        order (int): healpix order to check
-        field_name (str): field name to use in the error message
-        lower_bound (int): lower bound of range
-        upper_bound (int): upper bound of range
-    Raise:
-        ValueError: if the order is outside the specified range, or bounds
-            are unreasonable.
-    """
-    if lower_bound < 0:
-        raise ValueError("healpix orders must be positive")
-    if upper_bound > spatial_index.SPATIAL_INDEX_ORDER:
-        raise ValueError(f"healpix order should be <= {spatial_index.SPATIAL_INDEX_ORDER}")
-    if not lower_bound <= order <= upper_bound:
-        raise ValueError(f"{field_name} should be between {lower_bound} and {upper_bound}")
