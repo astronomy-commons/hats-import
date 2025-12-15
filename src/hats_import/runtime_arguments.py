@@ -11,6 +11,7 @@ import pandas as pd
 from hats.catalog import TableProperties
 from hats.io import file_io
 from hats.io.validation import is_valid_catalog
+from hats.pixel_math import spatial_index
 from upath import UPath
 
 # pylint: disable=too-many-instance-attributes
@@ -30,6 +31,23 @@ class RuntimeArguments:
     the `hats.properties` file for the final HATS table. e.g. 
     {"hats_cols_default":"id, mjd", "hats_cols_survey_id":"unique_id", 
     "creator_did": "ivo://CDS/P/2MASS/J"}"""
+    npix_suffix: str = ".parquet"
+    """Suffix for pixel data. When specified as "/" each pixel will have a directory in its name."""
+    npix_parquet_name: str | None = None
+    """Name of the pixel parquet file to be used when npix_suffix=/. By default, it will be named
+    after the pixel with a .parquet extension (e.g. 'Npix=10.parquet')"""
+    write_table_kwargs: dict | None = None
+    """additional keyword arguments to use when writing files to parquet (e.g. compression schemes)."""
+    row_group_kwargs: dict | None = None
+    """additional keyword arguments to use in creation of rowgroups when writing files to parquet."""
+    should_write_skymap: bool = True
+    """main catalogs should contain skymap fits files"""
+    skymap_alt_orders: list[int] | None = None
+    """Additional alternative healpix orders to write a HEALPix skymap."""
+    create_thumbnail: bool = False
+    """Create /dataset/data_thumbnail.parquet from one row of each data partition."""
+    create_metadata: bool = True
+    """Create /dataset/_metadata parquet from all data partitions."""
 
     ## Execution
     tmp_dir: str | Path | UPath | None = None
@@ -66,7 +84,7 @@ class RuntimeArguments:
 
     completion_email_address: str = ""
     """if provided, send an email to the indicated email address once the 
-    import pipeline has complete."""
+    import pipeline has completed."""
 
     catalog_path: UPath | None = None
     """constructed output path for the catalog that will be something like
@@ -119,6 +137,14 @@ class RuntimeArguments:
             self.resume_tmp = file_io.append_paths_to_pointer(self.resume_tmp, self.output_artifact_name)
         else:
             self.resume_tmp = self.tmp_path
+
+        if self.write_table_kwargs is None:
+            self.write_table_kwargs = {}
+        if "compression" not in self.write_table_kwargs:
+            self.write_table_kwargs = self.write_table_kwargs | {
+                "compression": "ZSTD",
+                "compression_level": 15,
+            }
 
     def extra_property_dict(self):
         """Generate additional HATS properties for this import run as a dictionary."""
@@ -184,3 +210,26 @@ def _estimate_dir_size(target_dir):
         else:
             total_size += item.stat().st_size
     return total_size
+
+
+def check_healpix_order_range(
+    order, field_name, lower_bound=0, upper_bound=spatial_index.SPATIAL_INDEX_ORDER
+):
+    """Helper method to check if the ``order`` is within the range determined by the
+    ``lower_bound`` and ``upper_bound``, inclusive.
+
+    Args:
+        order (int): healpix order to check
+        field_name (str): field name to use in the error message
+        lower_bound (int): lower bound of range
+        upper_bound (int): upper bound of range
+    Raise:
+        ValueError: if the order is outside the specified range, or bounds
+            are unreasonable.
+    """
+    if lower_bound < 0:
+        raise ValueError("healpix orders must be positive")
+    if upper_bound > spatial_index.SPATIAL_INDEX_ORDER:
+        raise ValueError(f"healpix order should be <= {spatial_index.SPATIAL_INDEX_ORDER}")
+    if not lower_bound <= order <= upper_bound:
+        raise ValueError(f"{field_name} should be between {lower_bound} and {upper_bound}")

@@ -106,6 +106,9 @@ def reduce_margin_shards(
     partition_order,
     partition_pixel,
     delete_intermediate_parquet_files,
+    npix_suffix,
+    npix_parquet_name,
+    write_table_kwargs,
 ):
     """Reduce all partition pixel directories into a single file"""
     try:
@@ -116,12 +119,17 @@ def reduce_margin_shards(
             margin_table = ds.dataset(shard_dir.path, filesystem=shard_dir.fs, format="parquet").to_table()
 
             if len(margin_table):
-                margin_cache_dir = paths.pixel_directory(output_path, partition_order, partition_pixel)
-                file_io.make_directory(margin_cache_dir, exist_ok=True)
+                margin_cache_file_path = paths.new_pixel_catalog_file(
+                    output_path, healpix_pixel, npix_suffix=npix_suffix, npix_parquet_name=npix_parquet_name
+                )
+                if not write_table_kwargs:
+                    write_table_kwargs = {}
 
-                margin_cache_file_path = paths.pixel_catalog_file(output_path, healpix_pixel)
                 pq.write_table(
-                    margin_table, margin_cache_file_path.path, filesystem=margin_cache_file_path.fs
+                    margin_table,
+                    margin_cache_file_path.path,
+                    filesystem=margin_cache_file_path.fs,
+                    **write_table_kwargs,
                 )
 
                 if delete_intermediate_parquet_files:

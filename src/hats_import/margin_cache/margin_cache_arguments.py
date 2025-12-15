@@ -35,8 +35,6 @@ class MarginCacheArguments(RuntimeArguments):
     debug_filter_pixel_list: list[HealpixPixel] = field(default_factory=list)
     """debug setting. if provided, we will first filter the catalog to the pixels
     provided. this can be useful for creating a margin over a subset of a catalog."""
-    create_metadata: bool = True
-    """Create /dataset/_metadata parquet from all data partitions."""
 
     def __post_init__(self):
         self._check_arguments()
@@ -92,5 +90,6 @@ class MarginCacheArguments(RuntimeArguments):
             "moc_sky_fraction": f"{moc_sky_fraction:0.5f}",
             "hats_col_healpix": self.catalog.catalog_info.healpix_column,
             "hats_col_healpix_order": self.catalog.catalog_info.healpix_order,
+            "npix_suffix": self.npix_suffix,
         } | self.extra_property_dict()
         return TableProperties(**info)
