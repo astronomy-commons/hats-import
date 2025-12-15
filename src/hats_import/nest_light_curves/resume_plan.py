@@ -117,8 +117,6 @@ class NestLightCurvePlan(PipelineResumePlan):
             if (matches := count_file_pattern.match(path.name)) is not None
         ]
         counted_pixels = [HealpixPixel(int(match[0]), int(match[1])) for match in counted_pixel_tuples]
-        print("known object pixels")
-        print(self.object_map.keys())
         remaining_pixels = list(set(self.object_map.keys()) - set(counted_pixels))
         if len(remaining_pixels) > 0:
             raise ValueError("All partitions must be counted before combining results.")

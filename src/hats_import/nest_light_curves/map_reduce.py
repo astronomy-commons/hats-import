@@ -3,9 +3,9 @@
 import numpy as np
 import pandas as pd
 from hats import pixel_math
-from hats.io import file_io, paths
+from hats.io import file_io, paths, size_estimates
 from hats.pixel_math.healpix_pixel import HealpixPixel
-from hats.pixel_math.sparse_histogram import SparseHistogram
+from hats.pixel_math.sparse_histogram import supplemental_count_histogram
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, spatial_index_to_healpix
 from nested_pandas.utils import count_nested
 
@@ -52,23 +52,29 @@ def _generate_alignment(args, light_curves):
     mapped_pixels = spatial_index_to_healpix(
         light_curves[SPATIAL_INDEX_COLUMN], target_order=args.highest_healpix_order
     )
+
+    supplemental_count = None
     if args.partition_strategy == "object_count":
-        mapped_pixel, count_at_pixel = np.unique(mapped_pixels, return_counts=True)
-        row_count_histo = SparseHistogram(mapped_pixel, count_at_pixel, args.highest_healpix_order)
-    elif args.partition_strategy == "source_count":
-        ## TODO: line these up nicely - use source count as fourth mem_size input.
-        print(np.sum(count_nested(light_curves, args.nested_column_name, join=False)))
-    elif args.partition_strategy == "mem_size":
-        ## TODO: implement
         pass
+    elif args.partition_strategy == "source_count":
+        supplemental_count = count_nested(light_curves, args.nested_column_name, join=False)[
+            "n_light_curve"
+        ].values
+    elif args.partition_strategy == "mem_size":
+        supplemental_count = size_estimates.get_mem_size_per_row(light_curves)
     else:
         raise ValueError(f"Unknown partition strategy: {args.partition_strategy}")
 
+    row_count_partial, mem_size_partial = supplemental_count_histogram(
+        mapped_pixels, supplemental_count, highest_order=args.highest_healpix_order
+    )
+
     alignment = pixel_math.generate_alignment(
-        row_count_histo.to_array(),
+        row_count_partial.to_array(),
         highest_order=args.highest_healpix_order,
         lowest_order=args.lowest_healpix_order,
         threshold=args.partition_threshold,
+        mem_size_histogram=mem_size_partial.to_array() if mem_size_partial is not None else None,
     )
     alignment = np.array([x if x is not None else [-1, -1, 0] for x in alignment], dtype=np.int64)
     return alignment
