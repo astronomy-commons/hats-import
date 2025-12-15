@@ -34,7 +34,6 @@ def small_sky_ncl_args(small_sky_object_catalog, small_sky_source_catalog, tmp_p
         object_id_column="id",
         source_catalog_dir=small_sky_source_catalog,
         source_object_id_column="object_id",
-        source_id_column="source_id",
         source_nested_columns=["mjd", "mag", "band"],
         output_artifact_name="small_sky_light_curve",
         output_path=tmp_path,

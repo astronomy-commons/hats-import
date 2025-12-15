@@ -1,3 +1,4 @@
+from hats.catalog import PartitionInfo
 from hats.io import parquet_metadata, paths
 
 from hats_import.nest_light_curves.arguments import NestLightCurveArguments
@@ -20,8 +21,8 @@ def run(args, client):
                 client.submit(
                     count_joins,
                     args=args,
-                    source_pixel=source_pixel,
-                    object_pixels=object_pixels,
+                    object_pixel=source_pixel,
+                    source_pixels=object_pixels,
                 )
             )
 
@@ -29,16 +30,16 @@ def run(args, client):
 
     # All done - write out the metadata
     with resume_plan.print_progress(total=3, stage_name="Finishing") as step_progress:
-        total_rows = parquet_metadata.write_parquet_metadata(args.catalog_path)
-        metadata_path = paths.get_parquet_metadata_pointer(args.catalog_path)
-        # partition_join_info = PartitionJoinInfo.read_from_file(metadata_path)
-        # partition_join_info.write_to_csv(catalog_path=args.catalog_path)
+        total_rows = resume_plan.combine_partial_results(args.catalog_path)
+        md_total_rows = parquet_metadata.write_parquet_metadata(args.catalog_path)
+        if total_rows != md_total_rows:
+            raise ValueError("Unexpected total rows.")
         step_progress.update(1)
-        # partition_info = PartitionInfo.read_from_dir(args.catalog_path)
-        # catalog_info = args.to_table_properties(
-        #     total_rows, partition_info.get_highest_order(), partition_info.calculate_fractional_coverage()
-        # )
-        # catalog_info.to_properties_file(args.catalog_path)
+        partition_info = PartitionInfo.read_from_dir(args.catalog_path)
+        catalog_info = args.to_table_properties(
+            total_rows, partition_info.get_highest_order(), partition_info.calculate_fractional_coverage()
+        )
+        catalog_info.to_properties_file(args.catalog_path)
         step_progress.update(1)
         resume_plan.clean_resume_files()
         step_progress.update(1)

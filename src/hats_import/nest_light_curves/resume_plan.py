@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 
 import hats.pixel_math.healpix_shim as hp
 import numpy as np
+import pandas as pd
 from hats import pixel_math, read_hats
 from hats.catalog import Catalog
 from hats.io import file_io
@@ -25,7 +26,6 @@ class NestLightCurvePlan(PipelineResumePlan):
     """set of pixels (and job keys) that have yet to be counted"""
     object_map: list[tuple[HealpixPixel, list[HealpixPixel], str]] | None = None
     """Map of object pixels to source pixels, with counting key."""
-    object_catalog: Catalog | None = None
 
     COUNTING_STAGE = "counting"
     SOURCE_MAP_FILE = "source_object_map.npz"
@@ -49,13 +49,13 @@ class NestLightCurvePlan(PipelineResumePlan):
                 return
             step_progress.update(1)
 
-            self.object_catalog = read_hats(args.object_catalog_dir)
+            object_catalog = read_hats(args.object_catalog_dir)
             source_map_file = file_io.append_paths_to_pointer(self.tmp_path, self.SOURCE_MAP_FILE)
             if file_io.does_file_or_directory_exist(source_map_file):
                 object_map = np.load(source_map_file, allow_pickle=True)["arr_0"].item()
             else:
                 source_catalog = read_hats(args.source_catalog_dir)
-                object_map = object_neighbor_map(self.object_catalog, source_catalog)
+                object_map = object_neighbor_map(object_catalog, source_catalog)
                 np.savez_compressed(source_map_file, object_map)
             self.count_keys = self.get_sources_to_count(object_map=object_map)
             step_progress.update(1)
@@ -101,6 +101,40 @@ class NestLightCurvePlan(PipelineResumePlan):
             for hp_pixel in remaining_pixels
         ]
 
+    def combine_partial_results(self, output_path) -> int:
+        """Combine many partial CSVs into single partition join info.
+
+        Args:
+            input_path(str): intermediate directory with partial result CSVs. likely, the
+                directory used in the previous `count_joins` call as `cache_path`
+            output_path(str): directory to write the combined results CSVs.
+
+        Returns:
+            integer that is the sum of all matched num_rows.
+        """
+        if self.object_map is None:
+            raise ValueError("object_map not provided for progress tracking.")
+        count_file_pattern = re.compile(r"(\d+)_(\d+).csv")
+        partial_files = list(self.tmp_path.glob("*.csv"))
+        counted_pixel_tuples = [count_file_pattern.match(path.name).group(1, 2) for path in partial_files]
+        counted_pixels = [HealpixPixel(int(match[0]), int(match[1])) for match in counted_pixel_tuples]
+        remaining_pixels = list(set(self.object_map.keys()) - set(counted_pixels))
+        if len(remaining_pixels):
+            raise ValueError("All partitions must be counted before combining results.")
+
+        partials = []
+
+        for partial_file in partial_files:
+            partials.append(file_io.load_csv_to_pandas(partial_file))
+
+        dataframe = pd.concat(partials)
+
+        file_io.write_dataframe_to_csv(
+            dataframe=dataframe, file_pointer=output_path / "partition_info.csv", index=False
+        )
+
+        return dataframe["num_rows"].sum()
+
 
 def object_neighbor_map(object_catalog, source_catalog):
     """Build up a map of object pixels to the neighboring source pixels."""
@@ -116,8 +150,6 @@ def object_neighbor_map(object_catalog, source_catalog):
         ],
         group_keys=False,
     )
-    print("grouped_alignment")
-    print(grouped_alignment)
 
     ## Lots of cute comprehension is happening here.
     ## create tuple of (object order/pixel) and [array of tuples of (source order/pixel)]
@@ -133,8 +165,6 @@ def object_neighbor_map(object_catalog, source_catalog):
     ]
     ## Treat the array of tuples as a dictionary.
     object_to_source = dict(object_to_source)
-    print("object_to_source")
-    print(object_to_source)
 
     ## Object neighbors for source
     ###############################################
@@ -158,8 +188,6 @@ def object_neighbor_map(object_catalog, source_catalog):
     for object, sources in object_to_source.items():
         # get all neighboring pixels
         neighbors = pixel_math.get_margin(object.order, object.pixel, 0)
-        print("neighbors")
-        print(neighbors)
 
         ## get rid of -1s and normalize to max order
         explosion_factor = 4 ** (max_order - object.order)

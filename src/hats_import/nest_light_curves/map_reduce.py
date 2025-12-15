@@ -17,8 +17,9 @@ from hats_import.pipeline_resume_plan import print_task_failure
 def _join_nested(
     args: NestLightCurveArguments, object_pixel: HealpixPixel, source_pixels: list[HealpixPixel]
 ):
-    ## TODO: dir / alternate suffix
-    object_path = paths.pixel_catalog_file(args.object_catalog_dir, object_pixel)
+    object_path = paths.pixel_catalog_file(
+        args.object_catalog_dir, object_pixel, npix_suffix=args.object_npix_suffix
+    )
     object_data = file_io.read_parquet_file_to_pandas(
         object_path,
         schema=args.object_catalog.schema,
@@ -28,10 +29,8 @@ def _join_nested(
     results = []
 
     for source_pixel in source_pixels:
-        source_path = paths.pixel_catalog_file(args.source_catalog_dir, source_pixel)
-        source_data = file_io.read_parquet_file_to_pandas(
-            source_path,
-            schema=args.source_catalog.schema,
+        source_data = args.source_catalog.read_pixel_to_pandas(
+            source_pixel,
             columns=args.read_source_columns(),
         ).set_index(args.source_object_id_column)
 
@@ -55,7 +54,7 @@ def _generate_alignment(args, light_curves):
         mapped_pixel, count_at_pixel = np.unique(mapped_pixels, return_counts=True)
         row_count_histo = SparseHistogram(mapped_pixel, count_at_pixel, args.highest_order)
     elif args.partition_strategy == "source_count":
-        ## TODO: line these up nicely.
+        ## TODO: line these up nicely - use source count as fourth mem_size input.
         print(np.sum(count_nested(light_curves, args.nested_column_name, join=False)))
     elif args.partition_strategy == "mem_size":
         ## TODO: implement
@@ -83,25 +82,29 @@ def _split_to_partitions(args, light_curves, alignment, target_order):
         order = pixel_alignment_count[0]
         pixel = pixel_alignment_count[1]
 
-        destination_dir = paths.pixel_directory(args.output_path, order, pixel)
-        file_io.make_directory(destination_dir, exist_ok=True)
-
-        destination_file = paths.pixel_catalog_file(
-            args.output_path, HealpixPixel(order, pixel), npix_suffix=args.npix_suffix
+        destination_file = paths.new_pixel_catalog_file(
+            args.catalog_path,
+            HealpixPixel(order, pixel),
+            npix_suffix=args.npix_suffix,
+            npix_parquet_name=args.npix_parquet_name,
         )
+
         filtered_data = light_curves.iloc[unique_inverse == unique_index]
 
-        filtered_data.to_parquet(destination_file.path, filesystem=destination_file.fs)
+        filtered_data.to_parquet(
+            destination_file.path,
+            filesystem=destination_file.fs,
+            **args.write_table_kwargs,
+        )
         del filtered_data
 
 
 def _write_partition_info(args, object_pixel, alignment):
-    object_pixel_list = list(
-        {HealpixPixel(tuple[0], tuple[1]) for tuple in alignment if tuple is not None and int(tuple[2]) > 0}
-    )
-    partition_info = PartitionInfo.from_healpix(object_pixel_list)
+    pixel_list = np.unique(alignment, axis=0)
+    pixel_list = {(order, pix, row_count) for (order, pix, row_count) in pixel_list if int(row_count) > 0}
+    partition_info = pd.DataFrame(pixel_list, columns=["Norder", "Npix", "num_rows"])
     file_io.write_dataframe_to_csv(
-        dataframe=partition_info.as_dataframe(),
+        dataframe=partition_info,
         file_pointer=args.tmp_path / f"{object_pixel.order}_{object_pixel.pixel}.csv",
         index=False,
     )
@@ -116,11 +119,11 @@ def count_joins(args: NestLightCurveArguments, object_pixel: HealpixPixel, sourc
 
         ## ..........    BINNING  ..............
         ## Determine the output partitions
+        ## TODO: avoid alignment/split if we're still UNDER the threshold!!
         alignment = _generate_alignment(args, light_curves)
 
         ## ..........    SPLITTING  ..............
         ## Split the object data partition, according to the output partitions
-        ## TODO: use good row groups / compression
         _split_to_partitions(args, light_curves, alignment, args.highest_order)
 
         ## ..........    FINISHING  ..............
