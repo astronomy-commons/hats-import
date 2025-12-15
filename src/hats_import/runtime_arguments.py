@@ -84,7 +84,7 @@ class RuntimeArguments:
 
     completion_email_address: str = ""
     """if provided, send an email to the indicated email address once the 
-    import pipeline has complete."""
+    import pipeline has completed."""
 
     catalog_path: UPath | None = None
     """constructed output path for the catalog that will be something like
