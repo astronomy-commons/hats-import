@@ -51,11 +51,16 @@ class NestLightCurveArguments(RuntimeArguments):
 
         object_catalog = read_hats(catalog_path=self.object_catalog_dir)
         self.object_npix_suffix = object_catalog.catalog_info.npix_suffix
+        self.object_catalog_schema = object_catalog.schema
+        self.object_catalog_info = object_catalog.catalog_info
 
-        ## TODO: check the object_id_column is in the object schema
-        ## TODO: check that we have a `_healpix_29` column - we use it!
-        ## TODO: use npix_suffix/npix_parquet_name of object catalog, if
-        ## arguments are unspecified.
+        if self.object_id_column not in self.object_catalog_schema.names:
+            raise ValueError(f"object_id_column ({self.object_id_column}) not found in object catalog")
+
+        if self.addl_hats_properties is None:
+            self.addl_hats_properties = {}
+
+        self.addl_hats_properties |= self.object_catalog_info.extra_dict()
 
         if not self.source_catalog_dir:
             raise ValueError("source_catalog_dir is required")
@@ -67,12 +72,12 @@ class NestLightCurveArguments(RuntimeArguments):
         source_catalog = read_hats(catalog_path=self.source_catalog_dir)
         self.source_npix_suffix = source_catalog.catalog_info.npix_suffix
         source_columns = self.read_source_columns()
+        self.source_catalog_schema = source_catalog.schema
         if source_columns:
             missing_columns = set(source_columns) - set(source_catalog.schema.names)
             if len(missing_columns):
                 raise ValueError(f"Some columns not found in source catalog: {missing_columns}")
 
-        ## TODO: check the all the columns are in the source schema
         check_healpix_order_range(self.highest_healpix_order, "highest_healpix_order")
         check_healpix_order_range(
             self.lowest_healpix_order, "lowest_healpix_order", upper_bound=self.highest_healpix_order
@@ -101,12 +106,12 @@ class NestLightCurveArguments(RuntimeArguments):
                 "total_rows": total_rows,
                 "hats_order": highest_order,
                 "moc_sky_fraction": f"{moc_sky_fraction:0.5f}",
-                "ra_column": self.object_catalog.catalog_info.ra_column,
-                "dec_column": self.object_catalog.catalog_info.dec_column,
-                "hats_col_healpix": self.object_catalog.catalog_info.healpix_column,
-                "hats_col_healpix_order": self.object_catalog.catalog_info.healpix_order,
+                "ra_column": self.object_catalog_info.ra_column,
+                "dec_column": self.object_catalog_info.dec_column,
+                "hats_col_healpix": self.object_catalog_info.healpix_column,
+                "hats_col_healpix_order": self.object_catalog_info.healpix_order,
             }
-            | self.object_catalog.catalog_info.extra_dict()
+            | self.object_catalog_info.extra_dict()
             | self.extra_property_dict()
         )
         return TableProperties(**info)

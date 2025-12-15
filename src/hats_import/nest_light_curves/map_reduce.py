@@ -22,16 +22,19 @@ def _join_nested(
     )
     object_data = file_io.read_parquet_file_to_pandas(
         object_path,
-        schema=args.object_catalog.schema,
+        schema=args.object_catalog_schema,
     )
     object_index = object_data[[args.object_id_column]].set_index(args.object_id_column)
 
     results = []
 
     for source_pixel in source_pixels:
-        source_data = args.source_catalog.read_pixel_to_pandas(
-            source_pixel,
-            columns=args.read_source_columns(),
+        source_path = paths.pixel_catalog_file(
+            args.source_catalog_dir, source_pixel, npix_suffix=args.source_npix_suffix
+        )
+        source_data = file_io.read_parquet_file_to_pandas(
+            source_path,
+            schema=args.source_catalog_schema,
         ).set_index(args.source_object_id_column)
 
         joined_data = source_data.merge(object_index, how="inner", left_index=True, right_index=True)
@@ -48,11 +51,11 @@ def _join_nested(
 
 def _generate_alignment(args, light_curves):
     mapped_pixels = spatial_index_to_healpix(
-        light_curves[SPATIAL_INDEX_COLUMN], target_order=args.highest_order
+        light_curves[SPATIAL_INDEX_COLUMN], target_order=args.highest_healpix_order
     )
     if args.partition_strategy == "object_count":
         mapped_pixel, count_at_pixel = np.unique(mapped_pixels, return_counts=True)
-        row_count_histo = SparseHistogram(mapped_pixel, count_at_pixel, args.highest_order)
+        row_count_histo = SparseHistogram(mapped_pixel, count_at_pixel, args.highest_healpix_order)
     elif args.partition_strategy == "source_count":
         ## TODO: line these up nicely - use source count as fourth mem_size input.
         print(np.sum(count_nested(light_curves, args.nested_column_name, join=False)))
@@ -64,8 +67,8 @@ def _generate_alignment(args, light_curves):
 
     alignment = pixel_math.generate_alignment(
         row_count_histo.to_array(),
-        highest_order=args.highest_order,
-        lowest_order=args.lowest_order,
+        highest_order=args.highest_healpix_order,
+        lowest_order=args.lowest_healpix_order,
         threshold=args.partition_threshold,
     )
     alignment = np.array([x if x is not None else [-1, -1, 0] for x in alignment], dtype=np.int64)
@@ -124,7 +127,7 @@ def count_joins(args: NestLightCurveArguments, object_pixel: HealpixPixel, sourc
 
         ## ..........    SPLITTING  ..............
         ## Split the object data partition, according to the output partitions
-        _split_to_partitions(args, light_curves, alignment, args.highest_order)
+        _split_to_partitions(args, light_curves, alignment, args.highest_healpix_order)
 
         ## ..........    FINISHING  ..............
         ## Write the new partition list.

@@ -40,6 +40,14 @@ class RuntimeArguments:
     """additional keyword arguments to use when writing files to parquet (e.g. compression schemes)."""
     row_group_kwargs: dict | None = None
     """additional keyword arguments to use in creation of rowgroups when writing files to parquet."""
+    should_write_skymap: bool = True
+    """main catalogs should contain skymap fits files"""
+    skymap_alt_orders: list[int] | None = None
+    """Additional alternative healpix orders to write a HEALPix skymap."""
+    create_thumbnail: bool = False
+    """Create /dataset/data_thumbnail.parquet from one row of each data partition."""
+    create_metadata: bool = True
+    """Create /dataset/_metadata parquet from all data partitions."""
 
     ## Execution
     tmp_dir: str | Path | UPath | None = None
@@ -76,7 +84,7 @@ class RuntimeArguments:
 
     completion_email_address: str = ""
     """if provided, send an email to the indicated email address once the 
-    import pipeline has complete."""
+    import pipeline has completed."""
 
     catalog_path: UPath | None = None
     """constructed output path for the catalog that will be something like
