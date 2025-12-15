@@ -90,5 +90,6 @@ class MarginCacheArguments(RuntimeArguments):
             "moc_sky_fraction": f"{moc_sky_fraction:0.5f}",
             "hats_col_healpix": self.catalog.catalog_info.healpix_column,
             "hats_col_healpix_order": self.catalog.catalog_info.healpix_order,
+            "npix_suffix": self.npix_suffix,
         } | self.extra_property_dict()
         return TableProperties(**info)

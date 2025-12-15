@@ -13,7 +13,6 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from hats import pixel_math
 from hats.io import file_io, paths
-from hats.io.paths import PARTITION_PIXEL
 from hats.pixel_math.healpix_pixel import HealpixPixel
 from hats.pixel_math.sparse_histogram import HistogramAggregator, SparseHistogram
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, spatial_index_to_healpix

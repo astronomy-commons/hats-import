@@ -57,27 +57,33 @@ def generate_margin_cache(args, client):
                     partition_order=pix.order,
                     partition_pixel=pix.pixel,
                     delete_intermediate_parquet_files=args.delete_intermediate_parquet_files,
+                    npix_suffix=args.npix_suffix,
+                    npix_parquet_name=args.npix_parquet_name,
+                    write_table_kwargs=args.write_table_kwargs,
                 )
             )
         resume_plan.wait_for_reducing(futures)
 
     with resume_plan.print_progress(total=4, stage_name="Finishing") as step_progress:
         if total_rows > 0:
-            metadata_total_rows = parquet_metadata.write_parquet_metadata(args.catalog_path)
+            metadata_total_rows = parquet_metadata.write_parquet_metadata(
+                args.catalog_path, create_metadata=args.create_metadata
+            )
             if metadata_total_rows != total_rows:
                 raise ValueError(
                     f"Wrote unexpected number of rows ({total_rows} expected, {metadata_total_rows} written)"
                 )
             step_progress.update(1)
             metadata_path = paths.get_parquet_metadata_pointer(args.catalog_path)
-            partition_info = PartitionInfo.read_from_file(metadata_path)
+            partition_info = PartitionInfo.read_from_dir(args.catalog_path)
         else:
             schema = args.catalog.schema
-            metadata_path = paths.get_parquet_metadata_pointer(args.catalog_path)
             common_metadata_path = paths.get_common_metadata_pointer(args.catalog_path)
-            file_io.make_directory(metadata_path.parent, exist_ok=True)
-            pq.write_metadata(schema, metadata_path.path, filesystem=metadata_path.fs)
+            file_io.make_directory(common_metadata_path.parent, exist_ok=True)
             pq.write_metadata(schema, common_metadata_path.path, filesystem=common_metadata_path.fs)
+            if args.create_metadata:
+                metadata_path = paths.get_parquet_metadata_pointer(args.catalog_path)
+                pq.write_metadata(schema, metadata_path.path, filesystem=metadata_path.fs)
 
             step_progress.update(1)
 
@@ -102,5 +108,6 @@ def generate_margin_cache(args, client):
         )
         margin_catalog_info.to_properties_file(args.catalog_path)
         step_progress.update(1)
+
         file_io.remove_directory(args.tmp_path, ignore_errors=True)
         step_progress.update(1)

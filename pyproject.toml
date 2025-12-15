@@ -15,7 +15,7 @@ classifiers = [
     "Programming Language :: Python",
 ]
 dynamic = ["version"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "cloudpickle>=3.0.0", # Reader serialisation, transitive dependency of Dask
     "dask[complete]>=2025.3.0,<2025.4.0", # Includes dask expressions.
@@ -81,8 +81,7 @@ omit = [
 
 [tool.black]
 line-length = 110
-target-version = ["py38"]
-
+target-version = ["py311"]
 [tool.isort]
 profile = "black"
 line_length = 110

@@ -364,6 +364,42 @@ def test_dask_runner_stats_only(dask_client, small_sky_parts_dir, tmp_path):
 
 
 @pytest.mark.dask
+def test_dask_runner_omit_metadata(
+    dask_client,
+    small_sky_parts_dir,
+    tmp_path,
+):
+    """Test running the import while omitting metadata file generation."""
+    args = ImportArguments(
+        output_artifact_name="small_sky_object_catalog",
+        input_path=small_sky_parts_dir,
+        file_reader=CsvReader(
+            type_map={
+                "ra": np.float32,
+                "dec": np.float32,
+                "ra_error": np.float32,
+                "dec_error": np.float32,
+            }
+        ),
+        output_path=tmp_path,
+        dask_tmp=tmp_path,
+        highest_healpix_order=1,
+        create_metadata=False,
+        progress_bar=False,
+    )
+
+    runner.run(args, dask_client)
+
+    # Check that the catalog was made correctly, but the metadata file does NOT exist
+    catalog = read_hats(args.catalog_path)
+    assert catalog.catalog_info.total_rows == 131
+    assert catalog.on_disk
+    metadata_filename = os.path.join(args.catalog_path, "dataset", "_metadata")
+    assert not os.path.exists(metadata_filename)
+    assert catalog.catalog_path == args.catalog_path
+
+
+@pytest.mark.dask
 def test_import_mismatch_expectation(
     dask_client,
     small_sky_parts_dir,

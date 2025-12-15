@@ -1,3 +1,4 @@
+import pyarrow.parquet as pq
 import pytest
 from hats import read_hats
 
@@ -183,6 +184,9 @@ def test_import_collection_healpix13(
             output_artifact_name="small_sky_healpix13",
             output_path=tmp_path,
             tmp_dir=tmp_path,
+            # Also test that we plumb npix parameters through collection arguments.
+            npix_suffix="/",
+            npix_parquet_name="today.parquet",
         )
         .catalog(
             input_file_list=formats_dir / "small_sky_healpix13.csv",
@@ -212,7 +216,37 @@ def test_import_collection_healpix13(
     assert catalog.catalog_info.healpix_order == 13
     assert catalog.has_healpix_column()
 
+    test_file = (
+        tmp_path
+        / "small_sky_healpix13"
+        / "small_sky_healpix13"
+        / "dataset"
+        / "Norder=1"
+        / "Dir=0"
+        / "Npix=44"
+        / "today.parquet"
+    )
+    assert test_file.exists()
+    metadata = pq.read_metadata(test_file)
+    assert metadata.num_row_groups == 1
+    assert metadata.row_group(0).column(0).compression == "ZSTD"
+
     catalog = read_hats(tmp_path / "small_sky_healpix13" / collection.default_margin)
     assert catalog.catalog_info.healpix_column == "healpix13"
     assert catalog.catalog_info.healpix_order == 13
     assert catalog.has_healpix_column()
+
+    test_file = (
+        tmp_path
+        / "small_sky_healpix13"
+        / "small_sky_healpix13_1deg"
+        / "dataset"
+        / "Norder=1"
+        / "Dir=0"
+        / "Npix=44"
+        / "today.parquet"
+    )
+    assert test_file.exists()
+    metadata = pq.read_metadata(test_file)
+    assert metadata.num_row_groups == 1
+    assert metadata.row_group(0).column(0).compression == "ZSTD"

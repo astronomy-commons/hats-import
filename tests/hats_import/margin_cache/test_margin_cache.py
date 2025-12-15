@@ -1,7 +1,10 @@
 """Tests of map reduce operations"""
 
+import os
+
 import numpy.testing as npt
 import pandas as pd
+import pyarrow.parquet as pq
 import pytest
 from hats import read_hats
 from hats.io import get_parquet_metadata_pointer, paths
@@ -27,6 +30,7 @@ def test_margin_cache_gen(small_sky_source_catalog, tmp_path, dask_client):
         output_artifact_name="catalog_cache",
         margin_order=8,
         progress_bar=False,
+        npix_suffix=".pq",
     )
 
     assert args.catalog.catalog_info.ra_column == "source_ra"
@@ -36,7 +40,7 @@ def test_margin_cache_gen(small_sky_source_catalog, tmp_path, dask_client):
     norder = 1
     npix = 47
 
-    test_file = paths.pixel_catalog_file(args.catalog_path, HealpixPixel(norder, npix))
+    test_file = paths.pixel_catalog_file(args.catalog_path, HealpixPixel(norder, npix), npix_suffix=".pq")
 
     data = pd.read_parquet(test_file)
 
@@ -61,10 +65,15 @@ def test_margin_cache_gen(small_sky_source_catalog, tmp_path, dask_client):
     catalog = read_hats(args.catalog_path)
     assert catalog.on_disk
     assert catalog.catalog_path == args.catalog_path
+    assert catalog.catalog_info.npix_suffix == ".pq"
 
     # Check that the data thumbnail does not exist. It should only exist for
     # main object/source catalogs.
     assert not (args.catalog_path / "dataset" / "data_thumbnail.parquet").exists()
+
+    metadata = pq.read_metadata(test_file)
+    assert metadata.num_row_groups == 1
+    assert metadata.row_group(0).column(0).compression == "ZSTD"
 
 
 @pytest.mark.dask(timeout=150)
@@ -190,4 +199,26 @@ def test_margin_gen_nested_catalog(small_sky_nested_catalog, tmp_path, dask_clie
 
     catalog = read_hats(args.catalog_path)
     assert catalog.on_disk
+    assert catalog.catalog_path == args.catalog_path
+
+
+@pytest.mark.dask(timeout=150)
+def test_margin_cache_omit_metadata(small_sky_source_catalog, tmp_path, dask_client):
+    args = MarginCacheArguments(
+        margin_threshold=180.0,
+        input_catalog_path=small_sky_source_catalog,
+        output_path=tmp_path,
+        output_artifact_name="catalog_cache",
+        margin_order=8,
+        progress_bar=False,
+        create_metadata=False,
+    )
+    mc.generate_margin_cache(args, dask_client)
+
+    # Check that the catalog was made correctly, but the metadata file does NOT exist
+    catalog = read_hats(args.catalog_path)
+    assert catalog.catalog_info.total_rows == 1717
+    assert catalog.on_disk
+    metadata_filename = os.path.join(args.catalog_path, "dataset", "_metadata")
+    assert not os.path.exists(metadata_filename)
     assert catalog.catalog_path == args.catalog_path
