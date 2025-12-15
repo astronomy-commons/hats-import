@@ -1,8 +1,8 @@
 from hats.catalog import PartitionInfo
-from hats.io import parquet_metadata, paths
+from hats.io import parquet_metadata
 
 from hats_import.nest_light_curves.arguments import NestLightCurveArguments
-from hats_import.nest_light_curves.map_reduce import count_joins
+from hats_import.nest_light_curves.map_reduce import _perform_nest
 from hats_import.nest_light_curves.resume_plan import NestLightCurvePlan
 
 
@@ -19,7 +19,7 @@ def run(args, client):
         for source_pixel, object_pixels, _ in resume_plan.count_keys:
             futures.append(
                 client.submit(
-                    count_joins,
+                    _perform_nest,
                     args=args,
                     object_pixel=source_pixel,
                     source_pixels=object_pixels,
@@ -31,7 +31,9 @@ def run(args, client):
     # All done - write out the metadata
     with resume_plan.print_progress(total=3, stage_name="Finishing") as step_progress:
         total_rows = resume_plan.combine_partial_results(args.catalog_path)
-        md_total_rows = parquet_metadata.write_parquet_metadata(args.catalog_path)
+        md_total_rows = parquet_metadata.write_parquet_metadata(
+            args.catalog_path, create_thumbnail=args.create_thumbnail, create_metadata=args.create_metadata
+        )
         if total_rows != md_total_rows:
             raise ValueError("Unexpected total rows.")
         step_progress.update(1)

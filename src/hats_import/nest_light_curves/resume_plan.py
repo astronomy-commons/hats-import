@@ -9,7 +9,6 @@ import hats.pixel_math.healpix_shim as hp
 import numpy as np
 import pandas as pd
 from hats import pixel_math, read_hats
-from hats.catalog import Catalog
 from hats.io import file_io
 from hats.pixel_math.healpix_pixel import HealpixPixel
 from hats.pixel_tree import PixelAlignment, align_trees
@@ -24,7 +23,7 @@ class NestLightCurvePlan(PipelineResumePlan):
 
     count_keys: list[tuple[HealpixPixel, list[HealpixPixel], str]] = field(default_factory=list)
     """set of pixels (and job keys) that have yet to be counted"""
-    object_map: list[tuple[HealpixPixel, list[HealpixPixel], str]] | None = None
+    object_map: dict[HealpixPixel, list[HealpixPixel]] | None = None
     """Map of object pixels to source pixels, with counting key."""
 
     COUNTING_STAGE = "counting"
@@ -52,12 +51,12 @@ class NestLightCurvePlan(PipelineResumePlan):
             object_catalog = read_hats(args.object_catalog_dir)
             source_map_file = file_io.append_paths_to_pointer(self.tmp_path, self.SOURCE_MAP_FILE)
             if file_io.does_file_or_directory_exist(source_map_file):
-                object_map = np.load(source_map_file, allow_pickle=True)["arr_0"].item()
+                self.object_map = np.load(source_map_file, allow_pickle=True)["arr_0"].item()
             else:
                 source_catalog = read_hats(args.source_catalog_dir)
-                object_map = object_neighbor_map(object_catalog, source_catalog)
-                np.savez_compressed(source_map_file, object_map)
-            self.count_keys = self.get_sources_to_count(object_map=object_map)
+                self.object_map = object_neighbor_map(object_catalog, source_catalog)
+                np.savez_compressed(source_map_file, self.object_map)
+            self.count_keys = self.get_sources_to_count()
             step_progress.update(1)
 
     def wait_for_counting(self, futures):
@@ -74,7 +73,7 @@ class NestLightCurvePlan(PipelineResumePlan):
         """Are there sources left to count?"""
         return self.done_file_exists(self.COUNTING_STAGE)
 
-    def get_sources_to_count(self, object_map=None):
+    def get_sources_to_count(self):
         """Fetch a triple for each source pixel to join and count.
 
         Triple contains:
@@ -83,10 +82,6 @@ class NestLightCurvePlan(PipelineResumePlan):
               neighboring object pixels)
             - source key (string of source order+pixel)
         """
-        if object_map is None:
-            object_map = self.object_map
-        elif self.object_map is None:
-            self.object_map = object_map
         if self.object_map is None:
             raise ValueError("object_map not provided for progress tracking.")
         count_file_pattern = re.compile(r"(\d+)_(\d+).csv")
@@ -95,9 +90,9 @@ class NestLightCurvePlan(PipelineResumePlan):
         ]
         counted_pixels = [HealpixPixel(int(match[0]), int(match[1])) for match in counted_pixel_tuples]
 
-        remaining_pixels = list(set(object_map.keys()) - set(counted_pixels))
+        remaining_pixels = list(set(self.object_map.keys()) - set(counted_pixels))
         return [
-            (hp_pixel, object_map[hp_pixel], f"{hp_pixel.order}_{hp_pixel.pixel}")
+            (hp_pixel, self.object_map[hp_pixel], f"{hp_pixel.order}_{hp_pixel.pixel}")
             for hp_pixel in remaining_pixels
         ]
 
@@ -116,10 +111,16 @@ class NestLightCurvePlan(PipelineResumePlan):
             raise ValueError("object_map not provided for progress tracking.")
         count_file_pattern = re.compile(r"(\d+)_(\d+).csv")
         partial_files = list(self.tmp_path.glob("*.csv"))
-        counted_pixel_tuples = [count_file_pattern.match(path.name).group(1, 2) for path in partial_files]
+        counted_pixel_tuples = [
+            matches.group(1, 2)
+            for path in partial_files
+            if (matches := count_file_pattern.match(path.name)) is not None
+        ]
         counted_pixels = [HealpixPixel(int(match[0]), int(match[1])) for match in counted_pixel_tuples]
+        print("known object pixels")
+        print(self.object_map.keys())
         remaining_pixels = list(set(self.object_map.keys()) - set(counted_pixels))
-        if len(remaining_pixels):
+        if len(remaining_pixels) > 0:
             raise ValueError("All partitions must be counted before combining results.")
 
         partials = []
@@ -185,12 +186,12 @@ def object_neighbor_map(object_catalog, source_catalog):
         ]
         source_order_map[exploded_pixels] = pixel.order
 
-    for object, sources in object_to_source.items():
+    for object_pixel, sources in object_to_source.items():
         # get all neighboring pixels
-        neighbors = pixel_math.get_margin(object.order, object.pixel, 0)
+        neighbors = pixel_math.get_margin(object_pixel.order, object_pixel.pixel, 0)
 
         ## get rid of -1s and normalize to max order
-        explosion_factor = 4 ** (max_order - object.order)
+        explosion_factor = 4 ** (max_order - object_pixel.order)
         ## explode out the object pixels to the same order as source map
         ## NB: This may find non-bordering source neighbors, but that's ok!
         neighbors = [

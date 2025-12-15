@@ -92,6 +92,7 @@ class NestLightCurveArguments(RuntimeArguments):
             raise ValueError("partition_threshold must be non-negative")
 
     def read_source_columns(self):
+        """Determine list of columns to be read in the source catalog."""
         if self.source_nested_columns is None:
             ## We intend to read all columns
             return None

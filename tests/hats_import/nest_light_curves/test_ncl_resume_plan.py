@@ -3,7 +3,6 @@ from pathlib import Path
 
 import pytest
 from hats import read_hats
-from hats.pixel_math.healpix_pixel import HealpixPixel
 
 from hats_import.nest_light_curves.resume_plan import NestLightCurvePlan, object_neighbor_map
 
@@ -59,17 +58,9 @@ def test_cached_map_file(small_sky_ncl_args):
 
 def test_get_sources_to_count(small_sky_ncl_args):
     """Test generation of remaining count items"""
-    object_map = {HealpixPixel(0, 11): (131, [44, 45, 46])}
     plan = NestLightCurvePlan(small_sky_ncl_args)
 
-    ## Kind of silly, but clear out the pixel map, since it's populated on init.
-    ## Fail to find the remaining sources to count because we don't know the map.
-    plan.object_map = None
-    with pytest.raises(ValueError, match="object_map"):
-        remaining_count_items = plan.get_sources_to_count()
-
-    ## Can now successfully find sources to count.
-    remaining_count_items = plan.get_sources_to_count(object_map=object_map)
+    remaining_count_items = plan.get_sources_to_count()
     assert len(remaining_count_items) == 1
 
     ## Use previous value of sources map, and find intermediate file, so there are no
@@ -77,6 +68,12 @@ def test_get_sources_to_count(small_sky_ncl_args):
     Path(small_sky_ncl_args.tmp_path, "0_11.csv").touch()
     remaining_count_items = plan.get_sources_to_count()
     assert len(remaining_count_items) == 0
+
+    ## Kind of silly, but clear out the pixel map, since it's populated on init.
+    ## Fail to find the remaining sources to count because we don't know the map.
+    plan.object_map = None
+    with pytest.raises(ValueError, match="object_map"):
+        remaining_count_items = plan.get_sources_to_count()
 
 
 def never_fails():

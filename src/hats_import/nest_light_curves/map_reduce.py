@@ -3,7 +3,6 @@
 import numpy as np
 import pandas as pd
 from hats import pixel_math
-from hats.catalog.partition_info import PartitionInfo
 from hats.io import file_io, paths
 from hats.pixel_math.healpix_pixel import HealpixPixel
 from hats.pixel_math.sparse_histogram import SparseHistogram
@@ -113,7 +112,9 @@ def _write_partition_info(args, object_pixel, alignment):
     )
 
 
-def count_joins(args: NestLightCurveArguments, object_pixel: HealpixPixel, source_pixels: list[HealpixPixel]):
+def _perform_nest(
+    args: NestLightCurveArguments, object_pixel: HealpixPixel, source_pixels: list[HealpixPixel]
+):
     try:
         ## ..........    MAPPING  ..............
         ## Get the object data partition, and join in all of the matching

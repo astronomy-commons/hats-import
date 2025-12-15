@@ -1,14 +1,7 @@
-import os
-
-import pyarrow as pa
-import pyarrow.parquet as pq
 import pytest
 from hats import read_hats
 
 import hats_import.nest_light_curves.run_import as runner
-from hats_import.nest_light_curves.arguments import NestLightCurveArguments
-from hats_import.nest_light_curves.map_reduce import count_joins
-from hats_import.nest_light_curves.resume_plan import NestLightCurvePlan
 
 
 def test_empty_args():
