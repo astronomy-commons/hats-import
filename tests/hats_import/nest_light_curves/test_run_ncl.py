@@ -1,5 +1,7 @@
+import nested_pandas as npd
 import pytest
 from hats import read_hats
+from hats.io import paths
 
 import hats_import.nest_light_curves.run_import as runner
 from hats_import.nest_light_curves.arguments import NestLightCurveArguments
@@ -41,6 +43,7 @@ def test_object_to_source_partition_strategy_source(
         source_catalog_dir=small_sky_source_catalog,
         source_object_id_column="object_id",
         source_nested_columns=["mjd", "mag", "band"],
+        nested_column_name="photometry",
         output_artifact_name="small_sky_light_curve",
         partition_strategy="source_count",
         partition_threshold=5000,
@@ -57,6 +60,11 @@ def test_object_to_source_partition_strategy_source(
     assert len(catalog.get_healpix_pixels()) == 10
     assert catalog.catalog_info.total_rows == 131
 
+    nested_schema = npd.read_parquet(paths.get_common_metadata_pointer(small_sky_ncl_args.catalog_path))
+
+    assert "photometry" in nested_schema.nested_columns
+    assert nested_schema.get_subcolumns() == ["photometry.mag", "photometry.band", "photometry.mjd"]
+
 
 @pytest.mark.dask
 def test_object_to_source_partition_strategy_mem(
@@ -71,7 +79,7 @@ def test_object_to_source_partition_strategy_mem(
         source_nested_columns=["mjd", "mag", "band"],
         output_artifact_name="small_sky_light_curve",
         partition_strategy="mem_size",
-        partition_threshold=300_000,
+        partition_threshold=250_000,
         highest_healpix_order=5,
         output_path=tmp_path,
         progress_bar=False,
@@ -82,5 +90,5 @@ def test_object_to_source_partition_strategy_mem(
     catalog = read_hats(small_sky_ncl_args.catalog_path)
     assert catalog.on_disk
     assert catalog.catalog_path == small_sky_ncl_args.catalog_path
-    assert len(catalog.get_healpix_pixels()) == 16
+    assert len(catalog.get_healpix_pixels()) == 13
     assert catalog.catalog_info.total_rows == 131

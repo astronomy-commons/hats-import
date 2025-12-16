@@ -35,7 +35,9 @@ def run(args, client):
             args.catalog_path, create_thumbnail=args.create_thumbnail, create_metadata=args.create_metadata
         )
         if total_rows != md_total_rows:
-            raise ValueError("Unexpected total rows.")
+            raise ValueError(
+                f"Unexpected total rows (expected {total_rows}, found {md_total_rows} in parquet files)."
+            )
         step_progress.update(1)
         partition_info = PartitionInfo.read_from_dir(args.catalog_path)
         catalog_info = args.to_table_properties(

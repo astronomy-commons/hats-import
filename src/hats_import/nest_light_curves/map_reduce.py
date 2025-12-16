@@ -32,8 +32,7 @@ def _join_nested(
             args.source_catalog_dir, source_pixel, npix_suffix=args.source_npix_suffix
         )
         source_data = file_io.read_parquet_file_to_pandas(
-            source_path,
-            schema=args.source_catalog_schema,
+            source_path, columns=args.read_source_columns()
         ).set_index(args.source_object_id_column)
 
         joined_data = source_data.merge(object_index, how="inner", left_index=True, right_index=True)
@@ -48,7 +47,7 @@ def _join_nested(
     )
 
 
-def _generate_alignment(args, light_curves):
+def _generate_alignment(args, light_curves, object_pixel):
     mapped_pixels = spatial_index_to_healpix(
         light_curves[SPATIAL_INDEX_COLUMN], target_order=args.highest_healpix_order
     )
@@ -58,7 +57,7 @@ def _generate_alignment(args, light_curves):
         pass
     elif args.partition_strategy == "source_count":
         supplemental_count = count_nested(light_curves, args.nested_column_name, join=False)[
-            "n_light_curve"
+            f"n_{args.nested_column_name}"
         ].values
     elif args.partition_strategy == "mem_size":
         supplemental_count = size_estimates.get_mem_size_per_row(light_curves)
@@ -72,7 +71,7 @@ def _generate_alignment(args, light_curves):
     alignment = pixel_math.generate_alignment(
         row_count_partial.to_array(),
         highest_order=args.highest_healpix_order,
-        lowest_order=args.lowest_healpix_order,
+        lowest_order=object_pixel.order,
         threshold=args.partition_threshold,
         mem_size_histogram=mem_size_partial.to_array() if mem_size_partial is not None else None,
     )
@@ -130,7 +129,7 @@ def _perform_nest(
         ## ..........    BINNING  ..............
         ## Determine the output partitions
         ## TODO: avoid alignment/split if we're still UNDER the threshold!!
-        alignment = _generate_alignment(args, light_curves)
+        alignment = _generate_alignment(args, light_curves, object_pixel=object_pixel)
 
         ## ..........    SPLITTING  ..............
         ## Split the object data partition, according to the output partitions
