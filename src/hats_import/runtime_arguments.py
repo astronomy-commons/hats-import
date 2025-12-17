@@ -202,16 +202,6 @@ def find_input_paths(input_path="", file_matcher="", input_file_list=None):
     return input_paths
 
 
-def _estimate_dir_size(target_dir):
-    total_size = 0
-    for item in target_dir.iterdir():
-        if item.is_dir():
-            total_size += _estimate_dir_size(item)
-        else:
-            total_size += item.stat().st_size
-    return total_size
-
-
 def check_healpix_order_range(
     order, field_name, lower_bound=0, upper_bound=spatial_index.SPATIAL_INDEX_ORDER
 ):
