@@ -38,8 +38,11 @@ def _join_nested(
         joined_data = source_data.merge(object_index, how="inner", left_index=True, right_index=True)
 
         results.append(joined_data)
-    sources = pd.concat(results)
 
+    if len(results) == 0:
+        return None
+
+    sources = pd.concat(results)
     return (
         object_data.set_index(args.object_id_column)
         .join_nested(sources, args.nested_column_name)
@@ -48,6 +51,8 @@ def _join_nested(
 
 
 def _generate_alignment(args, light_curves, object_pixel):
+    if light_curves is None:
+        return np.array([], dtype=np.int64)
     mapped_pixels = spatial_index_to_healpix(
         light_curves[SPATIAL_INDEX_COLUMN], target_order=args.highest_healpix_order
     )
@@ -80,6 +85,8 @@ def _generate_alignment(args, light_curves, object_pixel):
 
 
 def _split_to_partitions(args, light_curves, alignment, target_order):
+    if light_curves is None:
+        return
     mapped_pixels = spatial_index_to_healpix(light_curves[SPATIAL_INDEX_COLUMN], target_order=target_order)
 
     aligned_pixels = alignment[mapped_pixels]
@@ -121,23 +128,22 @@ def _perform_nest(
     args: NestLightCurveArguments, object_pixel: HealpixPixel, source_pixels: list[HealpixPixel]
 ):
     try:
-        ## ..........    MAPPING  ..............
-        ## Get the object data partition, and join in all of the matching
-        ## source data partitions, keeping where object id matches.
+        # ..........    MAPPING  ..............
+        # Get the object data partition, and join in all of the matching
+        # source data partitions, keeping where object id matches.
         light_curves = _join_nested(args, object_pixel=object_pixel, source_pixels=source_pixels)
 
-        ## ..........    BINNING  ..............
-        ## Determine the output partitions
-        ## TODO: avoid alignment/split if we're still UNDER the threshold!!
+        # ..........    BINNING  ..............
+        # Determine the output partitions
         alignment = _generate_alignment(args, light_curves, object_pixel=object_pixel)
 
-        ## ..........    SPLITTING  ..............
-        ## Split the object data partition, according to the output partitions
+        # ..........    SPLITTING  ..............
+        # Split the object data partition, according to the output partitions
         _split_to_partitions(args, light_curves, alignment, args.highest_healpix_order)
 
-        ## ..........    FINISHING  ..............
-        ## Write the new partition list.
-        ## There aren't any intermediate files to clean up!
+        # ..........    FINISHING  ..............
+        # Write the new partition list.
+        # There aren't any intermediate files to clean up!
         _write_partition_info(args, object_pixel, alignment)
     except Exception as exception:  # pylint: disable=broad-exception-caught
         print_task_failure(f"Failed stage for shard: {object_pixel}", exception)

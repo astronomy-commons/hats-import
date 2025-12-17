@@ -7,6 +7,7 @@ from hats import read_hats
 from hats.catalog import TableProperties
 from hats.io.validation import is_valid_catalog
 from upath import UPath
+import pandas as pd
 
 from hats_import.runtime_arguments import RuntimeArguments, check_healpix_order_range
 
@@ -71,10 +72,21 @@ class NestLightCurveArguments(RuntimeArguments):
 
         source_catalog = read_hats(catalog_path=self.source_catalog_dir)
         self.source_npix_suffix = source_catalog.catalog_info.npix_suffix
-        source_columns = self.read_source_columns()
+
+        if self.source_nested_columns is not None:
+            if pd.api.types.is_list_like(self.source_nested_columns):
+                self.source_nested_columns = set(self.source_nested_columns)
+            else:
+                self.source_nested_columns = set([self.source_nested_columns])
+
+        source_columns = (
+            self.source_nested_columns
+            if self.source_nested_columns is not None
+            else set() | set([self.source_object_id_column])
+        )
         self.source_catalog_schema = source_catalog.schema
         if source_columns:
-            missing_columns = set(source_columns) - set(source_catalog.schema.names)
+            missing_columns = source_columns - set(source_catalog.schema.names)
             if len(missing_columns):
                 raise ValueError(f"Some columns not found in source catalog: {missing_columns}")
 
@@ -94,9 +106,11 @@ class NestLightCurveArguments(RuntimeArguments):
     def read_source_columns(self):
         """Determine list of columns to be read in the source catalog."""
         if self.source_nested_columns is None:
-            ## We intend to read all columns
+            # We intend to read all columns
             return None
-        return list(set(self.source_nested_columns) | set([self.source_object_id_column]))
+        read_columns = list(set(self.source_nested_columns) | set([self.source_object_id_column]))
+        read_columns.sort()
+        return read_columns
 
     def to_table_properties(self, total_rows=10, highest_order=4, moc_sky_fraction=22 / 7) -> TableProperties:
         """Catalog-type-specific dataset info."""

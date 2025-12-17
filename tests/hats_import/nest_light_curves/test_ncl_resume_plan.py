@@ -34,7 +34,7 @@ def test_count_keys(small_sky_ncl_args):
     plan = NestLightCurvePlan(small_sky_ncl_args)
     assert len(plan.count_keys) == 1
 
-    ## Mark one done and check that there's one less key to count later.
+    # Mark one done and check that there's one less key to count later.
     Path(small_sky_ncl_args.tmp_path, "0_11.csv").touch()
 
     plan.gather_plan(small_sky_ncl_args)
@@ -48,7 +48,7 @@ def test_cached_map_file(small_sky_ncl_args):
     plan = NestLightCurvePlan(small_sky_ncl_args)
     assert len(plan.count_keys) == 1
 
-    ## The source partition mapping should be cached in a file.
+    # The source partition mapping should be cached in a file.
     cache_map_file = os.path.join(small_sky_ncl_args.tmp_path, NestLightCurvePlan.SOURCE_MAP_FILE)
     assert os.path.exists(cache_map_file)
 
@@ -56,24 +56,27 @@ def test_cached_map_file(small_sky_ncl_args):
     assert len(plan.count_keys) == 1
 
 
-def test_get_sources_to_count(small_sky_ncl_args):
+def test_get_sources_to_count(small_sky_ncl_args, tmp_path):
     """Test generation of remaining count items"""
     plan = NestLightCurvePlan(small_sky_ncl_args)
 
     remaining_count_items = plan.get_sources_to_count()
     assert len(remaining_count_items) == 1
 
-    ## Use previous value of sources map, and find intermediate file, so there are no
-    ## remaining sources to count.
+    # Use previous value of sources map, and find intermediate file, so there are no
+    # remaining sources to count.
     Path(small_sky_ncl_args.tmp_path, "0_11.csv").touch()
     remaining_count_items = plan.get_sources_to_count()
     assert len(remaining_count_items) == 0
 
-    ## Kind of silly, but clear out the pixel map, since it's populated on init.
-    ## Fail to find the remaining sources to count because we don't know the map.
+    # Kind of silly, but clear out the pixel map, since it's populated on init.
+    # Fail to find the remaining sources to count because we don't know the map.
     plan.object_map = None
     with pytest.raises(ValueError, match="object_map"):
         remaining_count_items = plan.get_sources_to_count()
+
+    with pytest.raises(ValueError, match="object_map"):
+        remaining_count_items = plan.combine_partial_results(tmp_path)
 
 
 def never_fails():
@@ -82,16 +85,22 @@ def never_fails():
 
 
 @pytest.mark.dask
-def test_some_counting_task_failures(small_sky_ncl_args, dask_client):
+def test_some_counting_task_failures(small_sky_ncl_args, dask_client, tmp_path):
     """Test that we only consider counting stage successful if all done files are written"""
     plan = NestLightCurvePlan(small_sky_ncl_args)
 
-    ## Method doesn't FAIL, but it doesn't write out the intermediate results file either.
+    # Method doesn't FAIL, but it doesn't write out the intermediate results file either.
     futures = [dask_client.submit(never_fails)]
     with pytest.raises(RuntimeError, match="1 counting stages"):
         plan.wait_for_counting(futures)
 
-    ## Write one intermediate results file. There are fewer unsuccessful stages.
+    # With some remaining tasks, we can't finish other stages.
+    with pytest.raises(ValueError, match="before combining results"):
+        plan.combine_partial_results(tmp_path)
+
+    # Write one intermediate results file. There are fewer unsuccessful stages.
     Path(small_sky_ncl_args.tmp_path, "0_11.csv").touch()
     futures = [dask_client.submit(never_fails)]
     plan.wait_for_counting(futures)
+
+    assert plan.is_counting_done()

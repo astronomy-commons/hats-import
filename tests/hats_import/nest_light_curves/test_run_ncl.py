@@ -63,7 +63,7 @@ def test_object_to_source_partition_strategy_source(
     nested_schema = npd.read_parquet(paths.get_common_metadata_pointer(small_sky_ncl_args.catalog_path))
 
     assert "photometry" in nested_schema.nested_columns
-    assert nested_schema.get_subcolumns() == ["photometry.mag", "photometry.band", "photometry.mjd"]
+    assert nested_schema.get_subcolumns() == ["photometry.band", "photometry.mag", "photometry.mjd"]
 
 
 @pytest.mark.dask

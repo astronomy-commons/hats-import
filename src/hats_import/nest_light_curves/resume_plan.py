@@ -37,17 +37,12 @@ class NestLightCurvePlan(PipelineResumePlan):
 
     def gather_plan(self, args):
         """Initialize the plan."""
-        with self.print_progress(total=3, stage_name="Planning") as step_progress:
+        with self.print_progress(total=2, stage_name="Planning") as step_progress:
             ## Make sure it's safe to use existing resume state.
             super().safe_to_resume()
             step_progress.update(1)
+
             self.count_keys = []
-
-            ## Validate existing resume state.
-            if self.is_counting_done():
-                return
-            step_progress.update(1)
-
             object_catalog = read_hats(args.object_catalog_dir)
             source_map_file = file_io.append_paths_to_pointer(self.tmp_path, self.SOURCE_MAP_FILE)
             if file_io.does_file_or_directory_exist(source_map_file):
