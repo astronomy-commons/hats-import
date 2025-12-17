@@ -109,7 +109,6 @@ def map_to_pixels(
         FileNotFoundError: if the file does not exist, or is a directory
     """
     try:
-        # Always generate the row-count histogram.
         row_count_histo = HistogramAggregator(highest_order)
         mem_size_histo = HistogramAggregator(highest_order)
 
@@ -135,7 +134,6 @@ def map_to_pixels(
         ):
             data_mem_sizes = None
 
-            # If using bytewise/mem_size thresholding, also add to mem_size histogram.
             if threshold_mode == "mem_size":
                 data_mem_sizes = size_estimates.get_mem_size_per_row(chunk_data)
 
