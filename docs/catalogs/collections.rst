@@ -67,13 +67,13 @@ construct a custom pipeline, step by step.
 
     args = (
         CollectionArguments(
-            output_artifact_name="/path/to/hats/catalogs/",
-            output_path=tmp_path,
+            output_artifact_name="my-catalog",
+            output_path="/path/to/place/collection/",
             ## dask arguments go here
             ## progress reporting arguments go here
         )
         .catalog(
-            input_path=small_sky_source_dir,
+            input_path="/path/to/csv/files",
             file_reader="csv",
             ra_column="ra",
             dec_column="dec",
