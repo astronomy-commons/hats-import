@@ -36,7 +36,6 @@ class NestLightCurveArguments(RuntimeArguments):
     partition_strategy: str = "object_count"
     partition_threshold: int = 50
     highest_healpix_order: int = 3
-    lowest_healpix_order: int = 0
 
     def __post_init__(self):
         self._check_arguments()
@@ -91,9 +90,6 @@ class NestLightCurveArguments(RuntimeArguments):
                 raise ValueError(f"Some columns not found in source catalog: {missing_columns}")
 
         check_healpix_order_range(self.highest_healpix_order, "highest_healpix_order")
-        check_healpix_order_range(
-            self.lowest_healpix_order, "lowest_healpix_order", upper_bound=self.highest_healpix_order
-        )
 
         if self.partition_strategy not in ["object_count", "source_count", "mem_size"]:
             raise ValueError("Unrecognized partition_strategy")

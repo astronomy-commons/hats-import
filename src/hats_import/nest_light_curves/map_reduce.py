@@ -13,7 +13,12 @@ from hats_import.nest_light_curves.arguments import NestLightCurveArguments
 from hats_import.pipeline_resume_plan import get_pixel_cache_directory, print_task_failure
 
 
-def _do_mapping(args: NestLightCurveArguments, object_pixel: HealpixPixel, source_pixels: list[HealpixPixel]):
+def _do_mapping(
+    args: NestLightCurveArguments,
+    object_data: pd.DataFrame,
+    object_pixel: HealpixPixel,
+    source_pixels: list[HealpixPixel],
+):
     """Determine the row count of objects, at a finer grain level, since we likely need to split
     the object pixel further to account for larger data size with the nested columns.
 
@@ -21,18 +26,8 @@ def _do_mapping(args: NestLightCurveArguments, object_pixel: HealpixPixel, sourc
     but it complicates the histogram calculation: we only want to consider them for the "row count"
     aspect if they have *some* matches in the source catalog (and that's not guaranteed).
     """
-    object_path = paths.pixel_catalog_file(
-        args.object_catalog_dir, object_pixel, npix_suffix=args.object_npix_suffix
-    )
-    object_data = file_io.read_parquet_file_to_pandas(
-        object_path,
-        schema=args.object_catalog_schema,
-    )
-    object_index = object_data[[args.object_id_column]].set_index(args.object_id_column)
-    object_mask = object_data[[args.object_id_column, SPATIAL_INDEX_COLUMN]].set_index(args.object_id_column)
-    object_mask["mask"] = False
-
-    object_data = object_data.set_index(args.object_id_column)
+    object_mask = object_data[[SPATIAL_INDEX_COLUMN]].assign(mask = False)
+    
     non_empty_sources = []
     supplemental_size_aggregator = HistogramAggregator(args.highest_healpix_order)
 
@@ -45,26 +40,23 @@ def _do_mapping(args: NestLightCurveArguments, object_pixel: HealpixPixel, sourc
             source_path, columns=args.read_source_columns()
         ).set_index(args.source_object_id_column)
 
-        joined_data = source_data.merge(object_index, how="inner", left_index=True, right_index=True)
-        if len(joined_data) == 0:
+        # If we want to use a supplemental count strategy, do the full join
+        # for more accurate histograms/counting.
+        light_curves = (
+            object_data.join_nested(source_data, args.nested_column_name, how="inner")
+            .dropna(subset=args.nested_column_name)
+        )
+        if len(light_curves) == 0:
             continue
 
-        # Mark this pixel for future actions.
+        # Mark this pixel for future actions and objects that are active in the join.
         non_empty_sources.append(source_pixel)
-        # Mark objects that are active in the join.
-        object_mask.loc[joined_data.index, "mask"] = True
+        object_mask.loc[light_curves.index, "mask"] = True
 
         if args.partition_strategy == "object_count":
             continue
 
-        # If we want to use a supplemental count strategy, do the full join
-        # for more accurate histograms/counting.
-        light_curves = (
-            object_data.join_nested(joined_data, args.nested_column_name, how="inner")
-            .reset_index()
-            .dropna(subset=args.nested_column_name)
-        )
-
+        # Get the particular size of the rows, if they'll be used for partitioning.
         mapped_pixels = spatial_index_to_healpix(
             light_curves[SPATIAL_INDEX_COLUMN], target_order=args.highest_healpix_order
         )
@@ -84,7 +76,7 @@ def _do_mapping(args: NestLightCurveArguments, object_pixel: HealpixPixel, sourc
 
     row_count_historam, _ = supplemental_count_histogram(
         spatial_index_to_healpix(
-            object_mask.loc[object_mask["mask"] == True][SPATIAL_INDEX_COLUMN],
+            object_mask.loc[object_mask["mask"] == True, SPATIAL_INDEX_COLUMN],
             target_order=args.highest_healpix_order,
         ),
         None,
@@ -104,22 +96,15 @@ def _do_mapping(args: NestLightCurveArguments, object_pixel: HealpixPixel, sourc
     return alignment, non_empty_sources
 
 
-def _split_to_partitions(args, alignment, object_pixel: HealpixPixel, source_pixels: list[HealpixPixel]):
-    object_path = paths.pixel_catalog_file(
-        args.object_catalog_dir, object_pixel, npix_suffix=args.object_npix_suffix
-    )
-    object_data = file_io.read_parquet_file_to_pandas(
-        object_path,
-        schema=args.object_catalog_schema,
-    )
-    object_index = object_data[[args.object_id_column]].set_index(args.object_id_column)
-    object_data = object_data.set_index(args.object_id_column)
+def _split_to_partitions(args, object_data, alignment, source_pixels: list[HealpixPixel]):
+    # Set up maps we'll need for all the sources.
     mapped_pixels = spatial_index_to_healpix(
         object_data[SPATIAL_INDEX_COLUMN], target_order=args.highest_healpix_order
     )
 
     aligned_pixels = alignment[mapped_pixels]
     zipper = dict(zip(object_data.index, aligned_pixels))
+    object_index = object_data[[]]
 
     for source_pixel in source_pixels:
         source_path = paths.pixel_catalog_file(
@@ -153,17 +138,8 @@ def _split_to_partitions(args, alignment, object_pixel: HealpixPixel, source_pix
             del filtered_data
 
 
-def _reduce_partitions(args, object_pixel, pixel_list):
-    object_path = paths.pixel_catalog_file(
-        args.object_catalog_dir, object_pixel, npix_suffix=args.object_npix_suffix
-    )
-    object_data = file_io.read_parquet_file_to_pandas(
-        object_path,
-        schema=args.object_catalog_schema,
-    )
-    object_data = object_data.set_index(args.object_id_column)
-
-    for order, pix, row_count in pixel_list:
+def _reduce_partitions(args, object_data, source_pixels):
+    for order, pix, row_count in source_pixels:
         destination_pixel = HealpixPixel(order, pix)
 
         destination_file = paths.new_pixel_catalog_file(
@@ -245,19 +221,28 @@ def _perform_nest(
     args: NestLightCurveArguments, object_pixel: HealpixPixel, source_pixels: list[HealpixPixel]
 ):
     try:
+        # Fetch object data that we'll use for all sub-stages.
+        object_path = paths.pixel_catalog_file(
+            args.object_catalog_dir, object_pixel, npix_suffix=args.object_npix_suffix
+        )
+        object_data = file_io.read_parquet_file_to_pandas(
+            object_path,
+            schema=args.object_catalog_schema,
+        ).set_index(args.object_id_column)
+
         # ..........    MAPPING / BINNING  ..............
         # Get the object data partition, and join in all of the matching
         # source data partitions, keeping where object id matches.
         alignment, non_empty_sources = _do_mapping(
-            args, object_pixel=object_pixel, source_pixels=source_pixels
+            args, object_data, object_pixel=object_pixel, source_pixels=source_pixels
         )
 
         # ..........    SPLITTING  ..............
         # Split the object and source data partitions, according to the output partitions
         _split_to_partitions(
             args,
+            object_data,
             alignment,
-            object_pixel=object_pixel,
             source_pixels=non_empty_sources,
         )
         pixel_list = np.unique(alignment, axis=0)
@@ -266,7 +251,7 @@ def _perform_nest(
         # ..........    REDUCING   ..............
         # Reduce output partitions into final parquet files.
         if len(non_empty_sources) > 0:
-            _reduce_partitions(args, object_pixel, pixel_list)
+            _reduce_partitions(args, object_data, pixel_list)
 
         # ..........    FINISHING  ..............
         # Write the new partition list.
