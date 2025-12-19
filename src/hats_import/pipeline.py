@@ -10,12 +10,14 @@ import hats_import.collection.run_import as collection_runner
 import hats_import.hipscat_conversion.run_conversion as conversion_runner
 import hats_import.index.run_index as index_runner
 import hats_import.margin_cache.margin_cache as margin_runner
+import hats_import.nest_light_curves.run_import as nest_runner
 import hats_import.verification.run_verification as verification_runner
 from hats_import.catalog.arguments import ImportArguments
 from hats_import.collection.arguments import CollectionArguments
 from hats_import.hipscat_conversion.arguments import ConversionArguments
 from hats_import.index.arguments import IndexArguments
 from hats_import.margin_cache.margin_cache_arguments import MarginCacheArguments
+from hats_import.nest_light_curves.arguments import NestLightCurveArguments
 from hats_import.runtime_arguments import RuntimeArguments
 from hats_import.verification.arguments import VerificationArguments
 
@@ -60,6 +62,8 @@ def pipeline_with_client(args: RuntimeArguments, client: Client):
             verification_runner.run(args)
         elif isinstance(args, ConversionArguments):
             conversion_runner.run(args, client)
+        elif isinstance(args, NestLightCurveArguments):
+            nest_runner.run(args, client)
         else:
             raise ValueError("unknown args type")
 
