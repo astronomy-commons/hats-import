@@ -26,8 +26,8 @@ def _do_mapping(
     but it complicates the histogram calculation: we only want to consider them for the "row count"
     aspect if they have *some* matches in the source catalog (and that's not guaranteed).
     """
-    object_mask = object_data[[SPATIAL_INDEX_COLUMN]].assign(mask = False)
-    
+    object_mask = object_data[[SPATIAL_INDEX_COLUMN]].assign(mask=False)
+
     non_empty_sources = []
     supplemental_size_aggregator = HistogramAggregator(args.highest_healpix_order)
 
@@ -42,9 +42,8 @@ def _do_mapping(
 
         # If we want to use a supplemental count strategy, do the full join
         # for more accurate histograms/counting.
-        light_curves = (
-            object_data.join_nested(source_data, args.nested_column_name, how="inner")
-            .dropna(subset=args.nested_column_name)
+        light_curves = object_data.join_nested(source_data, args.nested_column_name, how="inner").dropna(
+            subset=args.nested_column_name
         )
         if len(light_curves) == 0:
             continue
