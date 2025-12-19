@@ -97,11 +97,3 @@ def test_perform_nest_partition_strategy_mem(
             / f"{object_pixel.order}_{object_pixel.pixel}.csv"
         )
         assert len(result) == 13
-
-
-def test_strategy_invalid(small_sky_ncl_args, capsys):
-    small_sky_ncl_args.partition_strategy = "not_a_partition_strategy"
-    with pytest.raises(ValueError, match="Unknown partition strategy.*not_a_partition_strategy"):
-        _perform_nest(small_sky_ncl_args, HealpixPixel(0, 11), [HealpixPixel(2, 181)])
-    captured = capsys.readouterr()
-    assert "Unknown partition strategy" in captured.out

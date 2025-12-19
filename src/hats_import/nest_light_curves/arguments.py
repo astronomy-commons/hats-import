@@ -31,7 +31,7 @@ class NestLightCurveArguments(RuntimeArguments):
     ## Output - nested light curves
     nested_column_name: str = "light_curve"
     """The name for the group of nested columns."""
-    nested_sort_column: str = ""
+    nested_sort_column: str | None = None
     """Field to sort the nested frame on. Typically timestamp."""
     partition_strategy: str = "object_count"
     partition_threshold: int = 50

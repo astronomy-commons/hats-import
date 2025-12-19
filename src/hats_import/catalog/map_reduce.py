@@ -312,7 +312,6 @@ def reduce_pixel_shards(
         if use_schema_file:
             schema = file_io.read_parquet_metadata(use_schema_file).schema.to_arrow_schema()
 
-        healpix_pixel = HealpixPixel(destination_pixel_order, destination_pixel_number)
         pixel_dir = get_pixel_cache_directory(cache_shard_path, healpix_pixel)
 
         merged_table = pq.read_table(pixel_dir.path, filesystem=pixel_dir.fs, schema=schema)

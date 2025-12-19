@@ -17,7 +17,7 @@ from hats import pixel_math
 @pytest.fixture(scope="session", name="dask_client")
 def dask_client():
     """Create a single client for use by all unit test cases."""
-    cluster = LocalCluster(n_workers=1, threads_per_worker=1, dashboard_address=":0")
+    cluster = LocalCluster(n_workers=1, threads_per_worker=1, dashboard_address=":0", processes=False)
     client = Client(cluster)
     yield client
     client.close()
