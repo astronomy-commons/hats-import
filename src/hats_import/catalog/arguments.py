@@ -119,8 +119,8 @@ class ImportArguments(RuntimeArguments):
             check_healpix_order_range(
                 self.lowest_healpix_order, "lowest_healpix_order", upper_bound=self.highest_healpix_order
             )
-            if not 100 <= self.pixel_threshold <= 1_000_000_000:
-                raise ValueError("pixel_threshold should be between 100 and 1,000,000,000")
+            if not isinstance(self.pixel_threshold, int) or self.pixel_threshold < 1:
+                raise ValueError("pixel_threshold must be a positive integer")
             self.mapping_healpix_order = self.highest_healpix_order
 
         if self.existing_pixels:
