@@ -47,7 +47,7 @@ class MarginCachePlan(PipelineResumePlan):
             negative_pixels = args.catalog.generate_negative_tree_pixels()
             self.combined_pixels = self.partition_pixels + negative_pixels
             self.margin_pair_file = file_io.append_paths_to_pointer(self.tmp_path, self.MARGIN_PAIR_FILE)
-            if not file_io.does_file_or_directory_exist(self.margin_pair_file):
+            if not self.margin_pair_file.exists():
                 margin_pairs = _find_partition_margin_pixel_pairs(self.combined_pixels, args.margin_order)
                 margin_pairs.to_csv(self.margin_pair_file, index=False)
             step_progress.update(1)
@@ -94,7 +94,7 @@ class MarginCachePlan(PipelineResumePlan):
 
         total_marker_file = file_io.append_paths_to_pointer(self.tmp_path, self.MAPPING_TOTAL_FILE)
 
-        if file_io.does_file_or_directory_exist(total_marker_file):
+        if total_marker_file.exists():
             marker_value = file_io.load_text_file(total_marker_file)
             return _marker_value_to_int(marker_value)
 

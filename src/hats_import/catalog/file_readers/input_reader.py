@@ -26,9 +26,9 @@ class InputReader(abc.ABC):
             FileNotFoundError: if nothing exists at path, or directory found.
         """
         input_file = file_io.get_upath(input_file)
-        if not file_io.does_file_or_directory_exist(input_file):
+        if not input_file.exists():
             raise FileNotFoundError(f"File not found at path: {input_file}")
-        if not file_io.is_regular_file(input_file):
+        if input_file.is_dir():
             raise FileNotFoundError(f"Directory found at path - requires regular file: {input_file}")
         return input_file
 
