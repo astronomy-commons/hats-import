@@ -71,9 +71,7 @@ class PipelineResumePlan:
         Returns:
             boolean, True if the done file exists at tmp_path. False otherwise.
         """
-        return file_io.does_file_or_directory_exist(
-            file_io.append_paths_to_pointer(self.tmp_path, f"{stage_name}_done")
-        )
+        return file_io.append_paths_to_pointer(self.tmp_path, f"{stage_name}_done").exists()
 
     def touch_stage_done_file(self, stage_name):
         """Touch (create) a done file for a whole pipeline stage.

@@ -225,7 +225,7 @@ class ResumePlan(PipelineResumePlan):
         file_name = file_io.append_paths_to_pointer(self.tmp_path, histogram_binary_file)
 
         # If no file, read the histogram from partial histograms and combine.
-        if not file_io.does_file_or_directory_exist(file_name):
+        if not file_name.exists():
             remaining_map_files = self.get_remaining_map_keys(which_histogram=which_histogram)
             if len(remaining_map_files) > 0:
                 raise RuntimeError(f"{len(remaining_map_files)} map stages did not complete successfully.")
@@ -358,7 +358,7 @@ class ResumePlan(PipelineResumePlan):
             path to cached alignment file.
         """
         file_name = file_io.append_paths_to_pointer(self.tmp_path, self.ALIGNMENT_FILE)
-        if not file_io.does_file_or_directory_exist(file_name):
+        if not file_name.exists():
             # If existing_pixels, create an incremental alignment.
             if existing_pixels:
                 alignment = pixel_math.generate_incremental_alignment(
