@@ -57,7 +57,7 @@ def test_read_wrong_fileformat(small_sky_file0, tmp_path):
 
 def test_read_directory(test_data_dir, tmp_path):
     """Provide directory, not file"""
-    with pytest.raises():
+    with pytest.raises(OSError):
         mr.map_to_pixels(
             input_file=test_data_dir,
             pickled_reader_file=pickle_file_reader(tmp_path, get_file_reader("parquet")),
