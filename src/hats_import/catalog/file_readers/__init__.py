@@ -64,7 +64,7 @@ def get_file_reader(
             **kwargs,
         )
     if file_format == "parquet":
-        return ParquetPyarrowReader(chunksize=chunksize, column_names=column_names, **kwargs)
+        return ParquetPyarrowReader(chunksize=chunksize, **kwargs)
     if file_format == "indexed_csv":
         return IndexedCsvReader(
             chunksize=chunksize,
