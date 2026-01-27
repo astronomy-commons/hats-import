@@ -285,6 +285,19 @@ def test_parquet_reader_chunked(parquet_shards_shard_44_0):
     assert total_chunks == 7
 
 
+def test_parquet_reader_by_row_group(multi_row_group_parquet):
+    """Verify we can read the parquet file into a single data frame, iterating
+    by row group."""
+    total_chunks = 0
+    print("Testing row group iteration")
+    print(pq.ParquetFile(multi_row_group_parquet).num_row_groups, "row groups found")
+    for frame in ParquetReader(chunksize=1).read(multi_row_group_parquet, by_row_group=True):
+        total_chunks += 1
+        assert len(frame) == 1
+    assert total_chunks == 8
+    print(f"{total_chunks} row groups read")
+
+
 def test_indexed_parquet_reader(indexed_files_dir):
     # Chunksize covers all the inputs.
     total_chunks = 0
