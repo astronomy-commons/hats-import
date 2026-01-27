@@ -7,8 +7,6 @@ from hats_import.catalog.file_readers.input_reader import InputReader
 class ParquetReader(InputReader):
     """Parquet reader for the most common Parquet reading arguments.
 
-    TODO update docstring for row group iteration
-
     Attributes:
         chunksize (int): number of rows of the file to process at once.
             For large files, this can prevent loading the entire file
@@ -24,26 +22,28 @@ class ParquetReader(InputReader):
         self.column_names = column_names
         self.kwargs = kwargs
 
-    def read(self, input_file, read_columns=None, by_row_group=False):
+    def read(self, input_file, read_columns=None):
         input_file = self.regular_file_exists(input_file, **self.kwargs)
         columns = read_columns or self.column_names
         parquet_file = file_io.read_parquet_file(input_file, **self.kwargs)
-        if by_row_group:
-            for rg in range(parquet_file.num_row_groups):
-                table = parquet_file.read_row_group(rg, columns=columns)
-                yield table.to_pandas()
-        else:
-            for smaller_table in parquet_file.iter_batches(
-                batch_size=self.chunksize, columns=columns, use_pandas_metadata=True
-            ):
-                yield smaller_table.to_pandas()
+        for smaller_table in parquet_file.iter_batches(
+            batch_size=self.chunksize, columns=columns, use_pandas_metadata=True
+        ):
+            yield smaller_table.to_pandas()
+
+    def read_by_row_group(self, input_file, read_columns=None):
+        """Read the parquet file by row group, yielding pandas DataFrames."""
+        input_file = self.regular_file_exists(input_file, **self.kwargs)
+        columns = read_columns or self.column_names
+        parquet_file = file_io.read_parquet_file(input_file, **self.kwargs)
+        for row_group in range(parquet_file.num_row_groups):
+            table = parquet_file.read_row_group(row_group, columns=columns)
+            yield table.to_pandas()
 
 
 class ParquetPyarrowReader(InputReader):
     """Parquet reader that uses the pyarrow library for reading.
 
-    TODO update docstring for row group iteration
-
     Attributes:
         chunksize (int): number of rows of the file to process at once.
             For large files, this can prevent loading the entire file
@@ -59,19 +59,24 @@ class ParquetPyarrowReader(InputReader):
         self.column_names = column_names
         self.kwargs = kwargs
 
-    def read(self, input_file, read_columns=None, by_row_group=False):
+    def read(self, input_file, read_columns=None):
         input_file = self.regular_file_exists(input_file, **self.kwargs)
         columns = read_columns or self.column_names
         parquet_file = file_io.read_parquet_file(input_file, **self.kwargs)
-        if by_row_group:
-            for rg in range(parquet_file.num_row_groups):
-                table = parquet_file.read_row_group(rg, columns=columns)
-                yield table.replace_schema_metadata()
-        else:
-            for smaller_table in parquet_file.iter_batches(batch_size=self.chunksize, columns=columns):
-                table = pa.Table.from_batches([smaller_table])
-                table = table.replace_schema_metadata()
-                yield table
+        for smaller_table in parquet_file.iter_batches(batch_size=self.chunksize, columns=columns):
+            table = pa.Table.from_batches([smaller_table])
+            table = table.replace_schema_metadata()
+            yield table
+
+    def read_by_row_group(self, input_file, read_columns=None):
+        """Read the parquet file by row group, yielding pyarrow Tables."""
+        input_file = self.regular_file_exists(input_file, **self.kwargs)
+        columns = read_columns or self.column_names
+        parquet_file = file_io.read_parquet_file(input_file, **self.kwargs)
+        for row_group in range(parquet_file.num_row_groups):
+            table = parquet_file.read_row_group(row_group, columns=columns)
+            table = table.replace_schema_metadata()
+            yield table
 
 
 class IndexedParquetReader(InputReader):
@@ -136,3 +141,24 @@ class IndexedParquetReader(InputReader):
 
         if len(batches) > 0:
             yield pa.Table.from_batches(batches).replace_schema_metadata()
+
+    def read_by_row_group(self, input_file, read_columns=None):
+        """Read the parquet files listed in the index file by row group,
+        yielding pyarrow Tables.
+        """
+        raise NotImplementedError("IndexedParquetReader does not support read_by_row_group method.")
+        # TODO - check below suggestion
+        columns = read_columns or self.column_names
+        file_names = self.read_index_file(
+            input_file=input_file, upath_kwargs=self.upath_kwargs, **self.kwargs
+        )
+        (_, input_dataset) = file_io.read_parquet_dataset(file_names, **self.kwargs)
+
+        for fragment in input_dataset.get_fragments():
+            parquet_file = fragment.to_table(columns=columns).replace_schema_metadata()
+            for row_group in range(parquet_file.num_row_groups):
+                table = parquet_file.slice(
+                    parquet_file.row_group_offsets[row_group],
+                    parquet_file.row_group_lengths[row_group],
+                )
+                yield table
