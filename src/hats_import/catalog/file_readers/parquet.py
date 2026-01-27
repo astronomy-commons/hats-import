@@ -4,8 +4,10 @@ from hats.io import file_io
 from hats_import.catalog.file_readers.input_reader import InputReader
 
 
-class ParquetReader(InputReader):
+class ParquetPandasReader(InputReader):
     """Parquet reader for the most common Parquet reading arguments.
+
+    Reads input file as a pandas.DataFrame.
 
     Attributes:
         chunksize (int): number of rows of the file to process at once.
@@ -34,6 +36,8 @@ class ParquetReader(InputReader):
 
 class ParquetPyarrowReader(InputReader):
     """Parquet reader that uses the pyarrow library for reading.
+
+    Reads file as a pyarrow.Table.
 
     Attributes:
         chunksize (int): number of rows of the file to process at once.

@@ -25,9 +25,13 @@ from pyarrow import csv
 
 import hats_import.catalog.run_import as runner
 from hats_import.catalog.arguments import ImportArguments
-from hats_import.catalog.file_readers import CsvReader, get_file_reader
+from hats_import.catalog.file_readers import (
+    CsvReader,
+    ParquetPandasReader,
+    ParquetPyarrowReader,
+    get_file_reader,
+)
 from hats_import.catalog.file_readers.csv import CsvPyarrowReader
-from hats_import.catalog.file_readers.parquet import ParquetPyarrowReader
 
 
 @pytest.mark.dask
@@ -325,7 +329,7 @@ def test_import_mixed_schema_csv_pyarrow(
 
 
 @pytest.mark.dask
-def test_import_preserve_index(
+def test_import_preserve_index_pandas_reader(
     dask_client,
     formats_pandasindex,
     assert_parquet_file_ids,
@@ -360,7 +364,7 @@ def test_import_preserve_index(
     args = ImportArguments(
         output_artifact_name="pandasindex",
         input_file_list=[formats_pandasindex],
-        file_reader="parquet",
+        file_reader=ParquetPandasReader(),
         sort_columns="obs_id",
         add_healpix_29=False,
         output_path=tmp_path,
@@ -384,7 +388,7 @@ def test_import_preserve_index(
     args = ImportArguments(
         output_artifact_name="pandasindex_preserve",
         input_file_list=[formats_pandasindex],
-        file_reader="parquet",
+        file_reader=ParquetPandasReader(),
         sort_columns="obs_id",
         add_healpix_29=True,
         output_path=tmp_path,
@@ -837,12 +841,12 @@ def test_import_healpix_29_pyarrow_table_parquet(
     assert_parquet_file_ids,
     tmp_path,
 ):
-    """Should be identical to the above test, but uses the ParquetPyarrowReader."""
+    """Should be identical to the test above, but uses the `ParquetPyarrowReader`."""
     input_file = formats_dir / "healpix_29_index.parquet"
     args = ImportArguments(
         output_artifact_name="using_healpix_index",
         input_file_list=[input_file],
-        file_reader=ParquetPyarrowReader(),
+        file_reader="parquet",
         output_path=tmp_path,
         dask_tmp=tmp_path,
         use_healpix_29=True,
@@ -876,13 +880,15 @@ def test_import_healpix_29_pyarrow_table_parquet(
 
 
 @pytest.mark.dask
-def test_import_healpix_29(
+def test_import_healpix_29_pandas_reader(
     dask_client,
     formats_dir,
     assert_parquet_file_ids,
     tmp_path,
 ):
-    """Test basic execution, using a previously-computed _healpix_29 column for spatial partitioning."""
+    """Test basic execution, using a previously-computed _healpix_29 column
+    for spatial partitioning. Should be identical to the test above, but uses
+    the `ParquetPandasReader`."""
     ## First, let's just check the assumptions we have about our input file:
     ## - should have _healpix_29 as the indexed column
     ## - should NOT have any columns like "ra" or "dec"
@@ -898,7 +904,7 @@ def test_import_healpix_29(
     args = ImportArguments(
         output_artifact_name="using_healpix_29",
         input_file_list=[input_file],
-        file_reader="parquet",
+        file_reader=ParquetPandasReader(),
         output_path=tmp_path,
         dask_tmp=tmp_path,
         use_healpix_29=True,
@@ -1279,10 +1285,20 @@ def test_pickled_reader_class_issue542(
 @pytest.mark.dask
 def test_nested_columns_struct(formats_dir, tmp_path, dask_client):
     """Check that nested array data are processed."""
+    input_file = formats_dir / "lightcurve.parquet"
+
+    # The input file has a "lightcurve" column. This column was
+    # saved as list<struct> on purpose to test that the ParquetPandasReader()
+    # transforms it into the struct<list> type.
+    pixel_data = pq.read_table(input_file)
+    col_type = pixel_data.schema.field("lightcurve").type
+    assert pa.types.is_list(col_type)
+    assert pa.types.is_struct(col_type.value_type)
+
     args = ImportArguments(
-        output_artifact_name="re_nested",
-        input_file_list=formats_dir / "lightcurve.parquet",
-        file_reader="parquet",
+        output_artifact_name="re_nested_pandas",
+        input_file_list=input_file,
+        file_reader=ParquetPandasReader(),
         ra_column="objra",
         dec_column="objdec",
         output_path=tmp_path,
@@ -1299,9 +1315,38 @@ def test_nested_columns_struct(formats_dir, tmp_path, dask_client):
     assert catalog.catalog_info.total_rows == 5
     assert len(catalog.get_healpix_pixels()) == 1
 
+    # The `ParquetPandasReader` returns a pd.DataFrame, converting the
+    # column that used to be a list<struct> to struct<list>.
     output_file = args.catalog_path / "dataset" / "Norder=2" / "Dir=0" / "Npix=0.parquet"
-
     pixel_data = pq.read_table(output_file)
     assert pa.types.is_struct(pixel_data["lightcurve"].type)
 
+    # Partial loads are possible:
     npd.read_parquet(output_file, columns=["lightcurve.hmjd"])
+
+    args = ImportArguments(
+        output_artifact_name="re_nested_pyarrow",
+        input_file_list=input_file,
+        file_reader=ParquetPyarrowReader(),
+        ra_column="objra",
+        dec_column="objdec",
+        output_path=tmp_path,
+        dask_tmp=tmp_path,
+        highest_healpix_order=2,
+        add_healpix_29=False,
+        pixel_threshold=3_000,
+        progress_bar=False,
+    )
+    runner.run(args, dask_client)
+
+    # The `ParquetPyarrowReader` does not change the column type.
+    # It remains as list<struct>. We confirm when reading it back.
+    output_file = args.catalog_path / "dataset" / "Norder=2" / "Dir=0" / "Npix=0.parquet"
+    pixel_data = pq.read_table(output_file)
+    col_type = pixel_data.schema.field("lightcurve").type
+    assert pa.types.is_list(col_type)
+    assert pa.types.is_struct(col_type.value_type)
+
+    # Partial loads are not possible:
+    with pytest.raises(ValueError, match="only supported for struct"):
+        npd.read_parquet(output_file, columns=["lightcurve.hmjd"])
