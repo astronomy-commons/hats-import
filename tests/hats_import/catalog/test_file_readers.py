@@ -13,7 +13,7 @@ from hats_import.catalog.file_readers import (
     FitsReader,
     IndexedCsvReader,
     IndexedParquetReader,
-    ParquetReader,
+    ParquetPyarrowReader,
     get_file_reader,
 )
 
@@ -269,7 +269,7 @@ def test_indexed_csv_reader(indexed_files_dir):
 def test_parquet_reader(parquet_shards_shard_44_0):
     """Verify we can read the parquet file into a single data frame."""
     total_chunks = 0
-    for frame in ParquetReader().read(parquet_shards_shard_44_0):
+    for frame in ParquetPyarrowReader().read(parquet_shards_shard_44_0):
         total_chunks += 1
         assert len(frame) == 7
 
@@ -279,7 +279,7 @@ def test_parquet_reader(parquet_shards_shard_44_0):
 def test_parquet_reader_chunked(parquet_shards_shard_44_0):
     """Verify we can read the parquet file into a single data frame."""
     total_chunks = 0
-    for frame in ParquetReader(chunksize=1).read(parquet_shards_shard_44_0):
+    for frame in ParquetPyarrowReader(chunksize=1).read(parquet_shards_shard_44_0):
         total_chunks += 1
         assert len(frame) == 1
     assert total_chunks == 7
@@ -318,12 +318,12 @@ def test_parquet_reader_columns(parquet_shards_shard_44_0):
     column_subset = ["id", "dec"]
 
     # test column_names class property
-    for frame in ParquetReader(column_names=column_subset).read(parquet_shards_shard_44_0):
-        assert set(frame.columns) == set(column_subset)
+    for frame in ParquetPyarrowReader(column_names=column_subset).read(parquet_shards_shard_44_0):
+        assert set(frame.column_names) == set(column_subset)
 
     # test read_columns kwarg
-    for frame in ParquetReader().read(parquet_shards_shard_44_0, read_columns=column_subset):
-        assert set(frame.columns) == set(column_subset)
+    for frame in ParquetPyarrowReader().read(parquet_shards_shard_44_0, read_columns=column_subset):
+        assert set(frame.column_names) == set(column_subset)
 
 
 def test_read_fits(formats_fits):

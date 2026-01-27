@@ -4,7 +4,7 @@ from .csv import CsvPyarrowReader, CsvReader, IndexedCsvReader
 from .ecsv import AstropyEcsvReader
 from .fits import FitsReader
 from .input_reader import InputReader
-from .parquet import IndexedParquetReader, ParquetPyarrowReader, ParquetReader
+from .parquet import IndexedParquetReader, ParquetPandasReader, ParquetPyarrowReader
 
 
 def get_file_reader(
@@ -64,7 +64,7 @@ def get_file_reader(
             **kwargs,
         )
     if file_format == "parquet":
-        return ParquetReader(chunksize=chunksize, **kwargs)
+        return ParquetPyarrowReader(chunksize=chunksize, column_names=column_names, **kwargs)
     if file_format == "indexed_csv":
         return IndexedCsvReader(
             chunksize=chunksize,
