@@ -327,6 +327,29 @@ def test_indexed_parquet_reader(indexed_files_dir):
     assert total_chunks == 29
 
 
+def test_indexed_parquet_reader_by_row_groups(indexed_files_dir):
+    """Verify we can read the parquet files by row group with the indexed parquet reader."""
+    # Test with the standard index.
+    total_chunks = 0
+    for frame in IndexedParquetReader(chunksize=1).read_by_row_group(
+        indexed_files_dir / "parquet_list_single.txt"
+    ):
+        total_chunks += 1
+        assert len(frame) > 0
+
+    assert total_chunks == 5  # Each parquet file has 1 row group, 5 files total
+
+    # Test with an index that includes an additional file with multiple row groups.
+    total_chunks = 0
+    for frame in IndexedParquetReader(chunksize=1).read_by_row_group(
+        indexed_files_dir / "parquet_list_multi_row_groups.txt"
+    ):
+        total_chunks += 1
+        assert len(frame) > 0
+
+    assert total_chunks == 13  # 5 single-row-group files + 1 eight-row-group file
+
+
 def test_parquet_reader_columns(parquet_shards_shard_44_0):
     """Verify we can read a subset of columns."""
     column_subset = ["id", "dec"]

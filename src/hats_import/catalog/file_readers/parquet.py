@@ -146,8 +146,6 @@ class IndexedParquetReader(InputReader):
         """Read the parquet files listed in the index file by row group,
         yielding pyarrow Tables.
         """
-        raise NotImplementedError("IndexedParquetReader does not support read_by_row_group method.")
-        # TODO - check below suggestion
         columns = read_columns or self.column_names
         file_names = self.read_index_file(
             input_file=input_file, upath_kwargs=self.upath_kwargs, **self.kwargs
@@ -155,10 +153,8 @@ class IndexedParquetReader(InputReader):
         (_, input_dataset) = file_io.read_parquet_dataset(file_names, **self.kwargs)
 
         for fragment in input_dataset.get_fragments():
-            parquet_file = fragment.to_table(columns=columns).replace_schema_metadata()
+            parquet_file = file_io.read_parquet_file(fragment.path, **self.kwargs)
             for row_group in range(parquet_file.num_row_groups):
-                table = parquet_file.slice(
-                    parquet_file.row_group_offsets[row_group],
-                    parquet_file.row_group_lengths[row_group],
-                )
+                table = parquet_file.read_row_group(row_group, columns=columns)
+                table = table.replace_schema_metadata()
                 yield table
