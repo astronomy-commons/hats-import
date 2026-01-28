@@ -14,6 +14,7 @@ from hats_import.catalog.file_readers import (
     IndexedCsvReader,
     IndexedParquetReader,
     ParquetPyarrowReader,
+    ParquetReader,
     get_file_reader,
 )
 

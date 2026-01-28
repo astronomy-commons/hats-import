@@ -207,6 +207,7 @@ def parquet_shards_shard_44_0(test_data_dir):
 def multi_row_group_parquet(test_data_dir):
     return test_data_dir / "test_formats" / "multi_row_group.parquet"
 
+
 @pytest.fixture
 def mixed_schema_csv_dir(test_data_dir):
     return test_data_dir / "mixed_schema"

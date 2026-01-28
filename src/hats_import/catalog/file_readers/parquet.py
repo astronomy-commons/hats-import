@@ -154,7 +154,7 @@ class IndexedParquetReader(InputReader):
         file_names = self.read_index_file(
             input_file=input_file, upath_kwargs=self.upath_kwargs, **self.kwargs
         )
-        (_, input_dataset) = file_io.read_parquet_dataset(file_names, **self.kwargs)
+        _, input_dataset = file_io.read_parquet_dataset(file_names, **self.kwargs)
 
         for fragment in input_dataset.get_fragments():
             parquet_file = file_io.read_parquet_file(fragment.path, **self.kwargs)
