@@ -13,8 +13,8 @@ from hats_import.catalog.file_readers import (
     FitsReader,
     IndexedCsvReader,
     IndexedParquetReader,
+    ParquetPandasReader,
     ParquetPyarrowReader,
-    ParquetReader,
     get_file_reader,
 )
 
@@ -292,9 +292,16 @@ def test_parquet_reader_by_row_group(multi_row_group_parquet):
     # Check number of row groups in test file.
     assert pq.ParquetFile(multi_row_group_parquet).num_row_groups == 8
 
-    # Check we can iterate by row group.
+    # Check we can iterate by row group, with ParquetPandasReader.
     total_row_groups = 0
-    for row_group in ParquetReader(chunksize=1).read_by_row_group(multi_row_group_parquet):
+    for row_group in ParquetPandasReader(chunksize=1).read_by_row_group(multi_row_group_parquet):
+        total_row_groups += 1
+        assert len(row_group) > 0
+    assert total_row_groups == 8
+
+    # Check we can iterate by row group, with ParquetPyarrowReader.
+    total_row_groups = 0
+    for row_group in ParquetPyarrowReader(chunksize=1).read_by_row_group(multi_row_group_parquet):
         total_row_groups += 1
         assert len(row_group) > 0
     assert total_row_groups == 8
