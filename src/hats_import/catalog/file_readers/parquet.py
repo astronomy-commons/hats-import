@@ -4,8 +4,10 @@ from hats.io import file_io
 from hats_import.catalog.file_readers.input_reader import InputReader
 
 
-class ParquetReader(InputReader):
+class ParquetPandasReader(InputReader):
     """Parquet reader for the most common Parquet reading arguments.
+
+    Reads input file as a pandas.DataFrame.
 
     Attributes:
         chunksize (int): number of rows of the file to process at once.
@@ -43,6 +45,8 @@ class ParquetReader(InputReader):
 
 class ParquetPyarrowReader(InputReader):
     """Parquet reader that uses the pyarrow library for reading.
+
+    Reads file as a pyarrow.Table.
 
     Attributes:
         chunksize (int): number of rows of the file to process at once.
@@ -120,7 +124,7 @@ class IndexedParquetReader(InputReader):
         file_names = self.read_index_file(
             input_file=input_file, upath_kwargs=self.upath_kwargs, **self.kwargs
         )
-        (_, input_dataset) = file_io.read_parquet_dataset(file_names, **self.kwargs)
+        _, input_dataset = file_io.read_parquet_dataset(file_names, **self.kwargs)
 
         batches, nrows = [], 0
         for batch in input_dataset.to_batches(

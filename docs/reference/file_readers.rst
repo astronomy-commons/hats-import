@@ -86,7 +86,7 @@ Built-in Classes and Functions
     CsvReader
     CsvPyarrowReader
     IndexedCsvReader
-    ParquetReader
+    ParquetPandasReader
     ParquetPyarrowReader
     IndexedParquetReader 
     AstropyEcsvReader
