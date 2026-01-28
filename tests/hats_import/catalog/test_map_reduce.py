@@ -112,6 +112,28 @@ def test_read_single_fits(tmp_path, formats_fits):
     npt.assert_array_equal(result, expected)
 
 
+def test_read_parquet_by_row_group(tmp_path, multi_row_group_parquet):
+    """Test reading a parquet file with multiple row groups, by row group."""
+    (tmp_path / "row_count_histograms").mkdir(parents=True)
+    mr.map_to_pixels(
+        input_file=multi_row_group_parquet,
+        pickled_reader_file=pickle_file_reader(
+            tmp_path, get_file_reader("parquet", iterate_by_row_groups=True)
+        ),
+        highest_order=0,
+        ra_column="ra",
+        dec_column="dec",
+        resume_path=tmp_path,
+        mapping_key="map_0",
+    )
+
+    result = read_partial_histogram(tmp_path, "map_0")
+    assert len(result) == 12
+    expected = hist.empty_histogram(0)
+    expected[11] = 131
+    npt.assert_array_equal(result, expected)
+
+
 def test_map_headers_wrong(formats_headers_csv, tmp_path):
     """Test loading the a file with non-default headers (without specifying right headers)"""
     with pytest.raises(ValueError, match="columns expected but not found"):

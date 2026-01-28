@@ -13,6 +13,7 @@ from hats_import.catalog.file_readers import (
     FitsReader,
     IndexedCsvReader,
     IndexedParquetReader,
+    ParquetPandasReader,
     ParquetPyarrowReader,
     get_file_reader,
 )
@@ -268,6 +269,15 @@ def test_indexed_csv_reader(indexed_files_dir):
 
 def test_parquet_reader(parquet_shards_shard_44_0):
     """Verify we can read the parquet file into a single data frame."""
+    # Test ParquetPandasReader.
+    total_chunks = 0
+    for frame in ParquetPandasReader().read(parquet_shards_shard_44_0):
+        total_chunks += 1
+        assert len(frame) == 7
+
+    assert total_chunks == 1
+
+    # Test ParquetPyarrowReader.
     total_chunks = 0
     for frame in ParquetPyarrowReader().read(parquet_shards_shard_44_0):
         total_chunks += 1
@@ -283,6 +293,27 @@ def test_parquet_reader_chunked(parquet_shards_shard_44_0):
         total_chunks += 1
         assert len(frame) == 1
     assert total_chunks == 7
+
+
+def test_parquet_reader_by_row_group(multi_row_group_parquet):
+    """Verify we can read the parquet file into a single data frame, iterating
+    by row group."""
+    # Check number of row groups in test file.
+    assert pq.ParquetFile(multi_row_group_parquet).num_row_groups == 8
+
+    # Check we can iterate by row group, with ParquetPandasReader.
+    total_row_groups = 0
+    for row_group in ParquetPandasReader(iterate_by_row_groups=True).read(multi_row_group_parquet):
+        total_row_groups += 1
+        assert len(row_group) > 0
+    assert total_row_groups == 8
+
+    # Check we can iterate by row group, with ParquetPyarrowReader.
+    total_row_groups = 0
+    for row_group in ParquetPyarrowReader(iterate_by_row_groups=True).read(multi_row_group_parquet):
+        total_row_groups += 1
+        assert len(row_group) > 0
+    assert total_row_groups == 8
 
 
 def test_indexed_parquet_reader(indexed_files_dir):
