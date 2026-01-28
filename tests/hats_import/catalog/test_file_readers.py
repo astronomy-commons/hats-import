@@ -293,7 +293,7 @@ def test_parquet_reader_by_row_group(multi_row_group_parquet):
 
     # Check we can iterate by row group.
     total_row_groups = 0
-    for row_group in ParquetReader(chunksize=1).read(multi_row_group_parquet, by_row_group=True):
+    for row_group in ParquetReader(chunksize=1).read_by_row_group(multi_row_group_parquet):
         total_row_groups += 1
         assert len(row_group) > 0
     assert total_row_groups == 8

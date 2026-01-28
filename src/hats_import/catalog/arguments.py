@@ -99,6 +99,9 @@ class ImportArguments(RuntimeArguments):
     file_reader: InputReader | str | None = None
     """instance of input reader that specifies arguments necessary for reading
     from your input files"""
+    by_row_group: bool = False
+    """whether to read input files by row group (if supported by the file reader)
+    or by chunk size. defaults to False."""
     existing_pixels: Sequence[tuple[int, int]] | None = None
     """the list of HEALPix pixels to include in the alignment"""
 
