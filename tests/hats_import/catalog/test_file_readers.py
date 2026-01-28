@@ -269,6 +269,15 @@ def test_indexed_csv_reader(indexed_files_dir):
 
 def test_parquet_reader(parquet_shards_shard_44_0):
     """Verify we can read the parquet file into a single data frame."""
+    # Test ParquetPandasReader.
+    total_chunks = 0
+    for frame in ParquetPandasReader().read(parquet_shards_shard_44_0):
+        total_chunks += 1
+        assert len(frame) == 7
+
+    assert total_chunks == 1
+
+    # Test ParquetPyarrowReader.
     total_chunks = 0
     for frame in ParquetPyarrowReader().read(parquet_shards_shard_44_0):
         total_chunks += 1
