@@ -44,25 +44,14 @@ def _iterate_input_file(
     dec_column,
     use_healpix_29=False,
     read_columns=None,
-    by_row_group=False,
 ):
     """Helper function to handle input file reading and healpix pixel calculation"""
     with open(pickled_reader_file, "rb") as pickle_file:
         file_reader = cloudpickle.load(pickle_file)
     if not file_reader:
         raise NotImplementedError("No file reader implemented")
-    if by_row_group and not hasattr(file_reader, "read_by_row_group"):
-        raise NotImplementedError(
-            f"File reader of type {type(file_reader)} does not support reading "
-            "by row group, but by_row_group was requested."
-        )
 
-    if by_row_group:
-        chunks = file_reader.read_by_row_group(input_file, read_columns=read_columns)
-    else:
-        chunks = file_reader.read(input_file, read_columns=read_columns)
-
-    for chunk_number, data in enumerate(chunks):
+    for chunk_number, data in enumerate(file_reader.read(input_file, read_columns=read_columns)):
         if use_healpix_29:
             if isinstance(data, pd.DataFrame) and data.index.name == SPATIAL_INDEX_COLUMN:
                 mapped_pixels = spatial_index_to_healpix(data.index, target_order=highest_order)
@@ -97,7 +86,6 @@ def map_to_pixels(
     dec_column,
     use_healpix_29=False,
     threshold_mode="row_count",
-    by_row_group=False,
 ):
     """Map a file of input objects to their healpix pixels.
 
@@ -112,8 +100,6 @@ def map_to_pixels(
         ra_column (str): where to find right ascension data in the dataframe
         dec_column (str): where to find declation in the dataframe
         threshold_mode (str): mode for thresholding, either "row_count" or "mem_size".
-        by_row_group (bool): whether to read the input file by row group (if supported
-            by the file reader) or by chunk size. Defaults to False.
 
     Returns:
         one-dimensional numpy array of long integers where the value at each index corresponds
@@ -145,7 +131,6 @@ def map_to_pixels(
             dec_column,
             use_healpix_29,
             read_columns,
-            by_row_group=by_row_group,
         ):
             data_mem_sizes = None
 

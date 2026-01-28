@@ -49,7 +49,6 @@ def run(args, client):
                     dec_column=args.dec_column,
                     use_healpix_29=args.use_healpix_29,
                     threshold_mode=resume_plan.threshold_mode,
-                    by_row_group=args.by_row_group,
                 )
             )
         resume_plan.wait_for_mapping(futures)

@@ -117,13 +117,14 @@ def test_read_parquet_by_row_group(tmp_path, multi_row_group_parquet):
     (tmp_path / "row_count_histograms").mkdir(parents=True)
     mr.map_to_pixels(
         input_file=multi_row_group_parquet,
-        pickled_reader_file=pickle_file_reader(tmp_path, get_file_reader("parquet")),
+        pickled_reader_file=pickle_file_reader(
+            tmp_path, get_file_reader("parquet", iterate_by_row_groups=True)
+        ),
         highest_order=0,
         ra_column="ra",
         dec_column="dec",
         resume_path=tmp_path,
         mapping_key="map_0",
-        by_row_group=True,
     )
 
     result = read_partial_histogram(tmp_path, "map_0")
@@ -131,22 +132,6 @@ def test_read_parquet_by_row_group(tmp_path, multi_row_group_parquet):
     expected = hist.empty_histogram(0)
     expected[11] = 131
     npt.assert_array_equal(result, expected)
-
-
-def test_read_fits_by_row_group(tmp_path, formats_fits):
-    """Test reading a fits file by row group fails."""
-    (tmp_path / "row_count_histograms").mkdir(parents=True)
-    with pytest.raises(NotImplementedError, match="does not support reading by row group"):
-        mr.map_to_pixels(
-            input_file=formats_fits,
-            pickled_reader_file=pickle_file_reader(tmp_path, get_file_reader("fits")),
-            highest_order=0,
-            ra_column="ra",
-            dec_column="dec",
-            resume_path=tmp_path,
-            mapping_key="map_0",
-            by_row_group=True,
-        )
 
 
 def test_map_headers_wrong(formats_headers_csv, tmp_path):

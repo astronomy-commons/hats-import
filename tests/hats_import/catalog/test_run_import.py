@@ -16,7 +16,7 @@ from pyarrow.parquet import ParquetFile
 
 import hats_import.catalog.run_import as runner
 from hats_import.catalog.arguments import ImportArguments
-from hats_import.catalog.file_readers import CsvReader
+from hats_import.catalog.file_readers import CsvReader, ParquetPyarrowReader
 from hats_import.catalog.resume_plan import ResumePlan
 
 
@@ -569,11 +569,10 @@ def test_import_iterate_by_row_group(
     args = ImportArguments(
         output_artifact_name="small_sky_source_catalog_by_row",
         input_file_list=[multi_row_group_parquet],
-        file_reader="parquet",
+        file_reader=ParquetPyarrowReader(iterate_by_row_groups=True),
         output_path=tmp_path,
         highest_healpix_order=0,
         progress_bar=False,
-        by_row_group=True,
         add_healpix_29=False,
     )
 
