@@ -16,7 +16,7 @@ from pyarrow.parquet import ParquetFile
 
 import hats_import.catalog.run_import as runner
 from hats_import.catalog.arguments import ImportArguments
-from hats_import.catalog.file_readers import CsvReader
+from hats_import.catalog.file_readers import CsvReader, ParquetPyarrowReader
 from hats_import.catalog.resume_plan import ResumePlan
 
 
@@ -557,3 +557,32 @@ def test_import_with_existing_pixels_invalid_highest_order(small_sky_parts_dir, 
             progress_bar=False,
             existing_pixels=[(1, 44), (1, 45)],
         )
+
+
+@pytest.mark.dask
+def test_import_iterate_by_row_group(
+    dask_client,
+    multi_row_group_parquet,
+    tmp_path,
+):
+    """Test that we can import a catalog by iterating over row groups."""
+    args = ImportArguments(
+        output_artifact_name="small_sky_source_catalog_by_row",
+        input_file_list=[multi_row_group_parquet],
+        file_reader=ParquetPyarrowReader(iterate_by_row_groups=True),
+        output_path=tmp_path,
+        highest_healpix_order=0,
+        progress_bar=False,
+        add_healpix_29=False,
+    )
+
+    runner.run(args, dask_client)
+
+    # Check that the catalog metadata file exists
+    catalog = read_hats(args.catalog_path)
+    assert catalog.on_disk
+    assert catalog.catalog_path == args.catalog_path
+    assert catalog.catalog_info.ra_column == "ra"
+    assert catalog.catalog_info.dec_column == "dec"
+    assert catalog.catalog_info.total_rows == 131
+    assert len(catalog.get_healpix_pixels()) == 1

@@ -1,0 +1,6 @@
+tests/data/parquet_shards/order_0/dir_0/pixel_11/shard_0_0.parquet
+tests/data/parquet_shards/order_0/dir_0/pixel_11/shard_1_0.parquet
+tests/data/parquet_shards/order_0/dir_0/pixel_11/shard_2_0.parquet
+tests/data/parquet_shards/order_0/dir_0/pixel_11/shard_3_0.parquet
+tests/data/parquet_shards/order_0/dir_0/pixel_11/shard_4_0.parquet
+tests/data/test_formats/multi_row_group.parquet

@@ -75,6 +75,27 @@ formats, but you may encounter rougher edges.
 
 .. currentmodule:: hats_import.catalog.file_readers
 
+
+Iterate by Row Groups
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For Parquet files, both the ``ParquetPandasReader`` and ``ParquetPyarrowReader``
+support reading by row groups, rather than by chunks of rows. This can be more
+efficient if your Parquet files are already organized into row groups that are
+suitable for your processing.
+
+To enable this, set the ``iterate_by_row_groups`` parameter to ``True`` when
+instantiating the reader. Then, when you call the ``read`` method, it will yield
+dataframes or tables corresponding to each row group in the Parquet file.
+
+.. code-block:: python
+
+    args = ImportArguments(
+        file_reader=ParquetPyarrowReader(iterate_by_row_groups=True),
+        ...
+    )
+
+
 Built-in Classes and Functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
