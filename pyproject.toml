@@ -19,7 +19,7 @@ requires-python = ">=3.11"
 dependencies = [
     "cloudpickle>=3.0.0", # Reader serialisation, transitive dependency of Dask
     # Odd regression for newer dask under python 3.11 only.
-    "dask[complete]>=2025.3.0,<2025.4.0; python_version=='3.11'",
+    "dask[complete]>=2025.3.0,<2026.2.0; python_version=='3.11'",
     "dask[complete]>=2025.3.0; python_version != '3.11'",
     "deprecated",
     "hats>=0.8,<0.9",
