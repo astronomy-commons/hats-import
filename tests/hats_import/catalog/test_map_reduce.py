@@ -212,6 +212,46 @@ def test_map_with_schema(tmp_path, mixed_schema_csv_dir, mixed_schema_csv_parque
     assert (result == expected).all()
 
 
+def test_map_raises_single_precision_warning(tmp_path, small_sky_single_file):
+    """Test that a warning is raised when single-precision floats are used for ra/dec columns"""
+    # Setup histogram directory
+    (tmp_path / "histograms").mkdir(parents=True)
+
+    # Check the dtype of the ra/dec columns in the test file
+    reader = get_file_reader("csv")
+    pandas_generator = reader.read(small_sky_single_file)
+    next_frame = next(pandas_generator)
+    dtypes = next_frame.dtypes
+    print(dtypes)
+
+    # Expected output:
+    # id             int64
+    # ra           float64
+    # dec          float64
+    # ra_error       int64
+    # dec_error      int64
+    # dtype: object
+
+    # Copy the original csv file, and change ra/dec to single-precision floats
+    temp_file = tmp_path / "small_sky_single_precision.csv"
+    modified_frame = next_frame.copy()
+    modified_frame["ra"] = modified_frame["ra"].astype(np.float32)
+    modified_frame["dec"] = modified_frame["dec"].astype(np.float32)
+    modified_frame.to_csv(temp_file, index=False)
+
+    # Test that the warning is raised when mapping with single-precision ra/dec
+    with pytest.warns(UserWarning, match="single-precision"):
+        mr.map_to_pixels(
+            input_file=small_sky_single_file,
+            pickled_reader_file=pickle_file_reader(tmp_path, get_file_reader("csv")),
+            highest_order=0,
+            ra_column="ra_single",
+            dec_column="dec_single",
+            resume_path=tmp_path,
+            mapping_key="map_0",
+        )
+
+
 def test_map_small_sky_order0(tmp_path, small_sky_single_file):
     """Test loading the small sky catalog and partitioning each object into the same large bucket"""
     (tmp_path / "histograms").mkdir(parents=True)
@@ -306,6 +346,33 @@ def test_split_pixels_headers(formats_headers_csv, assert_parquet_file_ids, tmp_
 
     file_name = tmp_path / "order_0" / "dir_0" / "pixel_1" / "shard_0_0.parquet"
     assert not os.path.exists(file_name)
+
+
+def test_split_pixels_single_precision_warning(small_sky_single_file, tmp_path):
+    """Test that a warning is raised when single-precision floats are used for ra/dec columns"""
+        plan = ResumePlan(tmp_path=tmp_path, progress_bar=False, input_paths=["foo1"])
+        raw_histogram = np.full(12, 0)
+        raw_histogram[11] = 131
+        alignment_file = plan.get_alignment_file(raw_histogram, -1, 0, 0, 1_000, False, 131)
+    
+        # Create a copy of the original csv file, and change ra/dec to single-precision floats
+        temp_file = tmp_path / "small_sky_single_precision.csv"
+        reader = get_file_reader("csv")
+
+        # Test that the warning is raised when mapping with single-precision ra/dec
+        with pytest.warns(UserWarning, match="single-precision"):
+            mr.split_pixels(
+                input_file=small_sky_single_file,
+                pickled_reader_file=pickle_file_reader(tmp_path, get_file_reader("csv")),
+                highest_order=0,
+                ra_column="ra_mean",
+                dec_column="dec_mean",
+                splitting_key="0",
+                cache_shard_path=tmp_path,
+                resume_path=tmp_path,
+                alignment_file=alignment_file,
+            )
+
 
 
 def test_reduce_idempotent(parquet_shards_dir, assert_parquet_file_ids, tmp_path):

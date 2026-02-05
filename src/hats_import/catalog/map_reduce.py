@@ -112,6 +112,8 @@ def map_to_pixels(
         row_count_histo = HistogramAggregator(highest_order)
         mem_size_histo = HistogramAggregator(highest_order)
 
+        # TODO - check type here?
+
         # Determine which columns to read from the input file. If we're using
         # the bytewise/mem_size histogram, we need to read all columns to accurately
         # estimate memory usage.
@@ -192,6 +194,9 @@ def split_pixels(
     try:
         with open(alignment_file, "rb") as pickle_file:
             alignment = pickle.load(pickle_file)
+
+        # TODO - check type here?
+
         for chunk_number, data, mapped_pixels in _iterate_input_file(
             input_file, pickled_reader_file, highest_order, ra_column, dec_column, use_healpix_29
         ):
