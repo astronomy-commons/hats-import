@@ -11,6 +11,8 @@ from hats.catalog import CatalogCollection
 from hats.io import file_io
 from upath import UPath
 
+import hats_import.file_io as import_io
+
 
 @dataclass(kw_only=True)
 class VerificationArguments:
@@ -56,12 +58,12 @@ class VerificationArguments:
     @property
     def input_dataset_path(self) -> UPath:
         """Path to the directory under `input_catalog_path` that contains the parquet dataset."""
-        return file_io.append_paths_to_pointer(self.input_catalog_path, hats.io.paths.DATASET_DIR)
+        return import_io.append_paths_to_pointer(self.input_catalog_path, hats.io.paths.DATASET_DIR)
 
     @property
     def output_file_path(self) -> UPath:
         """Path to the output file (`output_path` / `output_filename`)."""
-        return file_io.append_paths_to_pointer(self.output_path, self.output_filename)
+        return import_io.append_paths_to_pointer(self.output_path, self.output_filename)
 
     def __post_init__(self) -> None:
         self.input_catalog_path = file_io.get_upath(self.input_catalog_path)
@@ -75,6 +77,6 @@ class VerificationArguments:
         self.catalog_total_rows = catalog.catalog_info.total_rows
 
         if self.truth_schema is not None:
-            self.truth_schema = file_io.append_paths_to_pointer(self.truth_schema)
+            self.truth_schema = import_io.append_paths_to_pointer(self.truth_schema)
             if not self.truth_schema.exists():
                 raise FileNotFoundError("truth_schema must be an existing file or directory")
