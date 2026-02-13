@@ -234,6 +234,23 @@ def test_map_with_schema(tmp_path, mixed_schema_csv_dir, mixed_schema_csv_parque
     assert (result == expected).all()
 
 
+def test_map_raises_single_precision_warning(tmp_path, small_sky_single_file):
+    """Test that a warning is raised when single-precision floats are used for ra/dec columns"""
+    # Test that the warning is raised when mapping with single-precision ra/dec
+    with pytest.warns(UserWarning, match="is not double-precision"):
+        mr.map_to_pixels(
+            input_file=small_sky_single_file,
+            pickled_reader_file=pickle_file_reader(
+                tmp_path, get_file_reader("csv", type_map={"ra": np.float32, "dec": np.float32})
+            ),
+            highest_order=0,
+            ra_column="ra",
+            dec_column="dec",
+            resume_path=tmp_path,
+            mapping_key="map_0",
+        )
+
+
 def test_map_small_sky_order0(tmp_path, small_sky_single_file):
     """Test loading the small sky catalog and partitioning each object into the same large bucket"""
     (tmp_path / "histograms").mkdir(parents=True)
@@ -328,6 +345,30 @@ def test_split_pixels_headers(formats_headers_csv, assert_parquet_file_ids, tmp_
 
     file_name = tmp_path / "order_0" / "dir_0" / "pixel_1" / "shard_0_0.parquet"
     assert not os.path.exists(file_name)
+
+
+def test_split_pixels_single_precision_warning(small_sky_single_file, tmp_path):
+    """Test that a warning is raised when single-precision floats are used for ra/dec columns"""
+    plan = ResumePlan(tmp_path=tmp_path, progress_bar=False, input_paths=["foo1"])
+    raw_histogram = np.full(12, 0)
+    raw_histogram[11] = 131
+    alignment_file = plan.get_alignment_file(raw_histogram, -1, 0, 0, 1_000, False, 131)
+
+    # Test that the warning is raised when mapping with single-precision ra/dec
+    with pytest.warns(UserWarning, match="is not double-precision"):
+        mr.split_pixels(
+            input_file=small_sky_single_file,
+            pickled_reader_file=pickle_file_reader(
+                tmp_path, get_file_reader("csv", type_map={"ra": np.float32, "dec": np.float32})
+            ),
+            highest_order=0,
+            ra_column="ra",
+            dec_column="dec",
+            splitting_key="0",
+            cache_shard_path=tmp_path,
+            resume_path=tmp_path,
+            alignment_file=alignment_file,
+        )
 
 
 def test_reduce_idempotent(parquet_shards_dir, assert_parquet_file_ids, tmp_path):
