@@ -1,6 +1,7 @@
 """Import a set of non-hats files using dask for parallelization"""
 
 import pickle
+import warnings
 
 import cloudpickle
 import hats.pixel_math.healpix_shim as hp
@@ -36,6 +37,42 @@ def _has_named_index(dataframe):
     return True
 
 
+def _warn_if_non_float64_columns(data, columns):
+    """Warn when coordinate-like columns are not float64."""
+    if not isinstance(data, pd.DataFrame):
+        return
+    for column in columns:
+        if column not in data.columns:
+            raise ValueError(f"Expected column '{column}' not found in input file.")
+        dtype = data[column].dtype
+        if dtype != np.float64:
+            warnings.warn(
+                (
+                    f"Column '{column}' has dtype '{dtype}'. "
+                    "Expected float64 for accurate pixel mapping and histogram results."
+                ),
+                stacklevel=2,
+            )
+
+
+def _map_chunk_to_pixels(data, highest_order, ra_column, dec_column, use_healpix_29):
+    """Compute healpix mapping for a chunk of catalog data.
+
+    Returns:
+        np.ndarray: healpix pixel numbers corresponding to each row in the input data."""
+    if use_healpix_29:
+        if isinstance(data, pd.DataFrame) and data.index.name == SPATIAL_INDEX_COLUMN:
+            return spatial_index_to_healpix(data.index, target_order=highest_order)
+        return spatial_index_to_healpix(data[SPATIAL_INDEX_COLUMN], target_order=highest_order)
+    if isinstance(data, pd.DataFrame):
+        return hp.radec2pix(
+            highest_order,
+            data[ra_column].to_numpy(copy=False, dtype=float),
+            data[dec_column].to_numpy(copy=False, dtype=float),
+        )
+    return hp.radec2pix(highest_order, data[ra_column].to_numpy(), data[dec_column].to_numpy())
+
+
 def _iterate_input_file(
     input_file: UPath,
     pickled_reader_file: str,
@@ -45,34 +82,24 @@ def _iterate_input_file(
     use_healpix_29=False,
     read_columns=None,
 ):
-    """Helper function to handle input file reading and healpix pixel calculation"""
+    """Helper function to handle input file reading and healpix pixel calculation.
+
+    Yields:
+        Tuple[int, pd.DataFrame | pa.Table, np.ndarray]:
+            Chunk index, chunk data, and mapped pixel numbers for the current batch.
+    """
     with open(pickled_reader_file, "rb") as pickle_file:
         file_reader = cloudpickle.load(pickle_file)
     if not file_reader:
         raise NotImplementedError("No file reader implemented")
 
+    first_iteration = False
     for chunk_number, data in enumerate(file_reader.read(input_file, read_columns=read_columns)):
-        if use_healpix_29:
-            if isinstance(data, pd.DataFrame) and data.index.name == SPATIAL_INDEX_COLUMN:
-                mapped_pixels = spatial_index_to_healpix(data.index, target_order=highest_order)
-            else:
-                mapped_pixels = spatial_index_to_healpix(
-                    data[SPATIAL_INDEX_COLUMN], target_order=highest_order
-                )
-        else:
-            # Set up the pixel data
-            if isinstance(data, pd.DataFrame):
-                mapped_pixels = hp.radec2pix(
-                    highest_order,
-                    data[ra_column].to_numpy(copy=False, dtype=float),
-                    data[dec_column].to_numpy(copy=False, dtype=float),
-                )
-            else:
-                mapped_pixels = hp.radec2pix(
-                    highest_order,
-                    data[ra_column].to_numpy(),
-                    data[dec_column].to_numpy(),
-                )
+        if not first_iteration and not use_healpix_29:
+            # Only check for single-precision warning on the first chunk to avoid redundant warnings in large files.
+            _warn_if_non_float64_columns(data, [ra_column, dec_column])
+            first_iteration = True
+        mapped_pixels = _map_chunk_to_pixels(data, highest_order, ra_column, dec_column, use_healpix_29)
         yield chunk_number, data, mapped_pixels
 
 
@@ -111,8 +138,6 @@ def map_to_pixels(
     try:
         row_count_histo = HistogramAggregator(highest_order)
         mem_size_histo = HistogramAggregator(highest_order)
-
-        # TODO - check type here?
 
         # Determine which columns to read from the input file. If we're using
         # the bytewise/mem_size histogram, we need to read all columns to accurately
@@ -194,8 +219,6 @@ def split_pixels(
     try:
         with open(alignment_file, "rb") as pickle_file:
             alignment = pickle.load(pickle_file)
-
-        # TODO - check type here?
 
         for chunk_number, data, mapped_pixels in _iterate_input_file(
             input_file, pickled_reader_file, highest_order, ra_column, dec_column, use_healpix_29
