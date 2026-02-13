@@ -215,8 +215,7 @@ def test_map_with_schema(tmp_path, mixed_schema_csv_dir, mixed_schema_csv_parque
 def test_map_raises_single_precision_warning(tmp_path, small_sky_single_file):
     """Test that a warning is raised when single-precision floats are used for ra/dec columns"""
     # Test that the warning is raised when mapping with single-precision ra/dec
-    # (Note the use of type_map to force the type in the csv reader)
-    with pytest.warns(UserWarning, match="Expected float64"):
+    with pytest.warns(UserWarning, match="is not double-precision"):
         mr.map_to_pixels(
             input_file=small_sky_single_file,
             pickled_reader_file=pickle_file_reader(
@@ -334,8 +333,7 @@ def test_split_pixels_single_precision_warning(small_sky_single_file, tmp_path):
     alignment_file = plan.get_alignment_file(raw_histogram, -1, 0, 0, 1_000, False, 131)
 
     # Test that the warning is raised when mapping with single-precision ra/dec
-    # (Note the use of type_map to force the type in the csv reader)
-    with pytest.warns(UserWarning, match="Expected float64"):
+    with pytest.warns(UserWarning, match="is not double-precision"):
         mr.split_pixels(
             input_file=small_sky_single_file,
             pickled_reader_file=pickle_file_reader(

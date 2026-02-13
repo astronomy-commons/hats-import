@@ -37,21 +37,38 @@ def _has_named_index(dataframe):
     return True
 
 
-def _warn_if_non_float64_columns(data, columns):
-    """Warn when coordinate-like columns are not float64."""
-    if not isinstance(data, pd.DataFrame):
-        return
+def _warn_if_not_double_precision_columns(data, columns):
+    """Warn when coordinate-like columns are not double-precision.
+
+    Handles cases where we have designated a schema_file=... parameter in our
+    file reader, such that we could have a pandas DataFrame with Arrow dtypes.
+    """
+
+    def _check_column_is_double_precision(column):
+        """Check if the given column is double-precision float, accounting for
+        both pandas and pyarrow types.
+
+        Returns:
+            bool: True if the column is double-precision float, False otherwise.
+        """
+        if isinstance(data, pd.DataFrame):
+            dtype = data[column].dtype
+            if isinstance(dtype, pd.ArrowDtype) and pa.types.is_float64(dtype.pyarrow_dtype):
+                # Accept Arrow double even within a pandas DataFrame (eg, from schema_file=...)
+                return True
+            return dtype == np.float64
+        if isinstance(data, pa.Table):
+            field_type = data.schema.field(column).type
+            return pa.types.is_float64(field_type)
+        raise TypeError(f"Unsupported data type: {type(data)}")
+
     for column in columns:
-        if column not in data.columns:
-            raise ValueError(f"Expected column '{column}' not found in input file.")
-        dtype = data[column].dtype
-        if dtype != np.float64:
+        if not _check_column_is_double_precision(column):
             warnings.warn(
-                (
-                    f"Column '{column}' has dtype '{dtype}'. "
-                    "Expected float64 for accurate pixel mapping and histogram results."
-                ),
-                stacklevel=2,
+                f"Column '{column}' is not double-precision float. "
+                "This may lead to inaccurate pixel mapping. "
+                "Consider converting this column to float64 for better precision.",
+                UserWarning,
             )
 
 
@@ -96,8 +113,9 @@ def _iterate_input_file(
     first_iteration = False
     for chunk_number, data in enumerate(file_reader.read(input_file, read_columns=read_columns)):
         if not first_iteration and not use_healpix_29:
-            # Only check for single-precision warning on the first chunk to avoid redundant warnings in large files.
-            _warn_if_non_float64_columns(data, [ra_column, dec_column])
+            # Only check for single-precision warning on the first chunk to
+            # avoid redundant warnings in large files.
+            _warn_if_not_double_precision_columns(data, [ra_column, dec_column])
             first_iteration = True
         mapped_pixels = _map_chunk_to_pixels(data, highest_order, ra_column, dec_column, use_healpix_29)
         yield chunk_number, data, mapped_pixels
