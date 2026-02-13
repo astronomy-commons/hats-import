@@ -110,13 +110,13 @@ def _iterate_input_file(
     if not file_reader:
         raise NotImplementedError("No file reader implemented")
 
-    first_iteration = False
+    first_iteration = True
     for chunk_number, data in enumerate(file_reader.read(input_file, read_columns=read_columns)):
-        if not first_iteration and not use_healpix_29:
+        if first_iteration and not use_healpix_29:
             # Only check for single-precision warning on the first chunk to
             # avoid redundant warnings in large files.
             _warn_if_not_double_precision_columns(data, [ra_column, dec_column])
-            first_iteration = True
+            first_iteration = False
         mapped_pixels = _map_chunk_to_pixels(data, highest_order, ra_column, dec_column, use_healpix_29)
         yield chunk_number, data, mapped_pixels
 
