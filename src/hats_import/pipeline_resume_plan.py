@@ -14,6 +14,8 @@ from tqdm.auto import tqdm as auto_tqdm
 from tqdm.std import tqdm as std_tqdm
 from upath import UPath
 
+import hats_import.file_io as import_io
+
 
 @dataclass
 class PipelineResumePlan:
@@ -54,7 +56,7 @@ class PipelineResumePlan:
         Raises:
             ValueError: if the tmp_path already exists and contains some files.
         """
-        if file_io.directory_has_contents(self.tmp_path):
+        if import_io.directory_has_contents(self.tmp_path):
             if not self.resume:
                 file_io.remove_directory(self.tmp_path, ignore_errors=True)
             else:
@@ -71,7 +73,7 @@ class PipelineResumePlan:
         Returns:
             boolean, True if the done file exists at tmp_path. False otherwise.
         """
-        return file_io.append_paths_to_pointer(self.tmp_path, f"{stage_name}_done").exists()
+        return import_io.append_paths_to_pointer(self.tmp_path, f"{stage_name}_done").exists()
 
     def touch_stage_done_file(self, stage_name):
         """Touch (create) a done file for a whole pipeline stage.
@@ -81,7 +83,7 @@ class PipelineResumePlan:
         Args:
             stage_name(str): name of the stage (e.g. mapping, reducing)
         """
-        Path(file_io.append_paths_to_pointer(self.tmp_path, f"{stage_name}_done")).touch()
+        Path(import_io.append_paths_to_pointer(self.tmp_path, f"{stage_name}_done")).touch()
 
     @classmethod
     def touch_key_done_file(cls, tmp_path, stage_name, key):
@@ -92,7 +94,7 @@ class PipelineResumePlan:
             stage_name(str): name of the stage (e.g. mapping, reducing)
             key (str): unique string for each task (e.g. "map_57")
         """
-        Path(file_io.append_paths_to_pointer(tmp_path, stage_name, f"{key}_done")).touch()
+        Path(import_io.append_paths_to_pointer(tmp_path, stage_name, f"{key}_done")).touch()
 
     @classmethod
     def write_marker_file(cls, tmp_path, stage_name, key, value):
@@ -107,7 +109,7 @@ class PipelineResumePlan:
             value (str): value for the marker.
         """
         file_io.write_string_to_file(
-            file_io.append_paths_to_pointer(tmp_path, stage_name, f"{key}_done"), value
+            import_io.append_paths_to_pointer(tmp_path, stage_name, f"{key}_done"), value
         )
 
     def read_markers(self, stage_name: str) -> dict[str, list[str]]:
@@ -119,9 +121,9 @@ class PipelineResumePlan:
         Return:
             list[str] - all keys found in done directory
         """
-        prefix = file_io.append_paths_to_pointer(self.tmp_path, stage_name)
+        prefix = import_io.append_paths_to_pointer(self.tmp_path, stage_name)
         result = {}
-        result_files = file_io.find_files_matching_path(prefix, "*_done")
+        result_files = import_io.find_files_matching_path(prefix, "*_done")
         done_file_pattern = re.compile(r"(.*)_done")
         for file_path in result_files:
             match = done_file_pattern.match(str(file_path.name))
@@ -139,7 +141,7 @@ class PipelineResumePlan:
         Return:
             List[HealpixPixel] - all pixel keys found in done directory
         """
-        prefix = file_io.append_paths_to_pointer(self.tmp_path, stage_name)
+        prefix = import_io.append_paths_to_pointer(self.tmp_path, stage_name)
         done_file_pattern = re.compile(r"(\d+)_(\d+)_done")
         pixel_tuples = [done_file_pattern.match(path.name).group(1, 2) for path in prefix.glob("*_done")]
         return [HealpixPixel(int(match[0]), int(match[1])) for match in pixel_tuples]
@@ -218,7 +220,7 @@ class PipelineResumePlan:
 
         original_input_paths = []
 
-        log_file_path = file_io.append_paths_to_pointer(self.tmp_path, self.ORIGINAL_INPUT_PATHS)
+        log_file_path = import_io.append_paths_to_pointer(self.tmp_path, self.ORIGINAL_INPUT_PATHS)
         try:
             with open(log_file_path, "r", encoding="utf-8") as file_handle:
                 contents = file_handle.readlines()
@@ -252,7 +254,7 @@ def get_pixel_cache_directory(cache_path, pixel: HealpixPixel):
         cache_path (str): root path to cache
         pixel (HealpixPixel): pixel partition data
     """
-    return file_io.append_paths_to_pointer(
+    return import_io.append_paths_to_pointer(
         cache_path, f"order_{pixel.order}", f"dir_{pixel.dir}", f"pixel_{pixel.pixel}"
     )
 

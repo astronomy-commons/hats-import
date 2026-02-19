@@ -16,6 +16,7 @@ from hats.pixel_math.sparse_histogram import HistogramAggregator, supplemental_c
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, spatial_index_to_healpix
 from upath import UPath
 
+import hats_import.file_io as import_io
 from hats_import.catalog.resume_plan import ResumePlan
 from hats_import.pipeline_resume_plan import get_pixel_cache_directory, print_task_failure
 
@@ -203,7 +204,7 @@ def split_pixels(
                 pixel = pixel_alignment_count[1]
                 pixel_dir = get_pixel_cache_directory(cache_shard_path, HealpixPixel(order, pixel))
                 file_io.make_directory(pixel_dir, exist_ok=True)
-                output_file = file_io.append_paths_to_pointer(
+                output_file = import_io.append_paths_to_pointer(
                     pixel_dir, f"shard_{splitting_key}_{chunk_number}.parquet"
                 )
                 if isinstance(data, pd.DataFrame):
