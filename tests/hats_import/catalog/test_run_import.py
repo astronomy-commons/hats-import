@@ -537,9 +537,9 @@ def test_import_with_existing_pixels(dask_client, small_sky_parts_dir, tmp_path)
     assert catalog.catalog_info.total_rows == 131
     assert catalog.get_healpix_pixels() == [
         HealpixPixel(1, 44),
+        *[HealpixPixel(2, p) for p in range(180, 184)],
         HealpixPixel(1, 46),
         HealpixPixel(1, 47),
-        *[HealpixPixel(2, p) for p in range(180, 184)],
     ]
 
 

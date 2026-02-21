@@ -1014,17 +1014,10 @@ def test_import_gaia_minimum(
     assert len(catalog.get_healpix_pixels()) == 3
 
     # Pick an output file, and make sure it has valid columns:
-    first_pixel = catalog.get_healpix_pixels()[0]
-    output_file = (
-        args.catalog_path
-        / "dataset"
-        / f"Norder={first_pixel.order}"
-        / "Dir=0"
-        / f"Npix={first_pixel.pixel}.parquet"
-    )
+    output_file = args.catalog_path / "dataset" / "Norder=1" / "Dir=0" / "Npix=22.parquet"
     data_frame = pd.read_parquet(output_file)
 
-    # Make sure that the spatial index values match the pixel for the partition (0,5)
+    # Make sure that the spatial index values match the pixel for the partition (0,5) (sub-pixel (1, 22))
     spatial_index_pixels = spatial_index_to_healpix(data_frame["_healpix_29"].values, 0)
     npt.assert_array_equal(spatial_index_pixels, [5, 5, 5])
 
