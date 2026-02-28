@@ -14,6 +14,8 @@ from hats.io.validation import is_valid_catalog
 from hats.pixel_math import spatial_index
 from upath import UPath
 
+import hats_import.file_io as import_io
+
 # pylint: disable=too-many-instance-attributes
 
 
@@ -119,22 +121,22 @@ class RuntimeArguments:
         file_io.make_directory(self.catalog_path, exist_ok=True)
 
         if self.tmp_dir and str(self.tmp_dir) != str(self.output_path):
-            self.tmp_path = file_io.append_paths_to_pointer(
+            self.tmp_path = import_io.append_paths_to_pointer(
                 self.tmp_dir, self.output_artifact_name, "intermediate"
             )
-            self.tmp_base_path = file_io.append_paths_to_pointer(self.tmp_dir, self.output_artifact_name)
+            self.tmp_base_path = import_io.append_paths_to_pointer(self.tmp_dir, self.output_artifact_name)
         elif self.dask_tmp and str(self.dask_tmp) != str(self.output_path):
-            self.tmp_path = file_io.append_paths_to_pointer(
+            self.tmp_path = import_io.append_paths_to_pointer(
                 self.dask_tmp, self.output_artifact_name, "intermediate"
             )
-            self.tmp_base_path = file_io.append_paths_to_pointer(self.dask_tmp, self.output_artifact_name)
+            self.tmp_base_path = import_io.append_paths_to_pointer(self.dask_tmp, self.output_artifact_name)
         else:
-            self.tmp_path = file_io.append_paths_to_pointer(self.catalog_path, "intermediate")
+            self.tmp_path = import_io.append_paths_to_pointer(self.catalog_path, "intermediate")
         if not self.resume:
             file_io.remove_directory(self.tmp_path, ignore_errors=True)
         file_io.make_directory(self.tmp_path, exist_ok=True)
         if self.resume_tmp:
-            self.resume_tmp = file_io.append_paths_to_pointer(self.resume_tmp, self.output_artifact_name)
+            self.resume_tmp = import_io.append_paths_to_pointer(self.resume_tmp, self.output_artifact_name)
         else:
             self.resume_tmp = self.tmp_path
 
@@ -186,7 +188,7 @@ def find_input_paths(input_path="", file_matcher="", input_file_list=None):
     if input_path:
         if input_file_list:
             raise ValueError("exactly one of input_path or input_file_list is required")
-        input_paths = file_io.find_files_matching_path(input_path, file_matcher)
+        input_paths = import_io.find_files_matching_path(input_path, file_matcher)
     elif input_file_list is not None:
         if pd.api.types.is_list_like(input_file_list):
             # It's common for users to accidentally pass in an empty list. Give them a friendly error.

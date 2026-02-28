@@ -9,6 +9,7 @@ from hats import pixel_math
 from hats.io import file_io
 from hats.pixel_math.healpix_pixel import HealpixPixel
 
+import hats_import.file_io as import_io
 from hats_import.margin_cache.margin_cache_arguments import MarginCacheArguments
 from hats_import.pipeline_resume_plan import PipelineResumePlan
 
@@ -46,18 +47,18 @@ class MarginCachePlan(PipelineResumePlan):
             self.partition_pixels = args.catalog.partition_info.get_healpix_pixels()
             negative_pixels = args.catalog.generate_negative_tree_pixels()
             self.combined_pixels = self.partition_pixels + negative_pixels
-            self.margin_pair_file = file_io.append_paths_to_pointer(self.tmp_path, self.MARGIN_PAIR_FILE)
+            self.margin_pair_file = import_io.append_paths_to_pointer(self.tmp_path, self.MARGIN_PAIR_FILE)
             if not self.margin_pair_file.exists():
                 margin_pairs = _find_partition_margin_pixel_pairs(self.combined_pixels, args.margin_order)
                 margin_pairs.to_csv(self.margin_pair_file, index=False)
             step_progress.update(1)
 
             file_io.make_directory(
-                file_io.append_paths_to_pointer(self.tmp_path, self.MAPPING_STAGE),
+                import_io.append_paths_to_pointer(self.tmp_path, self.MAPPING_STAGE),
                 exist_ok=True,
             )
             file_io.make_directory(
-                file_io.append_paths_to_pointer(self.tmp_path, self.REDUCING_STAGE),
+                import_io.append_paths_to_pointer(self.tmp_path, self.REDUCING_STAGE),
                 exist_ok=True,
             )
 
@@ -92,7 +93,7 @@ class MarginCachePlan(PipelineResumePlan):
         if not self.is_mapping_done():
             raise ValueError("mapping stage is not done yet.")
 
-        total_marker_file = file_io.append_paths_to_pointer(self.tmp_path, self.MAPPING_TOTAL_FILE)
+        total_marker_file = import_io.append_paths_to_pointer(self.tmp_path, self.MAPPING_TOTAL_FILE)
 
         if total_marker_file.exists():
             marker_value = file_io.load_text_file(total_marker_file)
