@@ -254,10 +254,10 @@ def test_map_raises_single_precision_warning(tmp_path, small_sky_single_file):
 def test_map_unsupported_data_type(tmp_path, small_sky_single_file):
     """Test that a TypeError is raised when file reader returns an unsupported data type"""
 
-    class UnsupportedDataTypeReader:
+    class UnsupportedDataTypeReader:  # pylint: disable=too-few-public-methods
         """Mock file reader that returns an unsupported data type (dict instead of DataFrame/Table)"""
 
-        def read(self, input_file, read_columns=None):
+        def read(self, _input_file, read_columns=None):  # pylint: disable=unused-argument
             # Yield data as dict instead of DataFrame or PyArrow Table
             yield 0, {"ra": [1.0, 2.0, 3.0], "dec": [4.0, 5.0, 6.0]}
 
@@ -277,10 +277,10 @@ def test_map_unsupported_data_type(tmp_path, small_sky_single_file):
 def test_map_with_healpix_29_arrow_table(tmp_path, formats_dir):
     """Test mapping with pre-existing healpix_29 column as PyArrow Table"""
 
-    class ArrowTableReader:
+    class ArrowTableReader:  # pylint: disable=too-few-public-methods
         """Mock file reader that returns a PyArrow Table with _healpix_29 column"""
 
-        def read(self, input_file, read_columns=None):
+        def read(self, input_file, read_columns=None):  # pylint: disable=unused-argument
             # Read the CSV file with spatial_index column
             df = pd.read_csv(input_file)
             # Convert to PyArrow Table
