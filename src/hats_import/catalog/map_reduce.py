@@ -54,13 +54,22 @@ def _warn_if_not_double_precision_columns(data, columns):
         """
         if isinstance(data, pd.DataFrame):
             dtype = data[column].dtype
-            if isinstance(dtype, pd.ArrowDtype) and pa.types.is_float64(dtype.pyarrow_dtype):
-                # Accept Arrow double even within a pandas DataFrame (eg, from schema_file=...)
+
+            # Pandas nullable Float64Dtype
+            if isinstance(dtype, pd.Float64Dtype):
                 return True
+
+            # PyArrow-backed float64 in pandas DataFrame (eg, from schema_file=...)
+            if isinstance(dtype, pd.ArrowDtype) and pa.types.is_float64(dtype.pyarrow_dtype):
+                return True
+
+            # Standard numpy float64
             return dtype == np.float64
+
         if isinstance(data, pa.Table):
             field_type = data.schema.field(column).type
             return pa.types.is_float64(field_type)
+            
         raise TypeError(f"Unsupported data type: {type(data)}")
 
     for column in columns:
