@@ -69,7 +69,7 @@ def _warn_if_not_double_precision_columns(data, columns):
         if isinstance(data, pa.Table):
             field_type = data.schema.field(column).type
             return pa.types.is_float64(field_type)
-            
+
         raise TypeError(f"Unsupported data type: {type(data)}")
 
     for column in columns:
