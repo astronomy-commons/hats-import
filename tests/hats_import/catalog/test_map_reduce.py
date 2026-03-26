@@ -234,6 +234,82 @@ def test_map_with_schema(tmp_path, mixed_schema_csv_dir, mixed_schema_csv_parque
     assert (result == expected).all()
 
 
+def test_map_raises_single_precision_warning(tmp_path, small_sky_single_file):
+    """Test that a warning is raised when single-precision floats are used for ra/dec columns"""
+    # Test that the warning is raised when mapping with single-precision ra/dec
+    with pytest.warns(UserWarning, match="is not double-precision"):
+        mr.map_to_pixels(
+            input_file=small_sky_single_file,
+            pickled_reader_file=pickle_file_reader(
+                tmp_path, get_file_reader("csv", type_map={"ra": np.float32, "dec": np.float32})
+            ),
+            highest_order=0,
+            ra_column="ra",
+            dec_column="dec",
+            resume_path=tmp_path,
+            mapping_key="map_0",
+        )
+
+
+def test_map_unsupported_data_type(tmp_path, small_sky_single_file):
+    """Test that a TypeError is raised when file reader returns an unsupported data type"""
+
+    class UnsupportedDataTypeReader:  # pylint: disable=too-few-public-methods
+        """Mock file reader that returns an unsupported data type (dict instead of DataFrame/Table)"""
+
+        def read(self, _input_file, read_columns=None):  # pylint: disable=unused-argument
+            # Yield data as dict instead of DataFrame or PyArrow Table
+            yield 0, {"ra": [1.0, 2.0, 3.0], "dec": [4.0, 5.0, 6.0]}
+
+    (tmp_path / "row_count_histograms").mkdir(parents=True)
+    with pytest.raises(TypeError, match="Unsupported data type"):
+        mr.map_to_pixels(
+            input_file=small_sky_single_file,
+            pickled_reader_file=pickle_file_reader(tmp_path, UnsupportedDataTypeReader()),
+            highest_order=0,
+            ra_column="ra",
+            dec_column="dec",
+            resume_path=tmp_path,
+            mapping_key="map_0",
+        )
+
+
+def test_map_with_healpix_29_arrow_table(tmp_path, formats_dir):
+    """Test mapping with pre-existing healpix_29 column as PyArrow Table"""
+
+    class ArrowTableReader:  # pylint: disable=too-few-public-methods
+        """Mock file reader that returns a PyArrow Table with _healpix_29 column"""
+
+        def read(self, input_file, read_columns=None):  # pylint: disable=unused-argument
+            # Read the CSV file with spatial_index column
+            df = pd.read_csv(input_file)
+            # Convert to PyArrow Table
+            table = pa.Table.from_pandas(df)
+            yield table
+
+    (tmp_path / "row_count_histograms").mkdir(parents=True)
+    input_file = formats_dir / "spatial_index.csv"
+
+    # Test that mapping works with PyArrow Table and use_healpix_29=True
+    mr.map_to_pixels(
+        input_file=input_file,
+        pickled_reader_file=pickle_file_reader(tmp_path, ArrowTableReader()),
+        highest_order=0,
+        ra_column="NOPE",
+        dec_column="NOPE",
+        use_healpix_29=True,
+        resume_path=tmp_path,
+        mapping_key="map_0",
+    )
+
+    result = read_partial_histogram(tmp_path, "map_0")
+
+    assert len(result) == 12
+    expected = hist.empty_histogram(0)
+    expected[11] = 131
+    npt.assert_array_equal(result, expected)
+
+
 def test_map_small_sky_order0(tmp_path, small_sky_single_file):
     """Test loading the small sky catalog and partitioning each object into the same large bucket"""
     (tmp_path / "histograms").mkdir(parents=True)
@@ -328,6 +404,30 @@ def test_split_pixels_headers(formats_headers_csv, assert_parquet_file_ids, tmp_
 
     file_name = tmp_path / "order_0" / "dir_0" / "pixel_1" / "shard_0_0.parquet"
     assert not os.path.exists(file_name)
+
+
+def test_split_pixels_single_precision_warning(small_sky_single_file, tmp_path):
+    """Test that a warning is raised when single-precision floats are used for ra/dec columns"""
+    plan = ResumePlan(tmp_path=tmp_path, progress_bar=False, input_paths=["foo1"])
+    raw_histogram = np.full(12, 0)
+    raw_histogram[11] = 131
+    alignment_file = plan.get_alignment_file(raw_histogram, -1, 0, 0, 1_000, False, 131)
+
+    # Test that the warning is raised when mapping with single-precision ra/dec
+    with pytest.warns(UserWarning, match="is not double-precision"):
+        mr.split_pixels(
+            input_file=small_sky_single_file,
+            pickled_reader_file=pickle_file_reader(
+                tmp_path, get_file_reader("csv", type_map={"ra": np.float32, "dec": np.float32})
+            ),
+            highest_order=0,
+            ra_column="ra",
+            dec_column="dec",
+            splitting_key="0",
+            cache_shard_path=tmp_path,
+            resume_path=tmp_path,
+            alignment_file=alignment_file,
+        )
 
 
 def test_reduce_idempotent(parquet_shards_dir, assert_parquet_file_ids, tmp_path):
