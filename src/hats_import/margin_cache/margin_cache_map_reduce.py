@@ -115,7 +115,7 @@ def reduce_margin_shards(
         healpix_pixel = HealpixPixel(partition_order, partition_pixel)
         shard_dir = get_pixel_cache_directory(intermediate_directory, healpix_pixel)
 
-        if file_io.does_file_or_directory_exist(shard_dir):
+        if shard_dir.exists():
             margin_table = ds.dataset(shard_dir.path, filesystem=shard_dir.fs, format="parquet").to_table()
 
             if len(margin_table):

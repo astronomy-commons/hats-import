@@ -4,8 +4,10 @@ from hats.io import file_io
 from hats_import.catalog.file_readers.input_reader import InputReader
 
 
-class ParquetReader(InputReader):
+class ParquetPandasReader(InputReader):
     """Parquet reader for the most common Parquet reading arguments.
+
+    Reads input file as a pandas.DataFrame.
 
     Attributes:
         chunksize (int): number of rows of the file to process at once.
@@ -13,51 +15,68 @@ class ParquetReader(InputReader):
             into memory at once.
         column_names (list[str] or None): Names of columns to use from the input dataset.
             If None, use all columns.
+        iterate_by_row_groups (bool): whether to read the file by row groups.
         kwargs: arguments to pass along to pyarrow.parquet.ParquetFile.
             See https://arrow.apache.org/docs/python/generated/pyarrow.parquet.ParquetFile.html
     """
 
-    def __init__(self, chunksize=500_000, column_names=None, **kwargs):
+    def __init__(self, chunksize=500_000, column_names=None, iterate_by_row_groups=False, **kwargs):
         self.chunksize = chunksize
         self.column_names = column_names
+        self.iterate_by_row_groups = iterate_by_row_groups
         self.kwargs = kwargs
 
     def read(self, input_file, read_columns=None):
         input_file = self.regular_file_exists(input_file, **self.kwargs)
         columns = read_columns or self.column_names
         parquet_file = file_io.read_parquet_file(input_file, **self.kwargs)
-        for smaller_table in parquet_file.iter_batches(
-            batch_size=self.chunksize, columns=columns, use_pandas_metadata=True
-        ):
-            yield smaller_table.to_pandas()
+        if self.iterate_by_row_groups:
+            for row_group in range(parquet_file.num_row_groups):
+                table = parquet_file.read_row_group(row_group, columns=columns)
+                yield table.to_pandas()
+        else:
+            for smaller_table in parquet_file.iter_batches(
+                batch_size=self.chunksize, columns=columns, use_pandas_metadata=True
+            ):
+                yield smaller_table.to_pandas()
 
 
 class ParquetPyarrowReader(InputReader):
     """Parquet reader that uses the pyarrow library for reading.
 
+    Reads file as a pyarrow.Table.
+
     Attributes:
         chunksize (int): number of rows of the file to process at once.
             For large files, this can prevent loading the entire file
             into memory at once.
         column_names (list[str] or None): Names of columns to use from the input dataset.
             If None, use all columns.
+        iterate_by_row_groups (bool): whether to read the file by row groups.
         kwargs: arguments to pass along to pyarrow.parquet.ParquetFile.
             See https://arrow.apache.org/docs/python/generated/pyarrow.parquet.ParquetFile.html
     """
 
-    def __init__(self, chunksize=500_000, column_names=None, **kwargs):
+    def __init__(self, chunksize=500_000, column_names=None, iterate_by_row_groups=False, **kwargs):
         self.chunksize = chunksize
         self.column_names = column_names
+        self.iterate_by_row_groups = iterate_by_row_groups
         self.kwargs = kwargs
 
     def read(self, input_file, read_columns=None):
         input_file = self.regular_file_exists(input_file, **self.kwargs)
         columns = read_columns or self.column_names
         parquet_file = file_io.read_parquet_file(input_file, **self.kwargs)
-        for smaller_table in parquet_file.iter_batches(batch_size=self.chunksize, columns=columns):
-            table = pa.Table.from_batches([smaller_table])
-            table = table.replace_schema_metadata()
-            yield table
+        if self.iterate_by_row_groups:
+            for row_group in range(parquet_file.num_row_groups):
+                table = parquet_file.read_row_group(row_group, columns=columns)
+                table = table.replace_schema_metadata()
+                yield table
+        else:
+            for smaller_table in parquet_file.iter_batches(batch_size=self.chunksize, columns=columns):
+                table = pa.Table.from_batches([smaller_table])
+                table = table.replace_schema_metadata()
+                yield table
 
 
 class IndexedParquetReader(InputReader):
@@ -101,7 +120,7 @@ class IndexedParquetReader(InputReader):
         file_names = self.read_index_file(
             input_file=input_file, upath_kwargs=self.upath_kwargs, **self.kwargs
         )
-        (_, input_dataset) = file_io.read_parquet_dataset(file_names, **self.kwargs)
+        _, input_dataset = file_io.read_parquet_dataset(file_names, **self.kwargs)
 
         batches, nrows = [], 0
         for batch in input_dataset.to_batches(

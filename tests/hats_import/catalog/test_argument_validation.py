@@ -172,7 +172,15 @@ def test_healpix_args(blank_data_dir, tmp_path):
             input_path=blank_data_dir,
             file_reader="csv",
             output_path=tmp_path,
-            pixel_threshold=3,
+            pixel_threshold=-3,
+        )
+    with pytest.raises(ValueError, match="pixel_threshold"):
+        ImportArguments(
+            output_artifact_name="catalog",
+            input_path=blank_data_dir,
+            file_reader="csv",
+            output_path=tmp_path,
+            pixel_threshold="three",
         )
     with pytest.raises(ValueError, match="constant_healpix_order"):
         ImportArguments(

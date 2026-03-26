@@ -13,7 +13,8 @@ from hats_import.catalog.file_readers import (
     FitsReader,
     IndexedCsvReader,
     IndexedParquetReader,
-    ParquetReader,
+    ParquetPandasReader,
+    ParquetPyarrowReader,
     get_file_reader,
 )
 
@@ -39,12 +40,10 @@ def test_unknown_file_type():
         get_file_reader("unknown")
 
 
-def test_file_exists(small_sky_dir):
+def test_file_exists():
     """File reader factory method should fail for missing files or directories"""
     with pytest.raises(FileNotFoundError, match="File not found"):
         next(CsvReader().read("foo_not_really_a_path"))
-    with pytest.raises(FileNotFoundError, match="Directory found at path"):
-        next(CsvReader().read(small_sky_dir))
 
 
 def test_csv_reader(small_sky_single_file):
@@ -270,8 +269,17 @@ def test_indexed_csv_reader(indexed_files_dir):
 
 def test_parquet_reader(parquet_shards_shard_44_0):
     """Verify we can read the parquet file into a single data frame."""
+    # Test ParquetPandasReader.
     total_chunks = 0
-    for frame in ParquetReader().read(parquet_shards_shard_44_0):
+    for frame in ParquetPandasReader().read(parquet_shards_shard_44_0):
+        total_chunks += 1
+        assert len(frame) == 7
+
+    assert total_chunks == 1
+
+    # Test ParquetPyarrowReader.
+    total_chunks = 0
+    for frame in ParquetPyarrowReader().read(parquet_shards_shard_44_0):
         total_chunks += 1
         assert len(frame) == 7
 
@@ -281,10 +289,31 @@ def test_parquet_reader(parquet_shards_shard_44_0):
 def test_parquet_reader_chunked(parquet_shards_shard_44_0):
     """Verify we can read the parquet file into a single data frame."""
     total_chunks = 0
-    for frame in ParquetReader(chunksize=1).read(parquet_shards_shard_44_0):
+    for frame in ParquetPyarrowReader(chunksize=1).read(parquet_shards_shard_44_0):
         total_chunks += 1
         assert len(frame) == 1
     assert total_chunks == 7
+
+
+def test_parquet_reader_by_row_group(multi_row_group_parquet):
+    """Verify we can read the parquet file into a single data frame, iterating
+    by row group."""
+    # Check number of row groups in test file.
+    assert pq.ParquetFile(multi_row_group_parquet).num_row_groups == 8
+
+    # Check we can iterate by row group, with ParquetPandasReader.
+    total_row_groups = 0
+    for row_group in ParquetPandasReader(iterate_by_row_groups=True).read(multi_row_group_parquet):
+        total_row_groups += 1
+        assert len(row_group) > 0
+    assert total_row_groups == 8
+
+    # Check we can iterate by row group, with ParquetPyarrowReader.
+    total_row_groups = 0
+    for row_group in ParquetPyarrowReader(iterate_by_row_groups=True).read(multi_row_group_parquet):
+        total_row_groups += 1
+        assert len(row_group) > 0
+    assert total_row_groups == 8
 
 
 def test_indexed_parquet_reader(indexed_files_dir):
@@ -320,12 +349,12 @@ def test_parquet_reader_columns(parquet_shards_shard_44_0):
     column_subset = ["id", "dec"]
 
     # test column_names class property
-    for frame in ParquetReader(column_names=column_subset).read(parquet_shards_shard_44_0):
-        assert set(frame.columns) == set(column_subset)
+    for frame in ParquetPyarrowReader(column_names=column_subset).read(parquet_shards_shard_44_0):
+        assert set(frame.column_names) == set(column_subset)
 
     # test read_columns kwarg
-    for frame in ParquetReader().read(parquet_shards_shard_44_0, read_columns=column_subset):
-        assert set(frame.columns) == set(column_subset)
+    for frame in ParquetPyarrowReader().read(parquet_shards_shard_44_0, read_columns=column_subset):
+        assert set(frame.column_names) == set(column_subset)
 
 
 def test_read_fits(formats_fits):

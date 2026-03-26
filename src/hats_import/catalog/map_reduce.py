@@ -1,6 +1,7 @@
 """Import a set of non-hats files using dask for parallelization"""
 
 import pickle
+import warnings
 
 import cloudpickle
 import hats.pixel_math.healpix_shim as hp
@@ -16,6 +17,7 @@ from hats.pixel_math.sparse_histogram import HistogramAggregator, supplemental_c
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, spatial_index_to_healpix
 from upath import UPath
 
+import hats_import.file_io as import_io
 from hats_import.catalog.resume_plan import ResumePlan
 from hats_import.pipeline_resume_plan import get_pixel_cache_directory, print_task_failure
 
@@ -36,6 +38,68 @@ def _has_named_index(dataframe):
     return True
 
 
+def _warn_if_not_double_precision_columns(data, columns):
+    """Warn when coordinate-like columns are not double-precision.
+
+    Handles cases where we have designated a schema_file=... parameter in our
+    file reader, such that we could have a pandas DataFrame with Arrow dtypes.
+    """
+
+    def _check_column_is_double_precision(column):
+        """Check if the given column is double-precision float, accounting for
+        both pandas and pyarrow types.
+
+        Returns:
+            bool: True if the column is double-precision float, False otherwise.
+        """
+        if isinstance(data, pd.DataFrame):
+            dtype = data[column].dtype
+
+            # Pandas nullable Float64Dtype
+            if isinstance(dtype, pd.Float64Dtype):
+                return True
+
+            # PyArrow-backed float64 in pandas DataFrame (eg, from schema_file=...)
+            if isinstance(dtype, pd.ArrowDtype) and pa.types.is_float64(dtype.pyarrow_dtype):
+                return True
+
+            # Standard numpy float64
+            return dtype == np.float64
+
+        if isinstance(data, pa.Table):
+            field_type = data.schema.field(column).type
+            return pa.types.is_float64(field_type)
+
+        raise TypeError(f"Unsupported data type: {type(data)}")
+
+    for column in columns:
+        if not _check_column_is_double_precision(column):
+            warnings.warn(
+                f"Column '{column}' is not double-precision float. "
+                "This may lead to inaccurate pixel mapping. "
+                "Consider converting this column to float64 for better precision.",
+                UserWarning,
+            )
+
+
+def _map_chunk_to_pixels(data, highest_order, ra_column, dec_column, use_healpix_29):
+    """Compute healpix mapping for a chunk of catalog data.
+
+    Returns:
+        np.ndarray: healpix pixel numbers corresponding to each row in the input data."""
+    if use_healpix_29:
+        if isinstance(data, pd.DataFrame) and data.index.name == SPATIAL_INDEX_COLUMN:
+            return spatial_index_to_healpix(data.index, target_order=highest_order)
+        return spatial_index_to_healpix(data[SPATIAL_INDEX_COLUMN], target_order=highest_order)
+    if isinstance(data, pd.DataFrame):
+        return hp.radec2pix(
+            highest_order,
+            data[ra_column].to_numpy(copy=False, dtype=float),
+            data[dec_column].to_numpy(copy=False, dtype=float),
+        )
+    return hp.radec2pix(highest_order, data[ra_column].to_numpy(), data[dec_column].to_numpy())
+
+
 def _iterate_input_file(
     input_file: UPath,
     pickled_reader_file: str,
@@ -45,34 +109,25 @@ def _iterate_input_file(
     use_healpix_29=False,
     read_columns=None,
 ):
-    """Helper function to handle input file reading and healpix pixel calculation"""
+    """Helper function to handle input file reading and healpix pixel calculation.
+
+    Yields:
+        Tuple[int, pd.DataFrame | pa.Table, np.ndarray]:
+            Chunk index, chunk data, and mapped pixel numbers for the current batch.
+    """
     with open(pickled_reader_file, "rb") as pickle_file:
         file_reader = cloudpickle.load(pickle_file)
     if not file_reader:
         raise NotImplementedError("No file reader implemented")
 
+    first_iteration = True
     for chunk_number, data in enumerate(file_reader.read(input_file, read_columns=read_columns)):
-        if use_healpix_29:
-            if isinstance(data, pd.DataFrame) and data.index.name == SPATIAL_INDEX_COLUMN:
-                mapped_pixels = spatial_index_to_healpix(data.index, target_order=highest_order)
-            else:
-                mapped_pixels = spatial_index_to_healpix(
-                    data[SPATIAL_INDEX_COLUMN], target_order=highest_order
-                )
-        else:
-            # Set up the pixel data
-            if isinstance(data, pd.DataFrame):
-                mapped_pixels = hp.radec2pix(
-                    highest_order,
-                    data[ra_column].to_numpy(copy=False, dtype=float),
-                    data[dec_column].to_numpy(copy=False, dtype=float),
-                )
-            else:
-                mapped_pixels = hp.radec2pix(
-                    highest_order,
-                    data[ra_column].to_numpy(),
-                    data[dec_column].to_numpy(),
-                )
+        if first_iteration and not use_healpix_29:
+            # Only check for single-precision warning on the first chunk to
+            # avoid redundant warnings in large files.
+            _warn_if_not_double_precision_columns(data, [ra_column, dec_column])
+            first_iteration = False
+        mapped_pixels = _map_chunk_to_pixels(data, highest_order, ra_column, dec_column, use_healpix_29)
         yield chunk_number, data, mapped_pixels
 
 
@@ -192,6 +247,7 @@ def split_pixels(
     try:
         with open(alignment_file, "rb") as pickle_file:
             alignment = pickle.load(pickle_file)
+
         for chunk_number, data, mapped_pixels in _iterate_input_file(
             input_file, pickled_reader_file, highest_order, ra_column, dec_column, use_healpix_29
         ):
@@ -203,7 +259,7 @@ def split_pixels(
                 pixel = pixel_alignment_count[1]
                 pixel_dir = get_pixel_cache_directory(cache_shard_path, HealpixPixel(order, pixel))
                 file_io.make_directory(pixel_dir, exist_ok=True)
-                output_file = file_io.append_paths_to_pointer(
+                output_file = import_io.append_paths_to_pointer(
                     pixel_dir, f"shard_{splitting_key}_{chunk_number}.parquet"
                 )
                 if isinstance(data, pd.DataFrame):

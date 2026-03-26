@@ -16,7 +16,7 @@ class InputReader(abc.ABC):
             read_columns(List[str]): subset of columns to read.
                 if None, all columns are read
         Yields:
-            DataFrame containing chunk of file info.
+            Pandas DataFrame or columnar batch (e.g., pyarrow.Table) containing chunk of file info.
         """
 
     def regular_file_exists(self, input_file, **_kwargs):
@@ -26,10 +26,8 @@ class InputReader(abc.ABC):
             FileNotFoundError: if nothing exists at path, or directory found.
         """
         input_file = file_io.get_upath(input_file)
-        if not file_io.does_file_or_directory_exist(input_file):
+        if not input_file.exists():
             raise FileNotFoundError(f"File not found at path: {input_file}")
-        if not file_io.is_regular_file(input_file):
-            raise FileNotFoundError(f"Directory found at path - requires regular file: {input_file}")
         return input_file
 
     def read_index_file(self, input_file, upath_kwargs=None, **kwargs):
