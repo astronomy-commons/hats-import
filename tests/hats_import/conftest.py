@@ -51,7 +51,6 @@ def pytest_collection_modifyitems(items):
                 first_dask = False
             item.add_marker(pytest.mark.timeout(timeout))
             item.add_marker(pytest.mark.usefixtures("dask_client"))
-            item.add_marker(pytest.mark.filterwarnings("ignore::DeprecationWarning"))
 
 
 TEST_DIR = os.path.dirname(__file__)

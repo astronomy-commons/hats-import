@@ -69,6 +69,7 @@ class ResumePlan(PipelineResumePlan):
             if import_args.debug_stats_only:
                 run_stages = ["mapping", "finishing"]
             self.input_paths = import_args.input_paths
+            self.mapping_order = import_args.mapping_healpix_order
 
             # Set threshold_mode based on byte_pixel_threshold
             if hasattr(import_args, "byte_pixel_threshold") and import_args.byte_pixel_threshold is not None:
@@ -335,7 +336,7 @@ class ResumePlan(PipelineResumePlan):
         expected_total_rows,
         existing_pixels=None,
         raw_histogram_mem_size=None,
-    ) -> UPath:
+    ) -> tuple[UPath, int]:
         """Get a pointer to the existing alignment file for the pipeline, or
         generate a new alignment using provided arguments.
 
@@ -359,6 +360,7 @@ class ResumePlan(PipelineResumePlan):
             path to cached alignment file.
         """
         file_name = import_io.append_paths_to_pointer(self.tmp_path, self.ALIGNMENT_FILE)
+        self.mapping_order = hp.npix2order(len(raw_histogram))
         if not file_name.exists():
             # If existing_pixels, create an incremental alignment.
             if existing_pixels:
@@ -382,7 +384,8 @@ class ResumePlan(PipelineResumePlan):
                     lowest_order=lowest_healpix_order,
                     threshold=pixel_threshold,
                     drop_empty_siblings=drop_empty_siblings,
-                    mem_size_histogram=raw_histogram_mem_size,
+                    supplemental_count_histogram=raw_histogram_mem_size,
+                    use_lower_order=True,
                 )
 
             # Write alignment to file.
@@ -400,6 +403,7 @@ class ResumePlan(PipelineResumePlan):
                 for (order, pix, row_count) in pixel_list
                 if int(row_count) > 0
             }
+            self.mapping_order = hp.npix2order(len(alignment))
 
         total_rows = sum(self.destination_pixel_map.values())
         if total_rows != expected_total_rows:
@@ -407,7 +411,7 @@ class ResumePlan(PipelineResumePlan):
                 f"Number of rows ({total_rows}) does not match expectation ({expected_total_rows})"
             )
 
-        return file_name
+        return file_name, self.mapping_order
 
     def _generate_constant_healpix_order_alignment(self, raw_histogram_row_count, constant_healpix_order):
         """Generate alignment where all non-empty pixels are at the same healpix order.
