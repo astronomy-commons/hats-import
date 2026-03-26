@@ -17,6 +17,7 @@ def test_object_to_source_map(small_sky_object_catalog, small_sky_source_catalog
     assert source_to_object == small_sky_ncl_map
 
 
+@pytest.mark.timeout(10)
 def test_counting_done(small_sky_ncl_args):
     """Verify expected behavior of counting done file"""
     plan = NestLightCurvePlan(small_sky_ncl_args)

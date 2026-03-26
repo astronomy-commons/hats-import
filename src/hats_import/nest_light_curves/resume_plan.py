@@ -13,6 +13,7 @@ from hats.io import file_io
 from hats.pixel_math.healpix_pixel import HealpixPixel
 from hats.pixel_tree import PixelAlignment, align_trees
 
+import hats_import.file_io as import_io
 from hats_import.nest_light_curves.arguments import NestLightCurveArguments
 from hats_import.pipeline_resume_plan import PipelineResumePlan
 
@@ -44,8 +45,8 @@ class NestLightCurvePlan(PipelineResumePlan):
 
             self.count_keys = []
             object_catalog = read_hats(args.object_catalog_dir)
-            source_map_file = file_io.append_paths_to_pointer(self.tmp_path, self.SOURCE_MAP_FILE)
-            if file_io.does_file_or_directory_exist(source_map_file):
+            source_map_file = import_io.append_paths_to_pointer(self.tmp_path, self.SOURCE_MAP_FILE)
+            if source_map_file.exists():
                 self.object_map = np.load(source_map_file, allow_pickle=True)["arr_0"].item()
             else:
                 source_catalog = read_hats(args.source_catalog_dir)
