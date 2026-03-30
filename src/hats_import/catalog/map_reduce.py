@@ -259,10 +259,9 @@ def split_pixels(
                 pixel = pixel_alignment_count[1]
                 if order < 0 or pixel < 0:
                     raise ValueError(
-                        f"Invalid pixel alignment found for pixel {pixel} at order {order}. "
-                        "This can be caused by inconsistent dtypes in your spatial columns. "
-                        "Please check that they remain consistent throughout your pipeline "
-                        "to avoid unexpected negative values."
+                        f"Data points found in unmapped pixel (order={order}, pixel={pixel}). "
+                        "This may mean some objects were absent during the mapping phase, or that "
+                        "spatial column dtypes are inconsistent between pipeline stages."
                     )
                 pixel_dir = get_pixel_cache_directory(cache_shard_path, HealpixPixel(order, pixel))
                 file_io.make_directory(pixel_dir, exist_ok=True)
