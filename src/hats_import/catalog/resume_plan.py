@@ -400,6 +400,15 @@ class ResumePlan(PipelineResumePlan):
                 for (order, pix, row_count) in pixel_list
                 if int(row_count) > 0
             }
+            # Check that pixel_list contains valid pixels.
+            for order, pix, row_count in pixel_list:
+                if order < 0 or pix < 0:
+                    raise ValueError(
+                        f"Invalid pixel alignment found for pixel {pix} at order {order}. "
+                        "This can be caused by inconsistent dtypes in your spatial columns. "
+                        "Please check that they remain consistent throughout your pipeline "
+                        "to avoid unexpected negative values."
+                    )
 
         total_rows = sum(self.destination_pixel_map.values())
         if total_rows != expected_total_rows:
