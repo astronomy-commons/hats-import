@@ -67,7 +67,10 @@ def generate_margin_cache(args, client):
     with resume_plan.print_progress(total=4, stage_name="Finishing") as step_progress:
         if total_rows > 0:
             metadata_total_rows = parquet_metadata.write_parquet_metadata(
-                args.catalog_path, create_metadata=args.create_metadata
+                args.catalog_path,
+                create_metadata=args.create_metadata,
+                create_thumbnail=args.create_thumbnail,
+                create_per_pixel_stats=args.create_per_pixel_stats,
             )
             if metadata_total_rows != total_rows:
                 raise ValueError(
