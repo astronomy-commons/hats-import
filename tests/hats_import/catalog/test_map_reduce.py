@@ -389,7 +389,7 @@ def test_split_pixels_negative_order(formats_headers_csv, tmp_path):
 
     # Create a fully empty alignment file, which will cause the split_pixels
     # function to attempt to access the unmapped pixel (0, 11).
-    alignment_file = plan.get_alignment_file(np.full(12, 0), -1, 0, 0, 1_000, False, 0)
+    alignment_file, _ = plan.get_alignment_file(np.full(12, 0), -1, 0, 0, 1_000, False, 0)
 
     with pytest.raises(ValueError, match="Data points found in unmapped pixel"):
         mr.split_pixels(
