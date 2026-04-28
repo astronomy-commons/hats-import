@@ -257,6 +257,12 @@ def split_pixels(
             for unique_index, pixel_alignment_count in enumerate(unique_pixels):
                 order = pixel_alignment_count[0]
                 pixel = pixel_alignment_count[1]
+                if order < 0 or pixel < 0:
+                    raise ValueError(
+                        f"Data points found in unmapped pixel (order={order}, pixel={pixel}). "
+                        "This may mean some objects were absent during the mapping phase, or that "
+                        "spatial column dtypes are inconsistent between pipeline stages."
+                    )
                 pixel_dir = get_pixel_cache_directory(cache_shard_path, HealpixPixel(order, pixel))
                 file_io.make_directory(pixel_dir, exist_ok=True)
                 output_file = import_io.append_paths_to_pointer(

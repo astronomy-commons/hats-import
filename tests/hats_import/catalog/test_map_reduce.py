@@ -380,6 +380,31 @@ def test_split_pixels_bad_format(blank_data_file, tmp_path, capsys):
     assert "No such file or directory" in captured.out
 
 
+def test_split_pixels_negative_order(formats_headers_csv, tmp_path):
+    """Test raise error when accessing unmapped pixels."""
+
+    plan = ResumePlan(tmp_path=tmp_path, progress_bar=False, input_paths=["foo1"])
+    raw_histogram = np.full(12, 0)
+    raw_histogram[11] = 131
+
+    # Create a fully empty alignment file, which will cause the split_pixels
+    # function to attempt to access the unmapped pixel (0, 11).
+    alignment_file = plan.get_alignment_file(np.full(12, 0), -1, 0, 0, 1_000, False, 0)
+
+    with pytest.raises(ValueError, match="Data points found in unmapped pixel"):
+        mr.split_pixels(
+            input_file=formats_headers_csv,
+            pickled_reader_file=pickle_file_reader(tmp_path, get_file_reader("csv")),
+            highest_order=0,
+            ra_column="ra_mean",
+            dec_column="dec_mean",
+            splitting_key="0",
+            cache_shard_path=tmp_path,
+            resume_path=tmp_path,
+            alignment_file=alignment_file,
+        )
+
+
 def test_split_pixels_headers(formats_headers_csv, assert_parquet_file_ids, tmp_path):
     """Test loading a file with non-default headers"""
     plan = ResumePlan(tmp_path=tmp_path, progress_bar=False, input_paths=["foo1"])
