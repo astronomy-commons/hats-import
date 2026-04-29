@@ -50,8 +50,8 @@ class RuntimeArguments:
     """Create /dataset/data_thumbnail.parquet from one row of each data partition."""
     create_metadata: bool = True
     """Create /dataset/_metadata parquet from all data partitions."""
-    create_per_pixel_stats: bool = False
-    """Create per_pixel_statistics.parquet, based on footers from all data partitions."""
+    create_per_partition_stats: bool = False
+    """Create per_partition_statistics.parquet, based on footers from all data partitions."""
 
     ## Execution
     tmp_dir: str | Path | UPath | None = None
