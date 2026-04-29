@@ -161,6 +161,7 @@ def run(args, client):
                     create_thumbnail=args.create_thumbnail,
                     thumbnail_threshold=threshold,
                     create_metadata=args.create_metadata,
+                    create_per_pixel_stats=args.create_per_pixel_stats,
                 )
                 if total_rows > 0 and parquet_rows != total_rows:
                     raise ValueError(
