@@ -11,6 +11,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 from hats import HealpixPixel, read_hats
+from hats.io import paths
 from hats.pixel_math.sparse_histogram import SparseHistogram
 from pyarrow.parquet import ParquetFile
 
@@ -322,7 +323,7 @@ def test_dask_runner(
     assert data_frame.index.dtype == np.int64
 
     # Check that the data thumbnail exists
-    data_thumbnail_pointer = args.catalog_path / "dataset" / "data_thumbnail.parquet"
+    data_thumbnail_pointer = paths.get_data_thumbnail_pointer(args.catalog_path)
     assert data_thumbnail_pointer.exists()
     thumbnail = ParquetFile(data_thumbnail_pointer)
     thumbnail_schema = thumbnail.metadata.schema.to_arrow_schema()
