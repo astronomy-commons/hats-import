@@ -16,7 +16,7 @@ class InputReader(abc.ABC):
             read_columns(List[str]): subset of columns to read.
                 if None, all columns are read
         Yields:
-            DataFrame containing chunk of file info.
+            Pandas DataFrame or columnar batch (e.g., pyarrow.Table) containing chunk of file info.
         """
 
     def regular_file_exists(self, input_file, **_kwargs):

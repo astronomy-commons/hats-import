@@ -34,14 +34,14 @@ Challenges with this data set
 
     import hats_import.pipeline as runner
     from hats_import.catalog.arguments import ImportArguments
-    from hats_import.catalog.file_readers import ParquetReader
+    from hats_import.catalog.file_readers import ParquetPandasReader
     import pyarrow.parquet as pq
     import pyarrow as pa
     import re
     import glob
 
 
-    class ZubercalParquetReader(ParquetReader):
+    class ZubercalParquetReader(ParquetPandasReader):
         def read(self, input_file):
             """Reader for the specifics of zubercal parquet files."""
             columns = [

@@ -15,6 +15,7 @@ from hats.pixel_math.sparse_histogram import HistogramAggregator, SparseHistogra
 from numpy import frombuffer
 from upath import UPath
 
+import hats_import.file_io as import_io
 from hats_import.pipeline_resume_plan import PipelineResumePlan
 
 
@@ -124,14 +125,14 @@ class ResumePlan(PipelineResumePlan):
             if self.should_run_mapping:
                 self.map_files = self.get_remaining_map_keys()
                 file_io.make_directory(
-                    file_io.append_paths_to_pointer(self.tmp_path, self.ROW_COUNT_HISTOGRAMS_DIR),
+                    import_io.append_paths_to_pointer(self.tmp_path, self.ROW_COUNT_HISTOGRAMS_DIR),
                     exist_ok=True,
                 )
                 # If using mem_size thresholding, gather those keys too.
                 if self.threshold_mode == "mem_size":
                     self.get_remaining_map_keys(which_histogram="mem_size")
                     file_io.make_directory(
-                        file_io.append_paths_to_pointer(self.tmp_path, self.MEM_SIZE_HISTOGRAMS_DIR),
+                        import_io.append_paths_to_pointer(self.tmp_path, self.MEM_SIZE_HISTOGRAMS_DIR),
                         exist_ok=True,
                     )
             if self.should_run_splitting:
@@ -140,7 +141,7 @@ class ResumePlan(PipelineResumePlan):
 
                 self.split_keys = self.get_remaining_split_keys()
                 file_io.make_directory(
-                    file_io.append_paths_to_pointer(self.tmp_path, self.SPLITTING_STAGE),
+                    import_io.append_paths_to_pointer(self.tmp_path, self.SPLITTING_STAGE),
                     exist_ok=True,
                 )
             if self.should_run_reducing:
@@ -150,7 +151,7 @@ class ResumePlan(PipelineResumePlan):
                     raise ValueError("splitting must be complete before reducing")
 
                 file_io.make_directory(
-                    file_io.append_paths_to_pointer(self.tmp_path, self.REDUCING_STAGE),
+                    import_io.append_paths_to_pointer(self.tmp_path, self.REDUCING_STAGE),
                     exist_ok=True,
                 )
             step_progress.update(1)
@@ -222,25 +223,25 @@ class ResumePlan(PipelineResumePlan):
         else:
             raise ValueError(f"Unrecognized which_histogram value: {which_histogram}")
 
-        file_name = file_io.append_paths_to_pointer(self.tmp_path, histogram_binary_file)
+        file_name = import_io.append_paths_to_pointer(self.tmp_path, histogram_binary_file)
 
         # If no file, read the histogram from partial histograms and combine.
         if not file_name.exists():
             remaining_map_files = self.get_remaining_map_keys(which_histogram=which_histogram)
             if len(remaining_map_files) > 0:
                 raise RuntimeError(f"{len(remaining_map_files)} map stages did not complete successfully.")
-            histogram_files = file_io.find_files_matching_path(self.tmp_path, histogram_directory, "*.npz")
+            histogram_files = import_io.find_files_matching_path(self.tmp_path, histogram_directory, "*.npz")
             aggregate_histogram = HistogramAggregator(healpix_order)
             for partial_file_name in histogram_files:
                 partial = SparseHistogram.from_file(partial_file_name)
                 aggregate_histogram.add(partial)
 
-            file_name = file_io.append_paths_to_pointer(self.tmp_path, histogram_binary_file)
+            file_name = import_io.append_paths_to_pointer(self.tmp_path, histogram_binary_file)
             with file_name.open("wb+") as file_handle:
                 file_handle.write(aggregate_histogram.full_histogram)
             if self.delete_resume_log_files:
                 file_io.remove_directory(
-                    file_io.append_paths_to_pointer(self.tmp_path, histogram_directory),
+                    import_io.append_paths_to_pointer(self.tmp_path, histogram_directory),
                     ignore_errors=True,
                 )
 
@@ -278,10 +279,10 @@ class ResumePlan(PipelineResumePlan):
             raise ValueError(f"Unrecognized which_histogram value: {which_histogram}")
 
         file_io.make_directory(
-            file_io.append_paths_to_pointer(tmp_path, histograms_dir),
+            import_io.append_paths_to_pointer(tmp_path, histograms_dir),
             exist_ok=True,
         )
-        return file_io.append_paths_to_pointer(tmp_path, histograms_dir, f"{mapping_key}.npz")
+        return import_io.append_paths_to_pointer(tmp_path, histograms_dir, f"{mapping_key}.npz")
 
     def get_remaining_split_keys(self):
         """Gather remaining keys, dropping successful split tasks from done file names.
@@ -357,7 +358,7 @@ class ResumePlan(PipelineResumePlan):
         Returns:
             path to cached alignment file.
         """
-        file_name = file_io.append_paths_to_pointer(self.tmp_path, self.ALIGNMENT_FILE)
+        file_name = import_io.append_paths_to_pointer(self.tmp_path, self.ALIGNMENT_FILE)
         if not file_name.exists():
             # If existing_pixels, create an incremental alignment.
             if existing_pixels:
