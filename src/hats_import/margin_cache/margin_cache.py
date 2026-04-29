@@ -70,7 +70,7 @@ def generate_margin_cache(args, client):
                 args.catalog_path,
                 create_metadata=args.create_metadata,
                 create_thumbnail=args.create_thumbnail,
-                create_per_pixel_stats=args.create_per_pixel_stats,
+                create_per_partition_stats=args.create_per_partition_stats,
             )
             if metadata_total_rows != total_rows:
                 raise ValueError(
