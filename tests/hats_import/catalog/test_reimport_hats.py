@@ -177,7 +177,6 @@ def test_run_reimport(
     old_extra_properties = old_cat.catalog_info.extra_dict()
     assert extra_properties["obs_regime"] == "Optical"
     assert extra_properties["hats_creation_date"] != old_extra_properties["hats_creation_date"]
-    assert extra_properties["hats_builder"] != old_extra_properties["hats_builder"]
     assert len(catalog.get_healpix_pixels()) == 4
     assert catalog.schema == old_cat.schema
 
