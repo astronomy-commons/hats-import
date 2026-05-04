@@ -136,7 +136,7 @@ execution by avoiding more expensive reads when they're not needed.
                ## shortcut - just need positions
                starr_manifest = starr_io.read_manifest(input_file, **self.kwargs)
                ra_array, dec_array = starr_manifest.read_positions()
-               return pd.Dataframe({"ra" : ra_array, "dec" : dec_array})
+               yield pd.Dataframe({"ra" : ra_array, "dec" : dec_array})
             else:
                ## get all of the fields
                starr_file = starr_io.read_table(input_file, **self.kwargs)
