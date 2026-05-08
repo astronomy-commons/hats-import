@@ -11,6 +11,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 from hats import HealpixPixel, read_hats
+from hats.io import paths
 from hats.pixel_math.sparse_histogram import SparseHistogram
 from pyarrow.parquet import ParquetFile
 
@@ -261,6 +262,7 @@ def test_dask_runner(
         dask_tmp=tmp_path,
         highest_healpix_order=1,
         create_thumbnail=True,
+        create_per_partition_stats=True,
         progress_bar=False,
     )
 
@@ -322,13 +324,22 @@ def test_dask_runner(
     assert data_frame.index.dtype == np.int64
 
     # Check that the data thumbnail exists
-    data_thumbnail_pointer = args.catalog_path / "dataset" / "data_thumbnail.parquet"
+    data_thumbnail_pointer = paths.get_data_thumbnail_pointer(args.catalog_path)
     assert data_thumbnail_pointer.exists()
     thumbnail = ParquetFile(data_thumbnail_pointer)
     thumbnail_schema = thumbnail.metadata.schema.to_arrow_schema()
     assert thumbnail_schema.equals(expected_parquet_schema)
     # The thumbnail has 1 row because the catalog has only 1 pixel
     assert len(thumbnail.read()) == 1
+
+    # Check that the per_partition_statistics file exists
+    stats_pointer = args.catalog_path / "per_partition_statistics.parquet"
+    assert stats_pointer.exists()
+    stats_table = ParquetFile(stats_pointer).read()
+    # There is only one data partition, so there's only one set of statistics.
+    assert len(stats_table) == 1
+    # 39 == 6 columns * 6 statistics + 3 per partition row group
+    assert len(stats_table.columns) == 39
 
 
 @pytest.mark.dask

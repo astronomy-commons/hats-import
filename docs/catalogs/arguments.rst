@@ -140,7 +140,7 @@ There are a few ways to specify the files to read:
 
     If you have only one large file, we can only read the file with one Dask worker.
     If you have lots of files, you might want to consider the Indexed batching
-    strategy described below.
+    strategy described on the page for :doc:`/reference/file_readers`.
 
 How to read them?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -157,66 +157,13 @@ or passing parameters to the file reader. For example you might use ``file_reade
 to parse a whitespace separated file. Otherwise, you can use a short string to 
 specify an existing file reader type e.g. ``file_reader="csv"``.
 
-You can find the full API documentation for 
-:py:class:`hats_import.catalog.file_readers.InputReader`
+.. note::
 
-.. code-block:: python
-
-    class StarrReader(InputReader):
-        """Class for fictional Starr file format."""
-        def __init__(self, chunksize=500_000, **kwargs):
-            self.chunksize = chunksize
-            self.kwargs = kwargs
-
-        def read(self, input_file):
-            starr_file = starr_io.read_table(input_file, **self.kwargs)
-            for smaller_table in starr_file.to_batches(max_chunksize=self.chunksize):
-                smaller_table = filter_nonsense(smaller_table)
-                yield smaller_table.to_pandas()
-
-    ...
-
-    args = ImportArguments(
-        ...
-        ## Locates files like "/directory/to/files/**starr"
-        input_path="/directory/to/files/",
-        ## NB - you need the parens here!
-        file_reader=StarrReader(),
-
-    )
+  For more information on file readers, including custom subclasses, tuning,
+  and optimizations for small files see the page on :doc:`/reference/file_readers`.
 
 If you're reading from cloud storage, or otherwise have some filesystem credential
 dict, initialize ``input_file`` using ``universal_pathlib``'s utilities.
-
-Indexed batching strategy
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-If you have many small files (think 400k+ CSV files with a few rows each), you
-may benefit from "indexed" file readers. These allow you to explicitly create 
-batches for tasks by providing a set of index files, where each file is a 
-text file that contains only paths to data files.
-
-Benefits:
-
-1. If you have 400k+ input files, you don't want to create 400k+ dask tasks
-   to process these files.
-2. If the files are very small, batching them in this way allows the import 
-   process to *combine* several small files into a single chunk for processing.
-   This will result in fewer intermediate files during the ``splitting`` stage.
-3. If you have parquet files over a slow networked file system, we support
-   pyarrow's readahead protocol through indexed readers.
-
-Warnings:
-
-1. If you have 20 dask workers in your pool, you may be tempted to create 
-   20 index files. This is not always an efficient use of resources! 
-   You'd be better served by 200 index files, so that:
-
-   a. dask can spread the load if some lists of files take longer to process
-      than others
-   b. if the pipeline dies after successfully processing 15 lists, when you 
-      retry the pipeline, you'll only be processing 5 lists with those same 20 
-      workers and many workers will be sitting idle.
 
 Which fields?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

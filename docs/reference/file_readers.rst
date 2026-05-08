@@ -5,21 +5,8 @@ In the catalog import pipeline, we use ``InputReader`` objects to iterate throug
 the input files. This allows us to take in a variety of file formats, without having
 to re-write the entire processing pipeline for each kind of file format we encounter.
 
-Your own read method
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-If you need to write your own input file reader, it should subclass ``InputReader``
-and must provide a ``read`` method.
-
-On the first pass through the data, we just need to read the RA and Dec columns, and so
-the ``read_columns`` value will be a list with just these two columns. You can use this 
-information to read less data, if possible given the file format.
-
-You can either yield a ``pandas.DataFrame`` object or a ``pyarrow.Table``. If yield
-a pandas dataframe, note that further pipeline stages will convert into a ``pyarrow.Table`` 
-anyway.
-
-You must yield the result, and should utlize chunking to avoid memory issues.
+For the curious, see the API documentation for 
+:py:class:`hats_import.catalog.file_readers.InputReader`.
 
 Index Readers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -73,9 +60,6 @@ We provide alternative implementations of some common readers that will use pyar
 readers. This can be faster, as it avoids unneccessary conversion between table
 formats, but you may encounter rougher edges. 
 
-.. currentmodule:: hats_import.catalog.file_readers
-
-
 Iterate by Row Groups
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -95,9 +79,10 @@ dataframes or tables corresponding to each row group in the Parquet file.
         ...
     )
 
-
 Built-in Classes and Functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. currentmodule:: hats_import.catalog.file_readers
 
 .. autosummary::
     :toctree: api/
@@ -112,3 +97,65 @@ Built-in Classes and Functions
     IndexedParquetReader 
     AstropyEcsvReader
     FitsReader
+
+Defining your own class
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you need to write your own input file reader, it should subclass ``InputReader``
+and must provide a ``read`` method.
+
+.. important::
+
+   On the first pass through the data, we just need to read the RA and Dec columns, and so
+   the ``read_columns`` value will be a list with just these two columns. You can use this 
+   information to read less data, if possible given the file format.
+
+You can either yield a ``pandas.DataFrame`` object or a ``pyarrow.Table``. If yielding
+a pandas dataframe, note that further pipeline stages will convert into a ``pyarrow.Table`` 
+anyway.
+
+You must yield the result, and should utilize chunking to avoid memory issues.
+
+Below is an ``InputReader`` implementation for the fictional Starr file format.
+This showcases that the ``read`` method does all of the format-specific logic.
+
+Here, we are even using some fictional shortcut to get the radec of rows in the table
+when the ``read_columns`` are provided. This can potentially speed up early pipeline
+execution by avoiding more expensive reads when they're not needed.
+
+.. code-block:: python
+
+    class StarrReader(InputReader):
+        """Class for fictional Starr file format."""
+        def __init__(self, chunksize=500_000, **kwargs):
+            self.chunksize = chunksize
+            self.kwargs = kwargs
+
+        def read(self, input_file, read_columns=None):
+            if read_columns:
+               ## shortcut - just need positions
+               starr_manifest = starr_io.read_manifest(input_file, **self.kwargs)
+               ra_array, dec_array = starr_manifest.read_positions()
+               yield pd.Dataframe({"ra" : ra_array, "dec" : dec_array})
+            else:
+               ## get all of the fields
+               starr_file = starr_io.read_table(input_file, **self.kwargs)
+               for smaller_table in starr_file.to_batches(max_chunksize=self.chunksize):
+                  smaller_table = join_to_starr_data(smaller_table)
+                  yield smaller_table.to_pandas()
+
+And here we show how the custom reader would be instantiated and passed along
+to the catalog import pipeline.
+
+.. code-block:: python
+
+    args = ImportArguments(
+        ...
+        ## Locates files like "/directory/to/files/**starr"
+        input_path="/directory/to/files/",
+        ## NB - you need the parens here!
+        file_reader=StarrReader(),
+    )
+
+While this can provide self-service for importing new file formats, we're here
+for you if this is all too much. :doc:`/guide/contact`.

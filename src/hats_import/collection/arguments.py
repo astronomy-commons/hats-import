@@ -216,6 +216,7 @@ class CollectionArguments(RuntimeArguments):
             "skymap_alt_orders": self.skymap_alt_orders,
             "create_thumbnail": self.create_thumbnail,
             "create_metadata": self.create_metadata,
+            "create_per_partition_stats": self.create_per_partition_stats,
             "tmp_dir": self.tmp_path,
             "resume": self.resume,
             "progress_bar": self.progress_bar,
