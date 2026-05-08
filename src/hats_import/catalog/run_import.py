@@ -77,7 +77,7 @@ def run(args, client):
         threshold = (
             args.pixel_threshold if resume_plan.threshold_mode == "row_count" else args.byte_pixel_threshold
         )
-        alignment_file = resume_plan.get_alignment_file(
+        alignment_file, mapping_order = resume_plan.get_alignment_file(
             raw_histogram_row_count,
             args.constant_healpix_order,
             args.highest_healpix_order,
@@ -99,7 +99,7 @@ def run(args, client):
                     mr.split_pixels,
                     input_file=file_path,
                     pickled_reader_file=pickled_reader_file,
-                    highest_order=args.mapping_healpix_order,
+                    highest_order=mapping_order,
                     ra_column=args.ra_column,
                     dec_column=args.dec_column,
                     splitting_key=key,

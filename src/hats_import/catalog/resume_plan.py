@@ -335,16 +335,20 @@ class ResumePlan(PipelineResumePlan):
         expected_total_rows,
         existing_pixels=None,
         raw_histogram_mem_size=None,
-    ) -> UPath:
+    ) -> tuple[UPath, int]:
         """Get a pointer to the existing alignment file for the pipeline, or
         generate a new alignment using provided arguments.
+
+        NB: The returned alignment may use a lower order than the provided `highest_healpix_order`,
+        if there are NO destination pixels above the returned mapping order.
 
         Args:
             raw_histogram (:obj:`np.array`): one-dimensional numpy array of long integers where the
                 value at each index corresponds to the number of objects found at the healpix pixel.
             constant_healpix_order (int): if positive, use this as the order for
                 all non-empty partitions. else, use remaining arguments.
-            highest_healpix_order (int):  the highest healpix order (e.g. 5-10)
+            highest_healpix_order (int):  the highest healpix order (e.g. 5-10), and often the same
+                order as was used in the `raw_histogram`
             lowest_healpix_order (int): the lowest healpix order (e.g. 1-5). specifying a lowest order
                 constrains the partitioning to prevent spatially large pixels.
             pixel_threshold (int): the maximum number of objects allowed in a single pixel
@@ -356,9 +360,12 @@ class ResumePlan(PipelineResumePlan):
                 found at the healpix pixel. Only required if threshold_mode is 'mem_size'.
 
         Returns:
-            path to cached alignment file.
+            A tuple of (Upath, int), where UPath is the path to the cached alignment file,
+            and int is the mapping_order (the healpix order that should be used when mapping
+            row ra/dec to a healpix bucket).
         """
         file_name = import_io.append_paths_to_pointer(self.tmp_path, self.ALIGNMENT_FILE)
+        mapping_order = hp.npix2order(len(raw_histogram))
         if not file_name.exists():
             # If existing_pixels, create an incremental alignment.
             if existing_pixels:
@@ -382,7 +389,8 @@ class ResumePlan(PipelineResumePlan):
                     lowest_order=lowest_healpix_order,
                     threshold=pixel_threshold,
                     drop_empty_siblings=drop_empty_siblings,
-                    mem_size_histogram=raw_histogram_mem_size,
+                    supplemental_count_histogram=raw_histogram_mem_size,
+                    use_lower_order=True,
                 )
 
             # Write alignment to file.
@@ -400,6 +408,7 @@ class ResumePlan(PipelineResumePlan):
                 for (order, pix, row_count) in pixel_list
                 if int(row_count) > 0
             }
+            mapping_order = hp.npix2order(len(alignment))
 
         total_rows = sum(self.destination_pixel_map.values())
         if total_rows != expected_total_rows:
@@ -407,7 +416,7 @@ class ResumePlan(PipelineResumePlan):
                 f"Number of rows ({total_rows}) does not match expectation ({expected_total_rows})"
             )
 
-        return file_name
+        return file_name, mapping_order
 
     def _generate_constant_healpix_order_alignment(self, raw_histogram_row_count, constant_healpix_order):
         """Generate alignment where all non-empty pixels are at the same healpix order.

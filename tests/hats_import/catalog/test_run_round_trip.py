@@ -1310,7 +1310,7 @@ def test_nested_columns_struct(formats_dir, tmp_path, dask_client):
 
     # The `ParquetPandasReader` returns a pd.DataFrame, converting the
     # column that used to be a list<struct> to struct<list>.
-    output_file = args.catalog_path / "dataset" / "Norder=2" / "Dir=0" / "Npix=0.parquet"
+    output_file = args.catalog_path / "dataset" / "Norder=1" / "Dir=0" / "Npix=0.parquet"
     pixel_data = pq.read_table(output_file)
     assert pa.types.is_struct(pixel_data["lightcurve"].type)
 
@@ -1334,7 +1334,7 @@ def test_nested_columns_struct(formats_dir, tmp_path, dask_client):
 
     # The `ParquetPyarrowReader` does not change the column type.
     # It remains as list<struct>. We confirm when reading it back.
-    output_file = args.catalog_path / "dataset" / "Norder=2" / "Dir=0" / "Npix=0.parquet"
+    output_file = args.catalog_path / "dataset" / "Norder=1" / "Dir=0" / "Npix=0.parquet"
     pixel_data = pq.read_table(output_file)
     col_type = pixel_data.schema.field("lightcurve").type
     assert pa.types.is_list(col_type)

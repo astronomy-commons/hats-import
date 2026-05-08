@@ -1,10 +1,13 @@
 """Test dataframe-generating file readers"""
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
+from astropy.units import UnitsWarning
 from hats.catalog import TableProperties
 
 from hats_import.catalog.file_readers import (
@@ -396,14 +399,18 @@ def test_read_fits_columns(formats_fits):
 
 def test_read_fits_with_nested_columns(formats_fits_nested):
     """Check that nested array data are processed."""
-    table = next(FitsReader().read(formats_fits_nested))
-    assert table["COEFF"].type == pa.list_(pa.float64(), 10)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=UnitsWarning)
+        table = next(FitsReader().read(formats_fits_nested))
+        assert table["COEFF"].type == pa.list_(pa.float64(), 10)
 
 
 def test_read_fits_with_nested_tensor_columns(formats_fits_tensor):
     """Check that nested tensor data are processed."""
-    table = next(FitsReader(flatten_tensors=False).read(formats_fits_tensor))
-    assert table["FLUX"].type == pa.fixed_shape_tensor(pa.float32(), (5, 5))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=UnitsWarning)
+        table = next(FitsReader(flatten_tensors=False).read(formats_fits_tensor))
+        assert table["FLUX"].type == pa.fixed_shape_tensor(pa.float32(), (5, 5))
 
-    table = next(FitsReader(flatten_tensors=True).read(formats_fits_tensor))
-    assert table["FLUX"].type == pa.list_(pa.float32(), 25)
+        table = next(FitsReader(flatten_tensors=True).read(formats_fits_tensor))
+        assert table["FLUX"].type == pa.list_(pa.float32(), 25)
