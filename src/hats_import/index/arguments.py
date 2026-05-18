@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import importlib
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -47,6 +49,14 @@ class IndexArguments(RuntimeArguments):
     along."""
 
     def __post_init__(self):
+        if sys.version_info == (3, 11):
+            dask_version = "2025.4.0"
+            try:
+                dask_version = importlib.metadata.version("dask")
+            except Exception:  # pylint: disable=broad-exception-caught # pragma: no cover
+                pass
+            if dask_version >= "2025.4.0":
+                raise RuntimeError("dask version must be >=2025.3.0,<2025.4.0, if using python 3.11")
         self._check_arguments()
 
     def _check_arguments(self):
