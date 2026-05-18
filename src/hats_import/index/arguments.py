@@ -54,6 +54,13 @@ class IndexArguments(RuntimeArguments):
 
     @classmethod
     def check_versions(cls):
+        """Check for version incompatibility.
+
+        There is a significant regression with python 3.11 and dask expr, after v2025.3.0
+
+        No other known combinations cause this problem, and it is destructive to have a global
+        pin for these versions.
+        """
         version = sys.version_info
         if (version.major, version.minor) == (3, 11):
             dask_version = "2025.4.0"
