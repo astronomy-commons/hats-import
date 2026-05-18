@@ -1,5 +1,7 @@
 """test stuff."""
 
+import sys
+
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -8,6 +10,10 @@ from hats import read_hats
 
 import hats_import.index.run_index as runner
 from hats_import.index.arguments import IndexArguments
+
+pytestmark = pytest.mark.skipif(
+    (3, 11) <= sys.version_info < (3, 12), reason="dask expr regression with python 3.11"
+)
 
 
 def test_empty_args():

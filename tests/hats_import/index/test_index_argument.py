@@ -1,10 +1,15 @@
 """Tests of argument validation"""
 
 import re
+import sys
 
 import pytest
 
 from hats_import.index.arguments import IndexArguments
+
+pytestmark = pytest.mark.skipif(
+    (3, 11) <= sys.version_info < (3, 12), reason="dask expr regression with python 3.11"
+)
 
 
 def test_none():

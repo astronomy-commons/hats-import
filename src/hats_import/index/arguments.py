@@ -49,7 +49,13 @@ class IndexArguments(RuntimeArguments):
     along."""
 
     def __post_init__(self):
-        if sys.version_info == (3, 11):
+        self.check_versions()
+        self._check_arguments()
+
+    @classmethod
+    def check_versions(cls):
+        version = sys.version_info
+        if (version.major, version.minor) == (3, 11):
             dask_version = "2025.4.0"
             try:
                 dask_version = importlib.metadata.version("dask")
@@ -57,7 +63,6 @@ class IndexArguments(RuntimeArguments):
                 pass
             if dask_version >= "2025.4.0":
                 raise RuntimeError("dask version must be >=2025.3.0,<2025.4.0, if using python 3.11")
-        self._check_arguments()
 
     def _check_arguments(self):
         super()._check_arguments()

@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 
 from hats_import.collection.arguments import CollectionArguments, _pretty_print_angle
@@ -106,6 +108,7 @@ def test_subcatalog_wrong_order(tmp_path, blank_data_dir):
         args.to_collection_properties()
 
 
+@pytest.mark.skipif((3, 11) <= sys.version_info < (3, 12), reason="dask expr regression with python 3.11")
 def test_subcatalog_existing_catalog(tmp_path, small_sky_object_catalog):
     args = (
         CollectionArguments(
@@ -137,6 +140,7 @@ def test_subcatalog_existing_catalog(tmp_path, small_sky_object_catalog):
     assert len(index_args) == 1
 
 
+@pytest.mark.skipif((3, 11) <= sys.version_info < (3, 12), reason="dask expr regression with python 3.11")
 def test_index_bad_values(tmp_path, small_sky_object_catalog):
     with pytest.raises(ValueError, match="indexing_column is required"):
         (
@@ -221,6 +225,7 @@ def test_collection_properties_basic(tmp_path, blank_data_dir):
     assert collection_info.__pydantic_extra__["obs_regime"] == "Optical"
 
 
+@pytest.mark.skipif((3, 11) <= sys.version_info < (3, 12), reason="dask expr regression with python 3.11")
 def test_collection_properties_supplemental(tmp_path, small_sky_object_catalog):
     args = (
         CollectionArguments(
@@ -255,6 +260,7 @@ def test_collection_properties_supplemental(tmp_path, small_sky_object_catalog):
     assert index_args.output_artifact_name == "small_sky_object_catalog_id"
 
 
+@pytest.mark.skipif((3, 11) <= sys.version_info < (3, 12), reason="dask expr regression with python 3.11")
 def test_collection_properties_existing_supplemental(tmp_path, small_sky_object_catalog):
     """If we have already created a catalog or supplemental table in the
     collection, confirm that the collection properties are written with
