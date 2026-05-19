@@ -10,6 +10,7 @@ from pathlib import Path
 from hats import read_hats
 from hats.catalog import Catalog, TableProperties
 from hats.io.validation import is_valid_catalog
+from packaging.version import Version
 from upath import UPath
 
 from hats_import.runtime_arguments import RuntimeArguments
@@ -61,15 +62,17 @@ class IndexArguments(RuntimeArguments):
         No other known combinations cause this problem, and it is destructive to have a global
         pin for these versions.
         """
-        version = sys.version_info
-        if (version.major, version.minor) == (3, 11):
+        python_version = Version.from_parts(release=sys.version_info[:2])
+        if python_version == Version("3.11"):
             dask_version = "2025.4.0"
             try:
                 dask_version = importlib.metadata.version("dask")
             except Exception:  # pylint: disable=broad-exception-caught # pragma: no cover
                 pass
-            if dask_version >= "2025.4.0":
-                raise RuntimeError("dask version must be >=2025.3.0,<2025.4.0, if using python 3.11")
+            if Version(dask_version) >= Version("2025.4.0"):
+                raise RuntimeError(
+                    f"dask version must be >=2025.3.0,<2025.4.0, if using python 3.11 (found dask {dask_version} and python {python_version})"
+                )
 
     def _check_arguments(self):
         super()._check_arguments()
