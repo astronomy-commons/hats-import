@@ -71,7 +71,8 @@ class IndexArguments(RuntimeArguments):
                 pass
             if Version(dask_version) >= Version("2025.4.0"):
                 raise RuntimeError(
-                    f"dask version must be >=2025.3.0,<2025.4.0, if using python 3.11 (found dask {dask_version} and python {python_version})"
+                    "dask version must be >=2025.3.0,<2025.4.0, if using python 3.11 "
+                    f"(found dask {dask_version} and python {python_version})"
                 )
 
     def _check_arguments(self):
