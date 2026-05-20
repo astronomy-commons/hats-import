@@ -69,7 +69,7 @@ class IndexArguments(RuntimeArguments):
                 dask_version = importlib.metadata.version("dask")
             except Exception:  # pylint: disable=broad-exception-caught # pragma: no cover
                 pass
-            if not (Version("2025.3.0") <= Version(dask_version) < Version("2025.4.0")):
+            if not Version("2025.3.0") <= Version(dask_version) < Version("2025.4.0"):
                 raise RuntimeError(
                     "dask version must be >=2025.3.0,<2025.4.0, if using python 3.11 "
                     f"(found dask {dask_version} and python {python_version})"

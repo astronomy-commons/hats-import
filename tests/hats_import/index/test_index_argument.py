@@ -1,11 +1,11 @@
 """Tests of argument validation"""
 
+import importlib
 import re
 import sys
 
 import pytest
 from packaging.version import Version
-import importlib
 
 from hats_import.index.arguments import IndexArguments
 
