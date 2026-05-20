@@ -8,4 +8,5 @@ nbsphinx
 sphinx
 sphinx-copybutton
 sphinx-book-theme
-git+https://github.com/astronomy-commons/hats.git@main
+hats @ git+https://github.com/astronomy-commons/hats.git@main
+lsdb @ git+https://github.com/astronomy-commons/lsdb.git@main
