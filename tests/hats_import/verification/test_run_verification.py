@@ -1,3 +1,5 @@
+import logging
+
 import pandas as pd
 import pytest
 
@@ -75,19 +77,21 @@ def test_test_is_valid_catalog(small_sky_object_catalog, wrong_files_and_rows_di
     assert not passed, "bad catalog passed"
 
 
-def test_test_is_valid_collection(test_data_dir, tmp_path, capsys):
+def test_test_is_valid_collection(test_data_dir, tmp_path, caplog, capsys):
     """`hats.is_valid_catalog` should pass for good catalogs, fail for catalogs without ancillary files."""
+    caplog.at_level(logging.INFO)
     args = VerificationArguments(
         input_catalog_path=test_data_dir / "small_sky_collection", output_path=tmp_path, verbose=True
     )
     verifier = runner.run(args)
     passed = verifier.test_is_valid_catalog()
     assert passed, "good catalog failed"
-    captured = capsys.readouterr().out
-    assert "Starting: Test hats.io.validation.is_valid_collection." in captured
-    assert "Validating collection at path" in captured
-    assert "Validating catalog at path" in captured
-    assert "Result: PASSED" in captured
+    captured_logs = caplog.text
+    captured_stdout = capsys.readouterr().out
+    assert "Starting: Test hats.io.validation.is_valid_collection." in captured_stdout
+    assert "Validating collection at path" in captured_logs
+    assert "Validating catalog at path" in captured_logs
+    assert "Result: PASSED" in captured_stdout
 
 
 def test_test_num_rows(small_sky_object_catalog, wrong_files_and_rows_dir, tmp_path):
