@@ -13,6 +13,7 @@ def run(args, client):
         raise TypeError("args is required and should be type IndexArguments")
     if not isinstance(args, IndexArguments):
         raise TypeError("args must be type IndexArguments")
+    IndexArguments.check_versions()
     rows_written = mr.create_index(args, client)
 
     # All done - write out the metadata
