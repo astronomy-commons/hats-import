@@ -1,5 +1,7 @@
 """Tests of map reduce operations"""
 
+import sys
+
 import numpy as np
 import numpy.testing as npt
 import pandas as pd
@@ -7,6 +9,10 @@ import pytest
 
 import hats_import.index.map_reduce as mr
 from hats_import.index.arguments import IndexArguments
+
+pytestmark = pytest.mark.skipif(
+    (3, 11) <= sys.version_info < (3, 12), reason="dask expr regression with python 3.11"
+)
 
 
 @pytest.mark.dask

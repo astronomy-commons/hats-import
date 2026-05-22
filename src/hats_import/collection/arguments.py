@@ -157,6 +157,7 @@ class CollectionArguments(RuntimeArguments):
         as the arguments cannot be validated until the catalog exists on disk."""
         if self.new_catalog_path is None:
             raise ValueError("Must add catalog arguments before adding index arguments")
+        IndexArguments.check_versions()
 
         if "indexing_column" not in kwargs:
             raise ValueError("indexing_column is required")

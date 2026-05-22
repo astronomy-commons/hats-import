@@ -1,3 +1,5 @@
+import sys
+
 import pyarrow.parquet as pq
 import pytest
 from hats import read_hats
@@ -19,6 +21,7 @@ def test_bad_args():
         run(args, None)
 
 
+@pytest.mark.skipif((3, 11) <= sys.version_info < (3, 12), reason="dask expr regression with python 3.11")
 @pytest.mark.dask(timeout=150)
 def test_import_collection(
     dask_client,
@@ -106,6 +109,7 @@ def test_import_collection(
     assert collection.all_indexes == {"object_id": "small_sky_object_id", "source_id": "small_sky_source_id"}
 
 
+@pytest.mark.skipif((3, 11) <= sys.version_info < (3, 12), reason="dask expr regression with python 3.11")
 @pytest.mark.dask(timeout=150)
 def test_import_collection_resume_supplemental(
     dask_client,
@@ -173,6 +177,7 @@ def test_import_collection_resume_supplemental(
     assert collection.all_indexes == {"object_id": "small_sky_object_id", "source_id": "small_sky_source_id"}
 
 
+@pytest.mark.skipif((3, 11) <= sys.version_info < (3, 12), reason="dask expr regression with python 3.11")
 @pytest.mark.dask(timeout=150)
 def test_import_collection_healpix13(
     dask_client,
