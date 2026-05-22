@@ -10,7 +10,7 @@ from pathlib import Path
 import pandas as pd
 from hats.catalog import TableProperties
 from hats.io import file_io
-from hats.io.validation import is_valid_catalog
+from hats.io.validation import _is_catalog_info_valid
 from hats.pixel_math import spatial_index
 from upath import UPath
 
@@ -116,7 +116,7 @@ class RuntimeArguments:
             raise ValueError("dask_threads_per_worker should be greater than 0")
 
         self.catalog_path = file_io.get_upath(self.output_path) / self.output_artifact_name
-        if is_valid_catalog(self.catalog_path):
+        if _is_catalog_info_valid(self.catalog_path):
             raise ValueError(f"Output path {self.catalog_path} already contains a valid catalog")
         if not self.resume:
             file_io.remove_directory(self.catalog_path, ignore_errors=True)
