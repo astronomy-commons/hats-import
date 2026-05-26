@@ -25,8 +25,10 @@ def map_pixel_shards(
     """Creates margin cache shards from a source partition file."""
     try:
         schema = file_io.read_parquet_metadata(original_catalog_metadata).schema.to_arrow_schema()
+
+        # first pass to compute margin filter
         data = pq.read_table(
-            partition_file.path, filesystem=partition_file.fs, schema=schema
+            partition_file.path, filesystem=partition_file.fs, schema=schema, columns=[healpix_column]
         ).combine_chunks()
 
         # Constrain the possible margin pairs, first by only those `margin_order` pixels
@@ -48,6 +50,16 @@ def map_pixel_shards(
         margin_pixel_filter = pd.DataFrame(
             {"margin_pixel": margin_pixel_list, "filter_value": np.arange(0, len(margin_pixel_list))}
         ).merge(margin_pairs, on="margin_pixel")
+
+        # If no row falls into any margin pixel, skip the full-schema read entirely.
+        if len(margin_pixel_filter) == 0:
+            MarginCachePlan.mapping_key_done(output_path, mapping_key, 0)
+            return
+
+        # Second pass: read the full table once, now that we know rows are needed.
+        data = pq.read_table(
+            partition_file.path, filesystem=partition_file.fs, schema=schema
+        ).combine_chunks()
 
         # For every possible output pixel, find the full margin_order pixel filter list,
         # perform the filter, and pass along to helper method to compute fine filter
