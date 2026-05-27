@@ -1,8 +1,10 @@
 import os
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 from hats import pixel_math
 from hats.io import paths
@@ -197,3 +199,34 @@ def test_reduce_margin_shards(tmp_path):
 
     validate_result_dataframe(result_path, 720)
     assert not os.path.exists(shard_dir)
+
+
+def test_map_pixel_shards_no_match(tmp_path, test_data_dir, small_sky_source_catalog):
+    """When no row falls into any margin pixel, the full-schema read is skipped.
+
+    Regression guard for issue #685: the early-exit branch must short-circuit
+    before the second pq.read_table call, not just produce the same output.
+    """
+    intermediate_dir = tmp_path / "intermediate"
+    os.makedirs(intermediate_dir / "mapping")
+
+    with patch.object(pq, "read_table", wraps=pq.read_table) as read_table_spy:
+        margin_cache_map_reduce.map_pixel_shards(
+            paths.pixel_catalog_file(small_sky_source_catalog, HealpixPixel(1, 47)),
+            source_pixel=HealpixPixel(1, 47),
+            mapping_key="1_47",
+            original_catalog_metadata=small_sky_source_catalog / "dataset" / "_common_metadata",
+            margin_pair_file=test_data_dir / "margin_pairs" / "small_sky_source_pairs.csv",
+            output_path=intermediate_dir,
+            margin_order=1,
+            healpix_column="_healpix_29",
+            healpix_order=29,
+        )
+
+    # Exactly one read happened, and it asked for only the healpix column.
+    assert read_table_spy.call_count == 1
+    assert read_table_spy.call_args.kwargs.get("columns") == ["_healpix_29"]
+
+    # And the observable behavior: marker written, no shards.
+    assert os.path.exists(intermediate_dir / "mapping" / "1_47_done")
+    assert not any(p.name.startswith("order_") for p in intermediate_dir.iterdir())
