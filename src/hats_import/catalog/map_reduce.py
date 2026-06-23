@@ -1,6 +1,7 @@
 """Import a set of non-hats files using dask for parallelization"""
 
 import pickle
+import sys
 import warnings
 
 import cloudpickle
@@ -177,6 +178,33 @@ def map_to_pixels(
         else:
             read_columns = [ra_column, dec_column]
 
+        # [MEM SIZE OPTIMIZATION] Here is where we can start considering separating
+        # the fixed and variable length columns.
+        # We could theoretically, just below this but just before the loop,
+        # calculate the total size use of the fixed length columns and keep that
+        # as a single sum to add to our size estimate of each row.
+        # (And then, within the loop, only count the sizes of the variable length
+        # columns).
+        # Note we need some kind of "get all available col names" fn for this,
+        # otherwise we'll need to wait until inside the loop and re-calculate this
+        # for each chunk
+        if threshold_mode == "mem_size":
+            fixed_length_cols = []
+            var_length_cols = []
+
+            # Get all columns from the input file that are not spatial index columns.
+            # TODO: does this work to get the cols?
+            for col in input_file.columns:
+                if isinstance(
+                    input_file[col].dtype.type,
+                    (np.int64, np.float32, np.float64, np.str_, np.bytes),
+                ):
+                    fixed_length_cols.append(col)
+                else:
+                    var_length_cols.append(col)
+            # Get the total mem size of the fixed length columns for later use.
+            fixed_length_cols_mem_size = sum([sys.getsizeof(input_file[col]) for col in fixed_length_cols])
+
         # Iterate through the input file in chunks, mapping pixels and updating histograms.
         for _, chunk_data, mapped_pixels in _iterate_input_file(
             input_file,
@@ -190,7 +218,14 @@ def map_to_pixels(
             data_mem_sizes = None
 
             if threshold_mode == "mem_size":
-                data_mem_sizes = size_estimates.get_mem_size_per_row(chunk_data)
+                # [MEM SIZE OPTIMIZATION] So here's where we now want to use the
+                # "total size of fixed len cols" we've already computed. we'd
+                # like to first compute the variable length col sizes (and only those)
+                # and then add the same "fixed size sum" to each row,
+                # then let those values get used for the supplemental count hist.
+                var_col_mem_sizes = size_estimates.get_mem_size_per_row(chunk_data, cols=var_length_cols)
+                # Add fixed_length_cols_mem_size to get the total size of each row.
+                data_mem_sizes = var_col_mem_sizes + fixed_length_cols_mem_size
 
             row_count_partial, mem_size_partial = supplemental_count_histogram(
                 mapped_pixels, data_mem_sizes, highest_order=highest_order
