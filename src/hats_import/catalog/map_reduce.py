@@ -132,6 +132,36 @@ def _iterate_input_file(
         yield chunk_number, data, mapped_pixels
 
 
+def _get_cols_in_input_file(input_file: UPath, pickled_reader_file: str):
+    """Gets a list of all available columns in an input file.
+
+    Args:
+        input_file (UPath): file to read for catalog data.
+        pickled_reader_file (str): path to the pickled instance of input
+            reader that specifies arguments necessary for reading from the input
+            file (of type hats_import.catalog.file_readers.InputReader).
+
+    Returns:
+       list: List of column names in the input
+    """
+    with open(pickled_reader_file, "rb") as pickle_file:
+        file_reader = cloudpickle.load(pickle_file)
+    if not file_reader:
+        raise NotImplementedError("No file reader implemented")
+
+    # Gives a Pandas DataFrame or columnar batch (e.g., pyarrow.Table) containing chunk of file info.
+    data = file_reader.read(input_file)
+
+    # Get columns from data, depending on the type of data.
+    if data is None:  # pragma: no cover
+        raise ValueError("No data returned by file reader")
+    if isinstance(data, pd.DataFrame):
+        return list(data.columns)
+    if hasattr(data, "column_names"):
+        return list(data.column_names)
+    raise TypeError(f"Unsupported data type: {type(data)}")
+
+
 def map_to_pixels(
     input_file: UPath,
     pickled_reader_file: str,
@@ -194,7 +224,7 @@ def map_to_pixels(
 
             # Get all columns from the input file that are not spatial index columns.
             # TODO: does this work to get the cols?
-            for col in input_file.columns:
+            for col in _get_cols_in_input_file(input_file):
                 if isinstance(
                     input_file[col].dtype.type,
                     (np.int64, np.float32, np.float64, np.str_, np.bytes),
