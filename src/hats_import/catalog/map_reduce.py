@@ -133,7 +133,12 @@ def _iterate_input_file(
 
 
 def _get_cols_in_input_file(input_file: UPath, pickled_reader_file: str):
-    """Gets a list of all available columns in an input file.
+    """Gets the columns available in an input file, split by whether they hold
+    fixed-length or variable-length data.
+
+    Fixed-length columns (e.g. ints, floats, bools, datetimes) take the same
+    number of bytes in every row. Variable-length columns (e.g. strings, bytes,
+    lists) can take a different number of bytes from row to row.
 
     Args:
         input_file (UPath): file to read for catalog data.
@@ -142,7 +147,10 @@ def _get_cols_in_input_file(input_file: UPath, pickled_reader_file: str):
             file (of type hats_import.catalog.file_readers.InputReader).
 
     Returns:
-       list: List of column names in the input
+        Tuple[list, list, int]: (var_length_cols, fixed_length_cols, fixed_length_row_size),
+            where var_length_cols and fixed_length_cols are two disjoint lists of column names
+            whose union is every column in the input file, and fixed_length_row_size is the
+            number of bytes taken up by the fixed-length columns in a single row.
     """
     with open(pickled_reader_file, "rb") as pickle_file:
         file_reader = cloudpickle.load(pickle_file)
@@ -150,16 +158,45 @@ def _get_cols_in_input_file(input_file: UPath, pickled_reader_file: str):
         raise NotImplementedError("No file reader implemented")
 
     # Gives a Pandas DataFrame or columnar batch (e.g., pyarrow.Table) containing chunk of file info.
-    data = file_reader.read(input_file)
+    data = next(iter(file_reader.read(input_file)), None)
 
-    # Get columns from data, depending on the type of data.
     if data is None:  # pragma: no cover
         raise ValueError("No data returned by file reader")
+
+    fixed_length_cols = []
+    var_length_cols = []
+
     if isinstance(data, pd.DataFrame):
-        return list(data.columns)
-    if hasattr(data, "column_names"):
-        return list(data.column_names)
-    raise TypeError(f"Unsupported data type: {type(data)}")
+        for column, dtype in data.dtypes.items():
+            if (
+                pd.api.types.is_numeric_dtype(dtype)
+                or pd.api.types.is_bool_dtype(dtype)
+                or pd.api.types.is_datetime64_any_dtype(dtype)
+            ):
+                fixed_length_cols.append(column)
+            else:
+                var_length_cols.append(column)
+    elif hasattr(data, "column_names"):
+        for column, field_type in zip(data.column_names, data.schema.types, strict=True):
+            if (
+                pa.types.is_integer(field_type)
+                or pa.types.is_floating(field_type)
+                or pa.types.is_boolean(field_type)
+                or pa.types.is_decimal(field_type)
+                or pa.types.is_temporal(field_type)
+                or pa.types.is_fixed_size_binary(field_type)
+            ):
+                fixed_length_cols.append(column)
+            else:
+                var_length_cols.append(column)
+    else:
+        raise TypeError(f"Unsupported data type: {type(data)}")
+
+    # Fixed-length columns take the same number of bytes in every row, so we
+    # only need to measure a single row to get the per-row size of the group.
+    fixed_length_row_size = size_estimates.get_mem_size_per_row(data, cols=fixed_length_cols)[0]
+
+    return var_length_cols, fixed_length_cols, fixed_length_row_size
 
 
 def map_to_pixels(
@@ -198,6 +235,13 @@ def map_to_pixels(
         row_count_histo = HistogramAggregator(highest_order)
         mem_size_histo = HistogramAggregator(highest_order)
 
+        # Pre-calculate the fixed length columns' size before we start (if using
+        # mem_size partitioning)
+        if threshold_mode == "mem_size":
+            (var_length_cols, _, fixed_length_cols_mem_size) = _get_cols_in_input_file(
+                input_file, pickled_reader_file
+            )
+
         # Determine which columns to read from the input file. If we're using
         # the bytewise/mem_size histogram, we need to read all columns to accurately
         # estimate memory usage.
@@ -207,33 +251,6 @@ def map_to_pixels(
             read_columns = [SPATIAL_INDEX_COLUMN]
         else:
             read_columns = [ra_column, dec_column]
-
-        # [MEM SIZE OPTIMIZATION] Here is where we can start considering separating
-        # the fixed and variable length columns.
-        # We could theoretically, just below this but just before the loop,
-        # calculate the total size use of the fixed length columns and keep that
-        # as a single sum to add to our size estimate of each row.
-        # (And then, within the loop, only count the sizes of the variable length
-        # columns).
-        # Note we need some kind of "get all available col names" fn for this,
-        # otherwise we'll need to wait until inside the loop and re-calculate this
-        # for each chunk
-        if threshold_mode == "mem_size":
-            fixed_length_cols = []
-            var_length_cols = []
-
-            # Get all columns from the input file that are not spatial index columns.
-            # TODO: does this work to get the cols?
-            for col in _get_cols_in_input_file(input_file):
-                if isinstance(
-                    input_file[col].dtype.type,
-                    (np.int64, np.float32, np.float64, np.str_, np.bytes),
-                ):
-                    fixed_length_cols.append(col)
-                else:
-                    var_length_cols.append(col)
-            # Get the total mem size of the fixed length columns for later use.
-            fixed_length_cols_mem_size = sum([sys.getsizeof(input_file[col]) for col in fixed_length_cols])
 
         # Iterate through the input file in chunks, mapping pixels and updating histograms.
         for _, chunk_data, mapped_pixels in _iterate_input_file(
@@ -248,14 +265,10 @@ def map_to_pixels(
             data_mem_sizes = None
 
             if threshold_mode == "mem_size":
-                # [MEM SIZE OPTIMIZATION] So here's where we now want to use the
-                # "total size of fixed len cols" we've already computed. we'd
-                # like to first compute the variable length col sizes (and only those)
-                # and then add the same "fixed size sum" to each row,
-                # then let those values get used for the supplemental count hist.
+                # Compute only the vwriable length columns (per-row).
                 var_col_mem_sizes = size_estimates.get_mem_size_per_row(chunk_data, cols=var_length_cols)
                 # Add fixed_length_cols_mem_size to get the total size of each row.
-                data_mem_sizes = var_col_mem_sizes + fixed_length_cols_mem_size
+                data_mem_sizes = [size + fixed_length_cols_mem_size for size in var_col_mem_sizes]
 
             row_count_partial, mem_size_partial = supplemental_count_histogram(
                 mapped_pixels, data_mem_sizes, highest_order=highest_order
