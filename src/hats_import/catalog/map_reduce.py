@@ -174,6 +174,25 @@ def _is_string_like_series(series):
     return False
 
 
+def _string_col_sizes_are_consistent(data, column):
+    """Whether a string/binary column's per-row sizes, sampled over the given
+    chunk, are consistent enough to be represented by their mean.
+
+    Guards against string columns that hold serialized variable-length data
+    (e.g. arrays or free text stored as strings), whose sizes vary too much
+    for a fixed per-row estimate. The sampled sizes include a small constant
+    per-row overhead, which only makes this check more lenient.
+    """
+    # A string/binary column is only size-estimated as a constant if its largest sampled
+    # value is at most this many times the column's mean sampled value.
+    consistent_string_max_to_mean_ratio = 2.0
+
+    col_sizes = size_estimates.get_mem_size_per_row(data, cols=[column])
+    if not col_sizes:
+        return True
+    return max(col_sizes) <= consistent_string_max_to_mean_ratio * (sum(col_sizes) / len(col_sizes))
+
+
 def _get_cols_in_input_file(input_file: UPath, pickled_reader_file: str):
     """Gets the columns available in an input file, split by whether their
     per-row memory size can be precomputed up front.
@@ -185,7 +204,9 @@ def _get_cols_in_input_file(input_file: UPath, pickled_reader_file: str):
     size: the mean of their measured sizes over the first chunk of the file.
     Together these make up the "precomputed" columns. The remaining
     variable-length columns (e.g. lists, nested arrays) must be measured row
-    by row.
+    by row — including any string column whose sampled sizes are too
+    inconsistent for a fixed estimate (see ``_string_col_sizes_are_consistent``),
+    such as serialized arrays or free text.
 
     Args:
         input_file (UPath): file to read for catalog data.
@@ -220,14 +241,17 @@ def _get_cols_in_input_file(input_file: UPath, pickled_reader_file: str):
                 pd.api.types.is_numeric_dtype(dtype)
                 or pd.api.types.is_bool_dtype(dtype)
                 or pd.api.types.is_datetime64_any_dtype(dtype)
-                or _is_string_like_series(data[column])
             ):
+                precomputed_cols.append(column)
+            elif _is_string_like_series(data[column]) and _string_col_sizes_are_consistent(data, column):
                 precomputed_cols.append(column)
             else:
                 var_length_cols.append(column)
     elif hasattr(data, "column_names"):
         for column, field_type in zip(data.column_names, data.schema.types, strict=True):
-            if _is_fixed_length_arrow_type(field_type) or _is_string_like_arrow_type(field_type):
+            if _is_fixed_length_arrow_type(field_type) or (
+                _is_string_like_arrow_type(field_type) and _string_col_sizes_are_consistent(data, column)
+            ):
                 precomputed_cols.append(column)
             else:
                 var_length_cols.append(column)
