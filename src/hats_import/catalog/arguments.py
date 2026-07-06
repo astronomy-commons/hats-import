@@ -78,7 +78,11 @@ class ImportArguments(RuntimeArguments):
     """when determining bins for the final partitioning, the maximum number
     of rows for a single resulting pixel, expressed in bytes. we may combine hierarchically until
     we near the ``byte_pixel_threshold``. if this is set, it will override
-    ``pixel_threshold``."""
+    ``pixel_threshold``. per-row sizes are estimates: fixed-length columns (numeric,
+    boolean, datetime) and string/binary columns are sized once from the first chunk
+    of each input file (strings use the mean measured size, so they are assumed to be
+    of consistent width), while other variable-length columns (e.g. lists, nested
+    arrays) are measured row by row."""
     drop_empty_siblings: bool = True
     """when determining bins for the final partitioning, should we keep result pixels
     at a higher order (smaller area) if the 3 sibling pixels are empty. setting this to 
