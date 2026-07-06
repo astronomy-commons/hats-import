@@ -193,7 +193,7 @@ def _string_col_sizes_are_consistent(data, column):
     return max(col_sizes) <= consistent_string_max_to_mean_ratio * (sum(col_sizes) / len(col_sizes))
 
 
-def _get_cols_in_input_file(input_file: UPath, pickled_reader_file: str):
+def get_cols_in_input_file(input_file: UPath, pickled_reader_file: str):
     """Gets the columns available in an input file, split by whether their
     per-row memory size can be precomputed up front.
 
@@ -277,6 +277,7 @@ def map_to_pixels(
     dec_column,
     use_healpix_29=False,
     threshold_mode="row_count",
+    size_estimate=None,
 ):
     """Map a file of input objects to their healpix pixels.
 
@@ -291,6 +292,10 @@ def map_to_pixels(
         ra_column (str): where to find right ascension data in the dataframe
         dec_column (str): where to find declation in the dataframe
         threshold_mode (str): mode for thresholding, either "row_count" or "mem_size".
+        size_estimate (tuple): result of a previous ``get_cols_in_input_file`` call, to
+            be shared by all input files of an import (assumes the files have the same
+            schema and similarly-sized values). If None and thresholding by mem_size,
+            the estimate is computed from this input file.
 
     Returns:
         one-dimensional numpy array of long integers where the value at each index corresponds
@@ -304,11 +309,12 @@ def map_to_pixels(
         mem_size_histo = HistogramAggregator(highest_order)
 
         # Pre-calculate the precomputed columns' per-row size before we start
-        # (if using mem_size partitioning)
+        # (if using mem_size partitioning), unless the import pipeline already
+        # computed one to share across all of its input files.
         if threshold_mode == "mem_size":
-            (var_length_cols, _, precomputed_row_size) = _get_cols_in_input_file(
-                input_file, pickled_reader_file
-            )
+            if size_estimate is None:
+                size_estimate = get_cols_in_input_file(input_file, pickled_reader_file)
+            (var_length_cols, _, precomputed_row_size) = size_estimate
 
         # Determine which columns to read from the input file. If we're using
         # the bytewise/mem_size histogram, we also need the columns whose memory

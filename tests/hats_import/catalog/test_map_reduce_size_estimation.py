@@ -55,7 +55,7 @@ def test_get_cols_in_input_file_pandas(tmp_path):
     )
     reader_file = pickle_file_reader(tmp_path, SingleChunkReader(chunk))
 
-    var_cols, precomputed_cols, precomputed_row_size = mr._get_cols_in_input_file("unused", reader_file)
+    var_cols, precomputed_cols, precomputed_row_size = mr.get_cols_in_input_file("unused", reader_file)
 
     assert var_cols == ["mags"]
     assert precomputed_cols == ["id", "flag", "id_str", "list_o_strings"]
@@ -75,7 +75,7 @@ def test_get_cols_in_input_file_pyarrow(tmp_path):
     )
     reader_file = pickle_file_reader(tmp_path, SingleChunkReader(chunk))
 
-    var_cols, precomputed_cols, precomputed_row_size = mr._get_cols_in_input_file("unused", reader_file)
+    var_cols, precomputed_cols, precomputed_row_size = mr.get_cols_in_input_file("unused", reader_file)
 
     assert var_cols == ["mags"]
     assert precomputed_cols == ["id", "id_str", "blob"]
@@ -94,7 +94,7 @@ def test_get_cols_in_input_file_object_dtype_lists(tmp_path):
     )
     reader_file = pickle_file_reader(tmp_path, SingleChunkReader(chunk))
 
-    var_cols, precomputed_cols, _ = mr._get_cols_in_input_file("unused", reader_file)
+    var_cols, precomputed_cols, _ = mr.get_cols_in_input_file("unused", reader_file)
 
     assert var_cols == ["listed"]
     assert precomputed_cols == ["id"]
@@ -111,7 +111,7 @@ def test_get_cols_in_input_file_inconsistent_strings_pandas(tmp_path):
     )
     reader_file = pickle_file_reader(tmp_path, SingleChunkReader(chunk))
 
-    var_cols, precomputed_cols, precomputed_row_size = mr._get_cols_in_input_file("unused", reader_file)
+    var_cols, precomputed_cols, precomputed_row_size = mr.get_cols_in_input_file("unused", reader_file)
 
     assert var_cols == ["lightcurve"]
     assert precomputed_cols == ["id_str"]
@@ -129,7 +129,7 @@ def test_get_cols_in_input_file_inconsistent_strings_pyarrow(tmp_path):
     )
     reader_file = pickle_file_reader(tmp_path, SingleChunkReader(chunk))
 
-    var_cols, precomputed_cols, _ = mr._get_cols_in_input_file("unused", reader_file)
+    var_cols, precomputed_cols, _ = mr.get_cols_in_input_file("unused", reader_file)
 
     assert var_cols == ["lightcurve"]
     assert precomputed_cols == ["id_str"]
@@ -171,7 +171,7 @@ def test_map_to_pixels_mem_size_mixed_columns(tmp_path):
     )
 
     result = read_partial_histogram(tmp_path, "map_0", which_histogram="mem_size")
-    _, precomputed_cols, precomputed_row_size = mr._get_cols_in_input_file("unused", reader_file)
+    _, precomputed_cols, precomputed_row_size = mr.get_cols_in_input_file("unused", reader_file)
     assert precomputed_cols == ["ra", "dec", "id_str"]
     # Measure the chunk as the pipeline saw it (after the reader's pickle round-trip),
     # since unpickled ndarray cells can report a different object overhead.
@@ -182,3 +182,37 @@ def test_map_to_pixels_mem_size_mixed_columns(tmp_path):
     # Fractional bytes are truncated as each row is summed into the int64 histogram,
     # so allow up to a byte of loss per row.
     assert expected_total - len(chunk) <= result.sum() <= expected_total
+
+
+def test_map_to_pixels_mem_size_shared_size_estimate(tmp_path):
+    """A size_estimate passed to map_to_pixels (as the import pipeline does, sharing
+    one estimate across all input files) is used as-is instead of being recomputed."""
+    chunk = pd.DataFrame(
+        {
+            "ra": [290.0, 300.0, 310.0, 320.0],
+            "dec": [-60.0, -50.0, -55.0, -45.0],
+            "id_str": ["1001", "1002", "1003", "1004"],
+        }
+    )
+    reader_file = pickle_file_reader(tmp_path, SingleChunkReader(chunk))
+    (tmp_path / "row_count_histograms").mkdir(parents=True)
+    (tmp_path / "mem_size_histograms").mkdir(parents=True)
+
+    # A synthetic estimate that deliberately differs from what this file would
+    # produce: if it is honored, every row counts as exactly 100 bytes.
+    shared_estimate = ([], ["ra", "dec", "id_str"], 100.0)
+
+    mr.map_to_pixels(
+        input_file="unused",
+        pickled_reader_file=reader_file,
+        highest_order=0,
+        ra_column="ra",
+        dec_column="dec",
+        resume_path=tmp_path,
+        mapping_key="map_0",
+        threshold_mode="mem_size",
+        size_estimate=shared_estimate,
+    )
+
+    result = read_partial_histogram(tmp_path, "map_0", which_histogram="mem_size")
+    assert result.sum() == 100 * len(chunk)
