@@ -173,11 +173,7 @@ def test_map_to_pixels_mem_size_mixed_columns(tmp_path):
     result = read_partial_histogram(tmp_path, "map_0", which_histogram="mem_size")
     _, precomputed_cols, precomputed_row_size = mr.get_cols_in_input_file("unused", reader_file)
     assert precomputed_cols == ["ra", "dec", "id_str"]
-    # Measure the chunk as the pipeline saw it (after the reader's pickle round-trip),
-    # since unpickled ndarray cells can report a different object overhead.
-    with open(reader_file, "rb") as pickle_file:
-        unpickled_chunk = cloudpickle.load(pickle_file).chunk
-    var_sizes = size_estimates.get_mem_size_per_row(unpickled_chunk, cols=["mags"])
+    var_sizes = size_estimates.get_mem_size_per_row(chunk, cols=["mags"])
     expected_total = sum(var_sizes) + len(chunk) * precomputed_row_size
     # Fractional bytes are truncated as each row is summed into the int64 histogram,
     # so allow up to a byte of loss per row.
