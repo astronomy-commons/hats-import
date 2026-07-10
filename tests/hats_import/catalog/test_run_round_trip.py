@@ -1343,3 +1343,34 @@ def test_nested_columns_struct(formats_dir, tmp_path, dask_client):
     # Partial loads are not possible:
     with pytest.raises(ValueError, match="only supported for struct"):
         npd.read_parquet(output_file, columns=["lightcurve.hmjd"])
+
+
+@pytest.mark.dask
+def test_import_create_pngs(
+    dask_client,
+    small_sky_parts_dir,
+    tmp_path,
+):
+    """Test basic execution.
+    - tests that all the final tiles are at the lowest healpix order,
+        and that we don't create tiles where there is no data.
+    """
+    pytest.importorskip("matplotlib.pyplot")
+
+    args = ImportArguments(
+        output_artifact_name="small_sky_object_catalog",
+        input_path=small_sky_parts_dir,
+        file_reader="csv",
+        output_path=tmp_path,
+        dask_tmp=tmp_path,
+        highest_healpix_order=2,
+        create_skymap_png=True,
+        create_partition_info_png=True,
+        progress_bar=False,
+    )
+
+    runner.run(args, dask_client)
+
+    # Check that PNGs exist
+    assert (args.catalog_path / "skymap.png").exists()
+    assert (args.catalog_path / "partition_info.png").exists()

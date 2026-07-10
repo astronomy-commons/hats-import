@@ -25,16 +25,6 @@ def test_bad_args():
         runner.run(args, None)
 
 
-# pylint: disable=unused-import
-try:
-    import healpy as hp
-
-    HAVE_HEALPY = True
-except ImportError:
-    HAVE_HEALPY = False
-
-
-@pytest.mark.skipif(not HAVE_HEALPY, reason="healpy is not installed")
 @pytest.mark.dask
 def test_run_conversion_object(
     test_data_dir,
@@ -43,6 +33,7 @@ def test_run_conversion_object(
     dask_client,
 ):
     """Test appropriate metadata is written"""
+    pytest.importorskip("healpy")
 
     input_catalog_dir = test_data_dir / "hipscat" / "small_sky_object_catalog"
 
@@ -105,7 +96,6 @@ def test_run_conversion_object(
     assert len(thumbnail.read()) == 1
 
 
-@pytest.mark.skipif(not HAVE_HEALPY, reason="healpy is not installed")
 @pytest.mark.dask
 def test_run_conversion_source(
     test_data_dir,
@@ -113,6 +103,7 @@ def test_run_conversion_source(
     dask_client,
 ):
     """Test appropriate metadata is written"""
+    pytest.importorskip("healpy")
 
     input_catalog_dir = test_data_dir / "hipscat" / "small_sky_source_catalog"
 

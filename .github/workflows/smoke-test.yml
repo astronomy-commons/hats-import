@@ -38,6 +38,15 @@ jobs:
     - name: Run unit tests with pytest
       run: |
         python -m pytest tests
+    - name: Install FULL dependencies
+      run: |
+        uv pip install --system -e .[full]
+    - name: List FULL dependencies
+      run: |
+        pip list
+    - name: Run FULL unit tests with pytest
+      run: |
+        python -m pytest tests
     - name: Send status to Slack app
       if: ${{ failure() && github.event_name != 'workflow_dispatch' }}
       id: slack

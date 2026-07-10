@@ -52,6 +52,16 @@ class RuntimeArguments:
     """Create /dataset/_metadata parquet from all data partitions."""
     create_per_partition_stats: bool = False
     """Create per_partition_statistics.parquet, based on footers from all data partitions."""
+    create_skymap_png: bool = False
+    """Create a visual representation of the skymap's contents."""
+    create_partition_info_png: bool = False
+    """Create a visual representation of the partitions on the sky."""
+    create_summary_html: bool = False
+    """Create a basic summary index.html file. 
+    This uses the default options; for more customization see the HATS library method."""
+    create_summary_md: bool = False
+    """Create a basic summary README.md file. 
+    This uses the default options; for more customization see the HATS library method."""
 
     ## Execution
     tmp_dir: str | Path | UPath | None = None
