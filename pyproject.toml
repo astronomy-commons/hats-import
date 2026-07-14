@@ -47,6 +47,7 @@ full = [
     "ipykernel", # Support for Jupyter notebooks
     "ipywidgets", # useful for tqdm in notebooks.
     "healpy", # used only in hipscat conversion
+    "matplotlib", # used when creating skymap.png or partition_info.png
 ]
 
 [build-system]
