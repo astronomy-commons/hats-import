@@ -3,10 +3,13 @@
 import sys
 
 import numpy as np
+import numpy.testing as npt
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 from hats import read_hats
+from hats.catalog.index.index_catalog import IndexCatalog
+from hats.pixel_math import HealpixPixel
 
 import hats_import.index.run_index as runner
 from hats_import.index.arguments import IndexArguments
@@ -170,3 +173,48 @@ def test_run_index_on_source_object_id(
 
     schema = pq.read_metadata(args.catalog_path / "dataset" / "_common_metadata").schema.to_arrow_schema()
     assert schema.equals(basic_index_parquet_schema)
+
+
+@pytest.mark.dask
+def test_run_index_on_nested_source_id(
+    small_sky_nested_catalog,
+    dask_client,
+    tmp_path,
+):
+    """Test appropriate metadata is written."""
+
+    args = IndexArguments(
+        input_catalog_path=small_sky_nested_catalog,
+        indexing_column="lc.source_id",
+        output_path=tmp_path,
+        output_artifact_name="small_sky_nested_source_id_index",
+        include_healpix_29=False,
+        progress_bar=False,
+    )
+    runner.run(args, dask_client)
+
+    # Check that the catalog metadata file exists
+    catalog = read_hats(args.catalog_path)
+    assert catalog.on_disk
+    assert catalog.catalog_path == args.catalog_path
+
+    basic_index_parquet_schema = pa.schema(
+        [
+            pa.field("Norder", pa.uint8()),
+            pa.field("Npix", pa.uint64()),
+            pa.field("lc.source_id", pa.int64()),
+        ]
+    )
+
+    outfile = args.catalog_path / "dataset" / "index" / "part.0.parquet"
+    schema = pq.read_metadata(outfile).schema.to_arrow_schema()
+    assert schema.equals(basic_index_parquet_schema)
+
+    schema = pq.read_metadata(args.catalog_path / "dataset" / "_metadata").schema.to_arrow_schema()
+    assert schema.equals(basic_index_parquet_schema)
+
+    schema = pq.read_metadata(args.catalog_path / "dataset" / "_common_metadata").schema.to_arrow_schema()
+    assert schema.equals(basic_index_parquet_schema)
+
+    assert isinstance(catalog, IndexCatalog)
+    npt.assert_array_equal(catalog.loc_partitions([70003]), [HealpixPixel(2, 183)])

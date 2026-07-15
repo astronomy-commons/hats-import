@@ -10,6 +10,7 @@ from pathlib import Path
 from hats import read_hats
 from hats.catalog import Catalog, TableProperties
 from hats.io.validation import is_valid_catalog
+from nested_pandas.nestedframe.io import from_pyarrow
 from packaging.version import Version
 from upath import UPath
 
@@ -25,6 +26,9 @@ class IndexArguments(RuntimeArguments):
     input_catalog: Catalog | None = None
     indexing_column: str = ""
     extra_columns: list[str] = field(default_factory=list)
+
+    ## Track the nested group for the indexing column
+    indexing_base_column: str = ""
 
     ## Output
     include_healpix_29: bool = True
@@ -88,13 +92,31 @@ class IndexArguments(RuntimeArguments):
         if not is_valid_catalog(self.input_catalog_path):
             raise ValueError("input_catalog_path not a valid catalog")
         self.input_catalog = read_hats(catalog_path=self.input_catalog_path)
+        nested_schema = from_pyarrow(self.input_catalog.schema.empty_table())
+
+        if self.indexing_column in nested_schema.columns.to_list():
+            pass
+        elif self.indexing_column in nested_schema.get_subcolumns():
+            self.indexing_base_column = self.indexing_column.split(".")[-2]
+        else:
+            raise ValueError(f"indexing_column {self.indexing_column} not in input catalog")
+
         if self.include_radec:
             catalog_info = self.input_catalog.catalog_info
             self.extra_columns.extend([catalog_info.ra_column, catalog_info.dec_column])
         if len(self.extra_columns) > 0:
             # check that they're in the schema
-            schema = self.input_catalog.schema
-            missing_fields = [x for x in self.extra_columns if schema.get_field_index(x) == -1]
+            nested_extras = [x for x in self.extra_columns if x in nested_schema.get_subcolumns()]
+            for nested_col in nested_extras:
+                # Don't allow extra columns that are in an independently nested column.
+                # Also prevents adding extra column if the index is on a base column.
+                if nested_col.split(".")[-2] != self.indexing_base_column:
+                    raise ValueError(
+                        "Cannot add an extra column that is not nested "
+                        f"with the primary indexing column (requested {nested_col})"
+                    )
+
+            missing_fields = [x for x in self.extra_columns if x not in nested_schema.columns.to_list()]
             if len(missing_fields):
                 raise ValueError(f"Some requested columns not in input catalog ({','.join(missing_fields)})")
         # Remove duplicates, preserving order
