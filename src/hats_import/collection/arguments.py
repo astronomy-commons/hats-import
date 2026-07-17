@@ -258,7 +258,9 @@ class CollectionArguments(RuntimeArguments):
 
         if existing_properties:
             if new_properties.all_indexes or existing_properties.all_indexes:
-                info["all_indexes"] = existing_properties.all_indexes or {} | new_properties.all_indexes or {}
+                info["all_indexes"] = (existing_properties.all_indexes or {}) | (
+                    new_properties.all_indexes or {}
+                )
 
             if new_properties.all_margins or existing_properties.all_margins:
                 info["all_margins"] = list(

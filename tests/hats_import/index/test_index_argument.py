@@ -155,9 +155,9 @@ def test_column_inclusion_args(tmp_path, small_sky_object_catalog):
     Version.from_parts(release=sys.version_info[:2]) == Version("3.11"),
     reason="dask expr regression with python 3.11",
 )
-def test_extra_columns(tmp_path, small_sky_object_catalog):
+def test_extra_columns(tmp_path, small_sky_nested_catalog):
     args = IndexArguments(
-        input_catalog_path=small_sky_object_catalog,
+        input_catalog_path=small_sky_nested_catalog,
         indexing_column="id",
         output_path=tmp_path,
         output_artifact_name="small_sky_object_index",
@@ -166,7 +166,7 @@ def test_extra_columns(tmp_path, small_sky_object_catalog):
     assert args.extra_columns == ["_healpix_29"]
 
     args = IndexArguments(
-        input_catalog_path=small_sky_object_catalog,
+        input_catalog_path=small_sky_nested_catalog,
         indexing_column="id",
         output_path=tmp_path,
         output_artifact_name="small_sky_object_index",
@@ -176,11 +176,54 @@ def test_extra_columns(tmp_path, small_sky_object_catalog):
 
     with pytest.raises(ValueError, match=re.escape("not in input catalog (mag_r)")):
         IndexArguments(
-            input_catalog_path=small_sky_object_catalog,
+            input_catalog_path=small_sky_nested_catalog,
             indexing_column="id",
             output_path=tmp_path,
             output_artifact_name="small_sky_object_index",
             extra_columns=["mag_r"],
+        )
+
+    with pytest.raises(ValueError, match=re.escape("not nested with the primary")):
+        IndexArguments(
+            input_catalog_path=small_sky_nested_catalog,
+            indexing_column="id",
+            output_path=tmp_path,
+            output_artifact_name="small_sky_object_index",
+            extra_columns=["lc.source_id"],
+        )
+
+
+@pytest.mark.skipif(
+    Version.from_parts(release=sys.version_info[:2]) == Version("3.11"),
+    reason="dask expr regression with python 3.11",
+)
+def test_indexing_column(tmp_path, small_sky_nested_catalog):
+    args = IndexArguments(
+        input_catalog_path=small_sky_nested_catalog,
+        indexing_column="id",
+        output_path=tmp_path,
+        output_artifact_name="small_sky_object_index",
+    )
+    assert not args.extra_columns
+    assert args.indexing_column == "id"
+    assert not args.indexing_base_column
+
+    args = IndexArguments(
+        input_catalog_path=small_sky_nested_catalog,
+        indexing_column="lc.source_id",
+        output_path=tmp_path,
+        output_artifact_name="small_sky_object_index",
+    )
+    assert not args.extra_columns
+    assert args.indexing_column == "lc.source_id"
+    assert args.indexing_base_column == "lc"
+
+    with pytest.raises(ValueError, match=re.escape("not in input catalog")):
+        IndexArguments(
+            input_catalog_path=small_sky_nested_catalog,
+            indexing_column="not_a_column",
+            output_path=tmp_path,
+            output_artifact_name="small_sky_object_index",
         )
 
 
