@@ -247,7 +247,7 @@ def get_cols_in_input_file(input_file: UPath, pickled_reader_file: str):
                 precomputed_cols.append(column)
             else:
                 var_length_cols.append(column)
-    elif hasattr(data, "column_names"):
+    elif hasattr(data, "column_names"):  # Expected: pyarrow.Table or similar
         for column, field_type in zip(data.column_names, data.schema.types, strict=True):
             if _is_fixed_length_arrow_type(field_type) or (
                 _is_string_like_arrow_type(field_type) and _string_col_sizes_are_consistent(data, column)
