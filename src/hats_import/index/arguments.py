@@ -97,7 +97,7 @@ class IndexArguments(RuntimeArguments):
         if self.indexing_column in nested_schema.columns.to_list():
             pass
         elif self.indexing_column in nested_schema.get_subcolumns():
-            self.indexing_base_column = self.indexing_column.split(".")[-2]
+            self.indexing_base_column = self.indexing_column.rsplit(".", maxsplit=1)[0]
         else:
             raise ValueError(f"indexing_column {self.indexing_column} not in input catalog")
 
@@ -110,7 +110,7 @@ class IndexArguments(RuntimeArguments):
             for nested_col in nested_extras:
                 # Don't allow extra columns that are in an independently nested column.
                 # Also prevents adding extra column if the index is on a base column.
-                if nested_col.split(".")[-2] != self.indexing_base_column:
+                if nested_col.rsplit(".", maxsplit=1)[0] != self.indexing_base_column:
                     raise ValueError(
                         "Cannot add an extra column that is not nested "
                         f"with the primary indexing column (requested {nested_col})"

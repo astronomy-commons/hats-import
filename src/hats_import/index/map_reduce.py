@@ -6,14 +6,15 @@ from hats.io import file_io, paths
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN
 
 
-def read_leaf_file(
+def _read_leaf_file(
     input_file_and_pixel,
-    include_columns,
-    include_healpix_29,
-    drop_duplicates,
-    schema,
-    include_order_pixel,
-    indexing_base_column,
+    *,
+    include_columns: list[str] | None = None,
+    include_healpix_29: bool = False,
+    drop_duplicates: bool = False,
+    schema=None,
+    include_order_pixel: bool = False,
+    indexing_base_column: str | None = None,
 ):
     """Mapping function called once per input file.
 
@@ -53,7 +54,7 @@ def create_index(args, client):
     index_dir = file_io.get_upath(args.catalog_path / "dataset" / "index")
 
     data = dd.from_map(
-        read_leaf_file,
+        _read_leaf_file,
         [
             (
                 paths.pixel_catalog_file(
