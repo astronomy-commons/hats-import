@@ -20,7 +20,7 @@ dependencies = [
     "cloudpickle>=3.0.0", # Reader serialisation, transitive dependency of Dask
     "dask[complete]>=2025.3.0",
     "deprecated",
-    "hats>=0.10.1, <0.11",
+    "hats>=0.10.2, <0.11",
     "nested-pandas>=0.6.10,<0.7.0",
     "numpy>=2.2.0,<3", 
     "packaging>=26.1",
