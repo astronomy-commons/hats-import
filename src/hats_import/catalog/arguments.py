@@ -75,10 +75,18 @@ class ImportArguments(RuntimeArguments):
     of rows for a single resulting pixel. we may combine hierarchically until 
     we near the ``pixel_threshold``"""
     byte_pixel_threshold: int | None = None
-    """when determining bins for the final partitioning, the maximum number
-    of rows for a single resulting pixel, expressed in bytes. we may combine hierarchically until
-    we near the ``byte_pixel_threshold``. if this is set, it will override
-    ``pixel_threshold``."""
+    """when determining bins for the final partitioning, the maximum size of a single
+    resulting pixel, expressed in bytes of memory the pixel's rows occupy when loaded
+    (uncompressed arrow/numpy representation — the parquet files on disk will typically
+    be smaller). we may combine hierarchically until we near the ``byte_pixel_threshold``.
+    if this is set, it will override ``pixel_threshold``. per-row sizes are estimates:
+    fixed-length columns (numeric, boolean, datetime) are sized once from the first
+    chunk of the first input file, and string/binary columns whose sampled sizes are
+    consistent use their mean measured size from that chunk. this one estimate is
+    shared by every input file, so all files are assumed to share a schema and
+    similarly-sized values. other variable-length columns (e.g. lists, nested arrays),
+    as well as string columns with wildly varying sizes (e.g. serialized arrays or
+    free text), are measured row by row in every file."""
     drop_empty_siblings: bool = True
     """when determining bins for the final partitioning, should we keep result pixels
     at a higher order (smaller area) if the 3 sibling pixels are empty. setting this to 
