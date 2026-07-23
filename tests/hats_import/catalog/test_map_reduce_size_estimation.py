@@ -83,6 +83,23 @@ def test_get_cols_in_input_file_pyarrow(tmp_path):
     assert precomputed_row_size == pytest.approx(expected)
 
 
+def test_get_cols_in_input_file_no_reader(tmp_path):
+    """A falsy (unimplemented) file reader is rejected."""
+    reader_file = pickle_file_reader(tmp_path, None)
+
+    with pytest.raises(NotImplementedError, match="No file reader implemented"):
+        mr.get_cols_in_input_file("unused", reader_file)
+
+
+def test_get_cols_in_input_file_unsupported_data_type(tmp_path):
+    """A chunk that is neither a pandas DataFrame nor a columnar batch (no
+    ``column_names``) is rejected."""
+    reader_file = pickle_file_reader(tmp_path, SingleChunkReader({"id": [1, 2, 3]}))
+
+    with pytest.raises(TypeError, match="Unsupported data type"):
+        mr.get_cols_in_input_file("unused", reader_file)
+
+
 def test_get_cols_in_input_file_object_dtype_lists(tmp_path):
     """An object-dtype column holding lists is not string-like, and must be
     measured per-row."""
@@ -142,6 +159,32 @@ def test_string_col_sizes_are_consistent():
 
     skewed = pd.DataFrame({"strings": ["a", "b", "c", "x" * 500]})
     assert not mr._string_col_sizes_are_consistent(skewed, "strings")
+
+
+def test_string_col_sizes_are_consistent_empty_column():
+    """A column with no rows has no sampled sizes, so the guard cannot reject it
+    and treats it as consistent."""
+    empty = pd.DataFrame({"strings": pd.Series([], dtype="string")})
+    assert mr._string_col_sizes_are_consistent(empty, "strings")
+
+
+def test_is_string_like_series_arrow_backed():
+    """A pandas Series backed by a pyarrow string dtype is detected as string-like
+    via its underlying arrow type."""
+    arrow_string = pd.Series(["a", "bb", "ccc"], dtype=pd.ArrowDtype(pa.string()))
+    assert mr._is_string_like_series(arrow_string)
+
+    arrow_binary = pd.Series([b"a", b"bb"], dtype=pd.ArrowDtype(pa.large_binary()))
+    assert mr._is_string_like_series(arrow_binary)
+
+    arrow_int = pd.Series([1, 2, 3], dtype=pd.ArrowDtype(pa.int64()))
+    assert not mr._is_string_like_series(arrow_int)
+
+
+def test_is_string_like_series_non_string_dtype():
+    """A dtype that is neither string-, arrow-, nor object-backed is not string-like."""
+    categorical = pd.Series(["a", "b", "a"], dtype="category")
+    assert not mr._is_string_like_series(categorical)
 
 
 def test_map_to_pixels_mem_size_mixed_columns(tmp_path):
