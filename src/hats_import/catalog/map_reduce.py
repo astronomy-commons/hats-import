@@ -314,7 +314,7 @@ def map_to_pixels(
         if threshold_mode == "mem_size":
             if size_estimate is None:
                 size_estimate = get_cols_in_input_file(input_file, pickled_reader_file)
-            (var_length_cols, _, precomputed_row_size) = size_estimate
+            var_length_cols, _, precomputed_row_size = size_estimate
 
         # Determine which columns to read from the input file. If we're using
         # the bytewise/mem_size histogram, we also need the columns whose memory
