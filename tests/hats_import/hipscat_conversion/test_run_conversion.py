@@ -25,16 +25,6 @@ def test_bad_args():
         runner.run(args, None)
 
 
-# pylint: disable=unused-import
-try:
-    import healpy as hp
-
-    HAVE_HEALPY = True
-except ImportError:
-    HAVE_HEALPY = False
-
-
-@pytest.mark.skipif(not HAVE_HEALPY, reason="healpy is not installed")
 @pytest.mark.dask
 def test_run_conversion_object(
     test_data_dir,
@@ -43,6 +33,7 @@ def test_run_conversion_object(
     dask_client,
 ):
     """Test appropriate metadata is written"""
+    pytest.importorskip("healpy")
 
     input_catalog_dir = test_data_dir / "hipscat" / "small_sky_object_catalog"
 
@@ -59,7 +50,7 @@ def test_run_conversion_object(
     assert catalog.on_disk
     assert catalog.catalog_path == args.catalog_path
     assert len(catalog.get_healpix_pixels()) == 1
-    assert int(catalog.catalog_info.__pydantic_extra__["hats_estsize"]) > 0
+    assert catalog.catalog_info.hats_estsize > 0
 
     # Check that the catalog parquet file exists and contains correct object IDs
     output_file = args.catalog_path / "dataset" / "Norder=0" / "Dir=0" / "Npix=11.parquet"
@@ -96,7 +87,7 @@ def test_run_conversion_object(
     assert data.index.name is None
 
     # Check that the data thumbnail exists
-    data_thumbnail_pointer = args.catalog_path / "dataset" / "data_thumbnail.parquet"
+    data_thumbnail_pointer = args.catalog_path / "data_thumbnail.parquet"
     assert data_thumbnail_pointer.exists()
     thumbnail = ParquetFile(data_thumbnail_pointer)
     thumbnail_schema = thumbnail.metadata.schema.to_arrow_schema()
@@ -105,7 +96,6 @@ def test_run_conversion_object(
     assert len(thumbnail.read()) == 1
 
 
-@pytest.mark.skipif(not HAVE_HEALPY, reason="healpy is not installed")
 @pytest.mark.dask
 def test_run_conversion_source(
     test_data_dir,
@@ -113,6 +103,7 @@ def test_run_conversion_source(
     dask_client,
 ):
     """Test appropriate metadata is written"""
+    pytest.importorskip("healpy")
 
     input_catalog_dir = test_data_dir / "hipscat" / "small_sky_source_catalog"
 
@@ -155,7 +146,7 @@ def test_run_conversion_source(
     assert schema.to_arrow_schema().metadata is None
 
     # Check that the data thumbnail exists
-    data_thumbnail_pointer = args.catalog_path / "dataset" / "data_thumbnail.parquet"
+    data_thumbnail_pointer = args.catalog_path / "data_thumbnail.parquet"
     assert data_thumbnail_pointer.exists()
     thumbnail = ParquetFile(data_thumbnail_pointer)
     thumbnail_schema = thumbnail.metadata.schema.to_arrow_schema()

@@ -1,4 +1,6 @@
 import hats.io.file_io as io
+from hats.io.summary_file import write_catalog_summary_file, write_partition_info_png, write_skymap_png
+from hats.io.validation import is_valid_catalog
 
 import hats_import.catalog.run_import as catalog_runner
 import hats_import.index.run_index as index_runner
@@ -34,8 +36,25 @@ def run(args, client):
         simple_progress_bar=args.simple_progress_bar,
         tqdm_kwargs=args.tqdm_kwargs,
     ) as step_progress:
+        # pylint: disable=duplicate-code
         collection_info = args.to_collection_properties()
         collection_info.to_properties_file(args.catalog_path)
         step_progress.update(1)
         io.remove_directory(args.tmp_path, ignore_errors=True)
+        step_progress.update(1)
+
+        if args.create_skymap_png:
+            write_skymap_png(args.catalog_path)
+        step_progress.update(1)
+        if args.create_partition_info_png:
+            write_partition_info_png(args.catalog_path)
+        step_progress.update(1)
+        if args.create_summary_html:
+            write_catalog_summary_file(args.catalog_path, fmt="html")
+        step_progress.update(1)
+        if args.create_summary_md:
+            write_catalog_summary_file(args.catalog_path, fmt="markdown")
+        step_progress.update(1)
+
+        assert is_valid_catalog(args.catalog_path)
         step_progress.update(1)

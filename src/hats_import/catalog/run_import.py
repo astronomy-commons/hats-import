@@ -13,6 +13,7 @@ from hats.catalog import PartitionInfo
 from hats.io import paths
 from hats.io.parquet_metadata import write_parquet_metadata
 from hats.io.skymap import write_skymap
+from hats.io.summary_file import write_catalog_summary_file, write_partition_info_png, write_skymap_png
 from hats.io.validation import is_valid_catalog
 
 import hats_import.catalog.map_reduce as mr
@@ -155,8 +156,8 @@ def run(args, client):
 
     # All done - write out the metadata
     if resume_plan.should_run_finishing:
-        num_steps = 6 if args.should_write_skymap else 5
-        with resume_plan.print_progress(total=num_steps, stage_name="Finishing") as step_progress:
+        with resume_plan.print_progress(total=10, stage_name="Finishing") as step_progress:
+            # pylint: disable=duplicate-code
             partition_info = PartitionInfo.from_healpix(resume_plan.get_destination_pixels())
             partition_info_file = paths.get_partition_info_pointer(args.catalog_path)
             partition_info.write_to_file(partition_info_file)
@@ -188,7 +189,8 @@ def run(args, client):
                     catalog_dir=args.catalog_path,
                     orders=args.skymap_alt_orders,
                 )
-                step_progress.update(1)
+            step_progress.update(1)
+
             catalog_info = args.to_table_properties(
                 total_rows,
                 partition_info.get_highest_order(),
@@ -199,5 +201,19 @@ def run(args, client):
             step_progress.update(1)
             resume_plan.clean_resume_files()
             step_progress.update(1)
+
+            if args.create_skymap_png:
+                write_skymap_png(args.catalog_path)
+            step_progress.update(1)
+            if args.create_partition_info_png:
+                write_partition_info_png(args.catalog_path)
+            step_progress.update(1)
+            if args.create_summary_html:
+                write_catalog_summary_file(args.catalog_path, fmt="html")
+            step_progress.update(1)
+            if args.create_summary_md:
+                write_catalog_summary_file(args.catalog_path, fmt="markdown")
+            step_progress.update(1)
+
             assert is_valid_catalog(args.catalog_path)
             step_progress.update(1)

@@ -218,6 +218,10 @@ class CollectionArguments(RuntimeArguments):
             "create_thumbnail": self.create_thumbnail,
             "create_metadata": self.create_metadata,
             "create_per_partition_stats": self.create_per_partition_stats,
+            "create_skymap_png": self.create_skymap_png,
+            "create_partition_info_png": self.create_partition_info_png,
+            "create_summary_html": self.create_summary_html,
+            "create_summary_md": self.create_summary_md,
             "tmp_dir": self.tmp_path,
             "resume": self.resume,
             "progress_bar": self.progress_bar,
@@ -254,7 +258,9 @@ class CollectionArguments(RuntimeArguments):
 
         if existing_properties:
             if new_properties.all_indexes or existing_properties.all_indexes:
-                info["all_indexes"] = existing_properties.all_indexes or {} | new_properties.all_indexes or {}
+                info["all_indexes"] = (existing_properties.all_indexes or {}) | (
+                    new_properties.all_indexes or {}
+                )
 
             if new_properties.all_margins or existing_properties.all_margins:
                 info["all_margins"] = list(

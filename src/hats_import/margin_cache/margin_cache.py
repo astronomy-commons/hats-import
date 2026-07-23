@@ -1,11 +1,13 @@
 import pyarrow.parquet as pq
 from hats.catalog import PartitionInfo
 from hats.io import file_io, parquet_metadata, paths
+from hats.io.summary_file import write_catalog_summary_file, write_partition_info_png
+from hats.io.validation import is_valid_catalog
 
 import hats_import.margin_cache.margin_cache_map_reduce as mcmr
 from hats_import.margin_cache.margin_cache_resume_plan import MarginCachePlan
 
-# pylint: disable=too-many-locals,too-many-arguments
+# pylint: disable=too-many-locals,too-many-arguments,too-many-statements
 
 
 def generate_margin_cache(args, client):
@@ -64,7 +66,8 @@ def generate_margin_cache(args, client):
             )
         resume_plan.wait_for_reducing(futures)
 
-    with resume_plan.print_progress(total=4, stage_name="Finishing") as step_progress:
+    with resume_plan.print_progress(total=8, stage_name="Finishing") as step_progress:
+        # pylint: disable=duplicate-code
         if total_rows > 0:
             metadata_total_rows = parquet_metadata.write_parquet_metadata(
                 args.catalog_path,
@@ -113,4 +116,17 @@ def generate_margin_cache(args, client):
         step_progress.update(1)
 
         file_io.remove_directory(args.tmp_path, ignore_errors=True)
+        step_progress.update(1)
+
+        if args.create_partition_info_png:
+            write_partition_info_png(args.catalog_path)
+        step_progress.update(1)
+        if args.create_summary_html:
+            write_catalog_summary_file(args.catalog_path, fmt="html")
+        step_progress.update(1)
+        if args.create_summary_md:
+            write_catalog_summary_file(args.catalog_path, fmt="markdown")
+        step_progress.update(1)
+
+        assert is_valid_catalog(args.catalog_path)
         step_progress.update(1)

@@ -6,8 +6,15 @@ from hats.io import file_io, paths
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN
 
 
-def read_leaf_file(
-    input_file_and_pixel, include_columns, include_healpix_29, drop_duplicates, schema, include_order_pixel
+def _read_leaf_file(
+    input_file_and_pixel,
+    *,
+    include_columns: list[str] | None = None,
+    include_healpix_29: bool = False,
+    drop_duplicates: bool = False,
+    schema=None,
+    include_order_pixel: bool = False,
+    indexing_base_column: str | None = None,
 ):
     """Mapping function called once per input file.
 
@@ -18,6 +25,8 @@ def read_leaf_file(
         columns=include_columns,
         schema=schema,
     )
+    if indexing_base_column:
+        data = data.explode([indexing_base_column])
 
     if data.index.name == SPATIAL_INDEX_COLUMN:
         data = data.reset_index()
@@ -45,7 +54,7 @@ def create_index(args, client):
     index_dir = file_io.get_upath(args.catalog_path / "dataset" / "index")
 
     data = dd.from_map(
-        read_leaf_file,
+        _read_leaf_file,
         [
             (
                 paths.pixel_catalog_file(
@@ -62,16 +71,27 @@ def create_index(args, client):
         drop_duplicates=args.drop_duplicates,
         schema=args.input_catalog.schema,
         include_order_pixel=args.include_order_pixel,
+        indexing_base_column=args.indexing_base_column,
     )
 
+    ## NB: for indexes on nested columns, the explode operation will rename the field.
+    ## We will still want to query based on the typical nested name, so we need to
+    ## do some extra work to track and rename the primary index column.
+    index_name = args.indexing_column
+    if args.indexing_base_column:
+        index_name = args.indexing_column.split(".")[-1]
+
     if args.division_hints is not None and len(args.division_hints) > 2:
-        data = data.set_index(args.indexing_column, divisions=args.division_hints)
+        data = data.set_index(index_name, divisions=args.division_hints)
     else:
         # Try to avoid this! It's expensive! See:
         # https://docs.dask.org/en/latest/generated/dask.dataframe.DataFrame.set_index.html
-        data = data.set_index(args.indexing_column)
+        data = data.set_index(index_name)
 
     data = data.repartition(partition_size=args.compute_partition_size)
+
+    if args.indexing_base_column:
+        data.index = data.index.rename(args.indexing_column, sorted_index=True)
 
     # Now just write it out to leaf parquet files!
     result = data.to_parquet(

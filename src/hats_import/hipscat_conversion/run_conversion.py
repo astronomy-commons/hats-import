@@ -106,9 +106,7 @@ def run(args: ConversionArguments, client):
         file_io.remove_directory(args.tmp_path, ignore_errors=True)
         step_progress.update(1)
         ## Update total size with newly-written parquet files.
-        properties.__pydantic_extra__["hats_estsize"] = size_estimates.estimate_dir_size(
-            args.catalog_path, divisor=1024
-        )
+        properties.hats_estsize = size_estimates.estimate_dir_size(args.catalog_path, divisor=1024)
         properties.to_properties_file(args.catalog_path)
         partition_info.write_to_file(args.catalog_path / "partition_info.csv")
         step_progress.update(1)
@@ -165,6 +163,7 @@ def _write_nested_fits_map(input_dir, output_dir):
         with input_file.open("rb") as _map_file:
             map_data = _map_file.read()
             _tmp_file.write(map_data)
+            _tmp_file.flush()
             map_fits_image = hp.read_map(_tmp_file.name, nest=True, h=True)
             header_dict = dict(map_fits_image[1])
             if header_dict["ORDERING"] != "NESTED":

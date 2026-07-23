@@ -263,6 +263,8 @@ def test_dask_runner(
         highest_healpix_order=1,
         create_thumbnail=True,
         create_per_partition_stats=True,
+        create_summary_html=True,
+        create_summary_md=True,
         progress_bar=False,
     )
 
@@ -340,6 +342,18 @@ def test_dask_runner(
     assert len(stats_table) == 1
     # 39 == 6 columns * 6 statistics + 3 per partition row group
     assert len(stats_table.columns) == 39
+
+    # Check that the README.md file exists
+    summary_file = args.catalog_path / "README.md"
+    assert summary_file.exists()
+
+    # Check that the index.html file exists
+    summary_file = args.catalog_path / "index.html"
+    assert summary_file.exists()
+
+    # Check that PNGs do NOT exist
+    assert not (args.catalog_path / "skymap.png").exists()
+    assert not (args.catalog_path / "partition_info.png").exists()
 
 
 @pytest.mark.dask

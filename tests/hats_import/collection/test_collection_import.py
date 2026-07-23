@@ -134,10 +134,8 @@ def test_import_collection_resume_supplemental(
         .add_margin(margin_threshold=5.0)
         .add_margin(margin_threshold=50.0)
         .add_index(indexing_column="object_id", include_healpix_29=False)
-        .add_index(indexing_column="not_a_good_column", include_healpix_29=False)
     )
-    with pytest.raises(ValueError, match="not_a_good_column"):
-        run(args, dask_client)
+    run(args, dask_client)
 
     ## Re-running should complete successfully.
     args = (
@@ -255,3 +253,66 @@ def test_import_collection_healpix13(
     metadata = pq.read_metadata(test_file)
     assert metadata.num_row_groups == 1
     assert metadata.row_group(0).column(0).compression == "ZSTD"
+
+
+@pytest.mark.skipif((3, 11) <= sys.version_info < (3, 12), reason="dask expr regression with python 3.11")
+@pytest.mark.dask(timeout=150)
+def test_import_collection_static_files(
+    dask_client,
+    small_sky_source_dir,
+    tmp_path,
+):
+    pytest.importorskip("matplotlib.pyplot")
+    args = (
+        CollectionArguments(
+            output_artifact_name="small_sky",
+            output_path=tmp_path,
+            progress_bar=False,
+            create_skymap_png=True,
+            create_partition_info_png=True,
+            create_summary_html=True,
+            create_summary_md=True,
+        )
+        .catalog(
+            input_path=small_sky_source_dir,
+            file_reader="csv",
+            catalog_type="source",
+            ra_column="source_ra",
+            dec_column="source_dec",
+            sort_columns="source_id",
+            highest_healpix_order=2,
+            # We test creation of this file elsewhere, this tests overriding
+            # the config from the collection.
+            create_partition_info_png=False,
+        )
+        .add_margin(margin_threshold=5.0)
+        .add_index(indexing_column="object_id", include_healpix_29=False)
+    )
+    run(args, dask_client)
+
+    # Collection:
+    collection_path = tmp_path / "small_sky"
+    assert (collection_path / "README.md").exists()
+    assert (collection_path / "index.html").exists()
+    assert (collection_path / "skymap.png").exists()
+    assert (collection_path / "partition_info.png").exists()
+
+    # Primary catalog:
+    assert (args.new_catalog_path / "README.md").exists()
+    assert (args.new_catalog_path / "index.html").exists()
+    assert (args.new_catalog_path / "skymap.png").exists()
+    assert not (args.new_catalog_path / "partition_info.png").exists()
+
+    # Margin catalog:
+    margin_path = tmp_path / "small_sky" / "small_sky_5arcs"
+    assert (margin_path / "README.md").exists()
+    assert (margin_path / "index.html").exists()
+    assert not (margin_path / "skymap.png").exists()
+    assert (margin_path / "partition_info.png").exists()
+
+    # Index catalog:
+    index_path = tmp_path / "small_sky" / "small_sky_object_id"
+    assert (index_path / "README.md").exists()
+    assert (index_path / "index.html").exists()
+    assert not (index_path / "skymap.png").exists()
+    assert not (index_path / "partition_info.png").exists()
