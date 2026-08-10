@@ -99,6 +99,7 @@ def create_index(args, client):
         engine="pyarrow",
         compute_kwargs={"partition_size": args.compute_partition_size},
         filesystem=index_dir.fs,
+        **(args.write_table_kwargs or {}),
     )
     client.compute(result)
     return len(data)

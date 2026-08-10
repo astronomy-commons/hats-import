@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -88,6 +89,18 @@ class IndexArguments(RuntimeArguments):
 
         if not self.include_healpix_29 and not self.include_order_pixel:
             raise ValueError("At least one of include_healpix_29 or include_order_pixel must be True")
+
+        ignored_args = []
+        if self.npix_suffix != ".parquet":
+            ignored_args.append("npix_suffix")
+        if self.npix_parquet_name is not None:
+            ignored_args.append("npix_parquet_name")
+        if self.create_per_partition_stats:
+            ignored_args.append("create_per_partition_stats")
+        if ignored_args:
+            warnings.warn(
+                f"Index tables are not pixel-partitioned - ignoring argument(s) {', '.join(ignored_args)}."
+            )
 
         if not is_valid_catalog(self.input_catalog_path):
             raise ValueError("input_catalog_path not a valid catalog")

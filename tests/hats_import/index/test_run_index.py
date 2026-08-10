@@ -75,6 +75,80 @@ def test_run_index(
 
 
 @pytest.mark.dask
+def test_run_index_write_table_kwargs(
+    small_sky_object_catalog,
+    tmp_path,
+    dask_client,
+):
+    """Test that write_table_kwargs are passed through to the parquet writer."""
+
+    args = IndexArguments(
+        input_catalog_path=small_sky_object_catalog,
+        indexing_column="id",
+        output_path=tmp_path,
+        output_artifact_name="small_sky_object_index",
+        write_table_kwargs={"compression": "snappy", "version": "1.0"},
+        progress_bar=False,
+    )
+    runner.run(args, dask_client)
+
+    outfile = args.catalog_path / "dataset" / "index" / "part.0.parquet"
+    file_metadata = pq.ParquetFile(outfile).metadata
+    assert file_metadata.format_version == "1.0"
+    assert file_metadata.row_group(0).column(0).compression == "SNAPPY"
+
+
+@pytest.mark.dask
+def test_run_index_default_compression(
+    small_sky_object_catalog,
+    tmp_path,
+    dask_client,
+):
+    """Test that leaf files are written with the default ZSTD compression,
+    like all the other import pipelines."""
+
+    args = IndexArguments(
+        input_catalog_path=small_sky_object_catalog,
+        indexing_column="id",
+        output_path=tmp_path,
+        output_artifact_name="small_sky_object_index",
+        progress_bar=False,
+    )
+    runner.run(args, dask_client)
+
+    outfile = args.catalog_path / "dataset" / "index" / "part.0.parquet"
+    file_metadata = pq.ParquetFile(outfile).metadata
+    assert file_metadata.row_group(0).column(0).compression == "ZSTD"
+
+
+@pytest.mark.dask
+def test_run_index_metadata_options(
+    small_sky_object_catalog,
+    tmp_path,
+    dask_client,
+):
+    """Test that create_metadata is respected, and that per-partition statistics
+    are never generated (they are keyed by healpix pixel, which is meaningless
+    for index tables)."""
+
+    with pytest.warns(UserWarning, match="create_per_partition_stats"):
+        args = IndexArguments(
+            input_catalog_path=small_sky_object_catalog,
+            indexing_column="id",
+            output_path=tmp_path,
+            output_artifact_name="small_sky_object_index",
+            create_metadata=False,
+            create_per_partition_stats=True,
+            progress_bar=False,
+        )
+    runner.run(args, dask_client)
+
+    assert not (args.catalog_path / "dataset" / "_metadata").exists()
+    assert (args.catalog_path / "dataset" / "_common_metadata").exists()
+    assert not (args.catalog_path / "per_partition_statistics.parquet").exists()
+
+
+@pytest.mark.dask
 @pytest.mark.parametrize(
     "small_sky_source_catalog",
     ["small_sky_source_catalog", "small_sky_source_npix_dir_catalog"],
