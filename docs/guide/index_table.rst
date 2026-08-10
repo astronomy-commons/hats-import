@@ -227,8 +227,21 @@ How?
 You may want to tweak parameters of the final index output, and we have helper 
 arguments for a few of those.
 
-``compute_partition_size`` - ``int`` - partition size used when 
+``compute_partition_size`` - ``int`` - partition size used when
 computing the leaf parquet files.
+
+``write_table_kwargs`` - ``dict`` - any additional arguments to customize
+the behavior when writing the leaf parquet files (e.g. compression schemes).
+By default, files are written with ZSTD compression.
+
+``create_metadata`` - ``bool`` - whether to write the dataset-level
+``_metadata`` file once all leaf files have been created.
+
+.. note::
+    Index tables are not pixel-partitioned, so the pixel file naming arguments
+    (``npix_suffix``, ``npix_parquet_name``) are ignored by this pipeline, as is
+    ``create_per_partition_stats`` (per-partition statistics are keyed by healpix
+    pixel). A warning is issued if non-default values are provided.
 
 ``include_healpix_29`` - ``bool`` - whether or not to include the 64-bit
 hats spatial index in the index table. Defaults to ``True``. 
