@@ -14,7 +14,7 @@ from hats import pixel_math
 from hats.io import file_io, paths, size_estimates
 from hats.pixel_math.healpix_pixel import HealpixPixel
 from hats.pixel_math.sparse_histogram import HistogramAggregator, supplemental_count_histogram
-from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, spatial_index_to_healpix
+from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, spatial_index_to_healpix, split_to_row_groups
 from upath import UPath
 
 import hats_import.file_io as import_io
@@ -418,7 +418,7 @@ def reduce_pixel_shards(
             )
 
         # Obtain the row groups for the target file
-        rowgroup_tables = _split_to_row_groups(merged_table, row_group_kwargs, destination_pixel_order)
+        rowgroup_tables = split_to_row_groups(merged_table, row_group_kwargs, destination_pixel_order)
 
         with pq.ParquetWriter(
             destination_file.path,
@@ -473,21 +473,3 @@ def _check_destination_file(
 
     ResumePlan.reducing_key_done(tmp_path=resume_path, reducing_key=reducing_key)
     return True
-
-
-def _split_to_row_groups(table, row_group_kwargs, pixel_order):
-    """Split the pixel table into its row group chunks according to the specified splitting strategy."""
-    if "num_rows" in row_group_kwargs:
-        chunk_size = row_group_kwargs["num_rows"]
-        return [table.slice(i, chunk_size) for i in range(0, len(table), chunk_size)]
-    if "subtile_order_delta" in row_group_kwargs:
-        split_tables = []
-        parent_pixels = table[SPATIAL_INDEX_COLUMN].to_numpy()
-        target_order = row_group_kwargs["subtile_order_delta"] + pixel_order
-        child_pixs = spatial_index_to_healpix(parent_pixels, target_order=target_order)
-        for child_pix in np.unique(child_pixs):
-            indices = np.where(child_pixs == child_pix)[0]
-            row_group = table.take(pa.array(indices))
-            split_tables.append(row_group)
-        return split_tables
-    return [table]
