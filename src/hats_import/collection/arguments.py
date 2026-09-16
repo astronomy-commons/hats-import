@@ -224,6 +224,7 @@ class CollectionArguments(RuntimeArguments):
             "create_summary_md": self.create_summary_md,
             "tmp_dir": self.tmp_path,
             "resume": self.resume,
+            "resume_tmp": self._resume_tmp_source,
             "progress_bar": self.progress_bar,
             "simple_progress_bar": self.simple_progress_bar,
             "tqdm_kwargs": self.tqdm_kwargs,
