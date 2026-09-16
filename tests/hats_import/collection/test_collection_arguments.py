@@ -390,3 +390,30 @@ def test_pretty_print_angle():
     assert _pretty_print_angle(100) == "1arcmin"
     assert _pretty_print_angle(10_000) == "2deg"
     assert _pretty_print_angle(0.1) == "100msec"
+
+
+def test_resume_tmp_propagated_to_sub_args(tmp_path, small_sky_object_catalog):
+    resume_dir = tmp_path / "my_resume"
+    args = (
+        CollectionArguments(
+            output_artifact_name="collection",
+            output_path=tmp_path,
+            progress_bar=False,
+            resume_tmp=resume_dir,
+        )
+        .catalog(catalog_path=small_sky_object_catalog)
+        .add_margin(margin_threshold=5.0)
+    )
+
+    margin_args = args.get_margin_args()[0]
+    assert margin_args.resume_tmp == resume_dir / margin_args.output_artifact_name
+
+
+def test_resume_tmp_not_set_uses_default(tmp_path, blank_data_dir):
+    args = CollectionArguments(
+        output_artifact_name="collection",
+        output_path=tmp_path,
+        progress_bar=False,
+    ).catalog(input_path=blank_data_dir, file_reader="csv")
+
+    assert args.catalog_args.resume_tmp == args.catalog_args.tmp_path
