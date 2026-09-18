@@ -324,8 +324,8 @@ def assert_parquet_file_ids():
         assert id_column in data_frame.columns
         ids = data_frame[id_column].tolist()
         if resort_ids:
-            ids.sort()
-            expected_ids.sort()
+            ids = sorted(ids)
+            expected_ids = sorted(expected_ids)
 
         assert len(ids) == len(
             expected_ids
