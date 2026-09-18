@@ -27,9 +27,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        $ErrorActionPreference = "Stop"
-        uv pip install --system -e .[dev] -r requirements.txt
-        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        pip install -e .[dev] -r requirements.txt
     - name: Run unit tests with pytest
       run: |
         python -m pytest --timeout=0 tests
