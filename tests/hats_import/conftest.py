@@ -77,6 +77,11 @@ def small_sky_object_catalog(test_data_dir):
 
 
 @pytest.fixture
+def small_sky_o1_collection(test_data_dir):
+    return test_data_dir / "small_sky_o1_collection"
+
+
+@pytest.fixture
 def small_sky_source_dir(test_data_dir):
     return test_data_dir / "small_sky_source"
 
