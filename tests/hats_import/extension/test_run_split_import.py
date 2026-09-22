@@ -153,3 +153,26 @@ def _row_group_sizes(catalog_path):
         metadata = pq.ParquetFile(paths.pixel_catalog_file(catalog_path, pixel)).metadata
         sizes[pixel] = [metadata.row_group(index).num_rows for index in range(metadata.num_row_groups)]
     return sizes
+
+
+@pytest.mark.dask
+def test_split_npix_as_directory(small_sky_source_npix_dir_catalog, tmp_path, dask_client):
+    """The output records the suffix its own partitions are written with, not the input's."""
+    args = ExtensionArguments(
+        input_catalog_path=small_sky_source_npix_dir_catalog,
+        extension_columns=["mag", "band"],
+        primary_column="source_id",
+        extension_name="photometry",
+        output_path=tmp_path,
+        output_artifact_name="small_sky_collection",
+        progress_bar=False,
+    )
+    assert read_hats(small_sky_source_npix_dir_catalog).catalog_info.npix_suffix == "/"
+    runner.run(args, dask_client)
+
+    for catalog_path in (args.core.catalog_path, args.extension.catalog_path):
+        catalog = read_hats(catalog_path)
+        assert catalog.catalog_info.npix_suffix == args.npix_suffix == ".parquet"
+        ## The partitions are files, as that suffix says, rather than directories.
+        pixel_file = paths.pixel_catalog_file(catalog_path, catalog.get_healpix_pixels()[0])
+        assert pixel_file.is_file()

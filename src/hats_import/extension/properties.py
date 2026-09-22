@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from hats.catalog import CatalogType, CollectionProperties, TableProperties
-from hats.pixel_math.spatial_index import SPATIAL_INDEX_ORDER
+from hats.catalog import CatalogType, CollectionProperties, MarginCatalog, TableProperties
 from upath import UPath
 
 from hats_import.extension.arguments import ExtensionArguments
@@ -20,27 +19,41 @@ def table_properties(
 ) -> TableProperties:
     """Properties of one side's copy of an input table.
 
-    A margin, on either side, and the core catalog keep the properties of the table they were
-    split from. The extension catalog is described from scratch, as it is of another type.
+    Every table keeps the properties of the table it was split from, and replaces the fields
+    that the split changes: its name, the columns it holds, and what it points at.
     """
     catalog_info = input_catalog.catalog_info
-    if catalog_info.catalog_type == CatalogType.MARGIN:
-        return _inherited_properties(
-            args,
-            side,
-            catalog_info,
-            catalog_path,
-            total_rows,
-            skymap_order,
-            catalog_name=side.derived_name(catalog_info.catalog_name),
-            catalog_type=CatalogType.MARGIN,
-            primary_catalog=side.catalog_reference,
-        )
-    if side.is_core:
-        return _inherited_properties(
-            args, side, catalog_info, catalog_path, total_rows, skymap_order, catalog_name=side.name
-        )
-    return _extension_properties(args, catalog_info, total_rows, skymap_order)
+
+    if isinstance(input_catalog, MarginCatalog):
+        overrides = {
+            "catalog_name": side.derived_name(catalog_info.catalog_name),
+            "catalog_type": CatalogType.MARGIN,
+            "primary_catalog": side.catalog_reference,
+        }
+    elif side.is_core:
+        overrides = {"catalog_name": side.name}
+    else:
+        overrides = _extension_overrides(args)
+
+    default_columns = None
+    if catalog_info.default_columns:
+        default_columns = [
+            col for col in catalog_info.default_columns if col.split(".")[0] in side.output_columns
+        ] or None
+    info = (
+        catalog_info.explicit_dict()
+        | catalog_info.extra_dict()
+        | args.extra_property_dict(catalog_path)
+        | {
+            "total_rows": total_rows,
+            "default_columns": default_columns,
+            "npix_suffix": args.npix_suffix,
+            "skymap_order": skymap_order,
+            "skymap_alt_orders": args.skymap_alt_orders if skymap_order is not None else None,
+        }
+        | overrides
+    )
+    return TableProperties(**info)
 
 
 def collection_properties(args: ExtensionArguments, side: SplitSide) -> CollectionProperties:
@@ -63,49 +76,12 @@ def collection_properties(args: ExtensionArguments, side: SplitSide) -> Collecti
     return CollectionProperties(**(info | args.extra_property_dict(side.collection_path)))
 
 
-def _inherited_properties(
-    args: ExtensionArguments,
-    side: SplitSide,
-    input_catalog_info: TableProperties,
-    catalog_path: UPath,
-    total_rows: int,
-    skymap_order: int | None,
-    **overrides,
-) -> TableProperties:
-    """Properties of the input table, with only the fields that the split changes replaced."""
-    default_columns = None
-    if input_catalog_info.default_columns:
-        default_columns = [
-            col for col in input_catalog_info.default_columns if col.split(".")[0] in side.output_columns
-        ] or None
-    info = (
-        input_catalog_info.explicit_dict()
-        | input_catalog_info.extra_dict()
-        | args.extra_property_dict(catalog_path)
-        | {
-            "total_rows": total_rows,
-            "default_columns": default_columns,
-            "skymap_order": skymap_order,
-            "skymap_alt_orders": args.skymap_alt_orders if skymap_order is not None else None,
-        }
-        | overrides
-    )
-    return TableProperties(**info)
-
-
-def _extension_properties(
-    args: ExtensionArguments, input_catalog_info: TableProperties, total_rows: int, skymap_order: int | None
-) -> TableProperties:
-    """Properties of the extension catalog, carrying what a reader needs to join it to the core."""
-    info = {
+def _extension_overrides(args: ExtensionArguments) -> dict:
+    """Properties that only the extension catalog has, carrying what a reader needs to join
+    it to the core."""
+    return {
         "catalog_name": args.extension.name,
         "catalog_type": CatalogType.EXTENSION,
-        "total_rows": total_rows,
-        "ra_column": input_catalog_info.ra_column,
-        "dec_column": input_catalog_info.dec_column,
-        "healpix_column": args.healpix_column,
-        "healpix_order": input_catalog_info.healpix_order or SPATIAL_INDEX_ORDER,
-        "npix_suffix": args.npix_suffix,
         "primary_catalog": args.core.catalog_reference,
         "primary_column": args.primary_column,
         "join_catalog": args.extension.catalog_reference,
@@ -113,11 +89,4 @@ def _extension_properties(
         "extension_columns": args.extension_columns,
         "extension_join_style": args.join_style,
         "extension_product_type": args.product_type_served,
-        "skymap_order": skymap_order,
-        "skymap_alt_orders": args.skymap_alt_orders if skymap_order is not None else None,
-        "hats_order": getattr(input_catalog_info, "hats_order", None),
-        "moc_sky_fraction": input_catalog_info.moc_sky_fraction,
-        "hats_max_rows": input_catalog_info.hats_max_rows,
     }
-    info = {key: value for key, value in info.items() if value is not None}
-    return TableProperties(**(info | args.extra_property_dict(args.extension.catalog_path)))

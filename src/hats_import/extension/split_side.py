@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from hats.catalog import CatalogType
+from hats.catalog import MarginCatalog
 from upath import UPath
 
 
@@ -72,6 +72,6 @@ class SplitSide:
 
     def table_path(self, input_catalog) -> UPath:
         """Directory this side writes its copy of the given input table to."""
-        if input_catalog.catalog_info.catalog_type == CatalogType.MARGIN:
+        if isinstance(input_catalog, MarginCatalog):
             return self.collection_path / self.derived_name(input_catalog.catalog_info.catalog_name)
         return self.catalog_path
