@@ -160,13 +160,20 @@ class RuntimeArguments:
                 "compression_level": 15,
             }
 
-    def extra_property_dict(self):
-        """Generate additional HATS properties for this import run as a dictionary."""
+    def extra_property_dict(self, catalog_path: UPath | None = None):
+        """Generate additional HATS properties for this import run as a dictionary.
+
+        Args:
+            catalog_path (UPath): the table these properties describe, when the run writes
+                more than one. Defaults to this run's ``catalog_path``.
+        """
         properties = {}
         if self.addl_hats_properties:
             properties = self.addl_hats_properties
         return TableProperties.new_provenance_dict(
-            self.catalog_path, builder=f"hats-import v{version('hats-import')}", **properties
+            catalog_path if catalog_path is not None else self.catalog_path,
+            builder=f"hats-import v{version('hats-import')}",
+            **properties,
         )
 
     def resume_kwargs_dict(self):
