@@ -3,7 +3,6 @@
 import shutil
 
 import hats.pixel_math.healpix_shim as hp
-import pyarrow as pa
 import pyarrow.parquet as pq
 from dask.distributed import as_completed
 from hats.catalog import PartitionInfo, TableProperties
@@ -81,12 +80,7 @@ def split_pixel(pixel: HealpixPixel, args: ExtensionArguments, input_catalog):
         input_file = paths.pixel_catalog_file(
             input_catalog.catalog_path, pixel, npix_suffix=input_catalog.catalog_info.npix_suffix
         )
-        parquet_file = file_io.read_parquet_file(input_file)
-        rowgroups = [
-            parquet_file.read_row_group(index).replace_schema_metadata()
-            for index in range(parquet_file.num_row_groups)
-        ]
-
+        table = pq.read_table(input_file.path, filesystem=input_file.fs).replace_schema_metadata()
         for side in args.sides:
             destination_file = paths.new_pixel_catalog_file(
                 side.table_path(input_catalog),
@@ -94,28 +88,30 @@ def split_pixel(pixel: HealpixPixel, args: ExtensionArguments, input_catalog):
                 npix_suffix=args.npix_suffix,
                 npix_parquet_name=args.npix_parquet_name,
             )
-            side_rowgroups = [
-                rowgroup.select(side.input_columns).rename_columns(side.output_columns)
-                for rowgroup in rowgroups
-            ]
-            _write_table(side_rowgroups, destination_file, pixel, args)
+            side_table = table.select(side.input_columns).rename_columns(side.output_columns)
+            _write_table(side_table, destination_file, pixel, args)
     except Exception as exception:  # pylint: disable=broad-exception-caught
         print_task_failure(f"Failed SPLITTING stage for pixel: {pixel}", exception)
         raise exception
 
 
-def _write_table(rowgroups, destination_file, pixel, args):
+def _write_table(table, destination_file, pixel, args):
+    """Write one output file, as one row group per chunk of the table.
+
+    A table read from parquet is chunked by row group, so this keeps the row groups of the
+    input file, unless `row_group_kwargs` ask for other ones."""
     if args.row_group_kwargs:
-        table = pa.concat_tables(rowgroups)
         rowgroups = _split_to_row_groups(table, args.row_group_kwargs, pixel.order)
+    else:
+        rowgroups = table.to_batches()
     with pq.ParquetWriter(
         destination_file.path,
-        rowgroups[0].schema,
+        table.schema,
         filesystem=destination_file.fs,
         **args.write_table_kwargs,
     ) as writer:
         for rowgroup in rowgroups:
-            writer.write_table(rowgroup)
+            writer.write(rowgroup)
 
 
 def _read_point_map(args: ExtensionArguments, input_catalog):

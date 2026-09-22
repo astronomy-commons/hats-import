@@ -133,9 +133,9 @@ class ExtensionArguments(RuntimeArguments):
         column_names = self.input_catalog.schema.names
         missing_columns = [col for col in self.extension_columns if col not in column_names]
         if missing_columns:
-            raise ValueError(f"Some extension columns do not exist in the catalog: {missing_columns}")
+            raise ValueError(f"Some extension columns do not exist in the input catalog: {missing_columns}")
         if self.primary_column not in column_names:
-            raise ValueError(f"primary_column does not exist in the catalog: {self.primary_column}")
+            raise ValueError(f"primary_column '{self.primary_column}' does not exist in the input catalog")
 
         catalog_info = self.input_catalog.catalog_info
         self.copied_columns = list(
@@ -151,13 +151,16 @@ class ExtensionArguments(RuntimeArguments):
         listed_copies = [col for col in self.extension_columns if col in self.copied_columns]
         if listed_copies:
             raise ValueError(
-                "Columns are automatically copied into the extension and cannot be listed in "
-                f"extension_columns: {listed_copies}"
+                f"The following columns {listed_copies} are copied into the extension and "
+                f"cannot be listed in extension_columns."
             )
         ## The join key is written under its new name, so nothing else may claim that name.
         renamed_over = [col for col in self.extension_input_columns if col != self.primary_column]
         if self.join_column in renamed_over:
-            raise ValueError(f"join_column conflicts with another extension column: {self.join_column}")
+            raise ValueError(
+                f"join_column '{self.join_column}' conflicts with an existing extension column. "
+                f"Please choose a different name for join_column."
+            )
 
         self.core_columns = [col for col in column_names if col not in self.extension_columns]
 
