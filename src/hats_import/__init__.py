@@ -3,6 +3,7 @@
 from ._version import __version__
 from .catalog import ImportArguments
 from .collection import CollectionArguments
+from .extension import ExtensionArguments
 from .hipscat_conversion import ConversionArguments
 from .index import IndexArguments
 from .margin_cache.margin_cache_arguments import MarginCacheArguments
