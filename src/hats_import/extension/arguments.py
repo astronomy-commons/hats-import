@@ -193,46 +193,30 @@ class ExtensionArguments(RuntimeArguments):
         }
 
         core_name = self.input_catalog.catalog_info.catalog_name
-        self.core = self._build_side(
+        self.core = SplitSide(
             name=core_name,
             collection_path=collection_path,
+            catalog_path=collection_path / core_name,
+            input_columns=list(core_columns),
+            output_columns=list(core_columns.values()),
+            input_catalog_name=core_name,
             output_path=output_path,
-            columns=core_columns,
             indexes=core_indexes,
             writes_collection=True,
         )
         extension_name = f"{core_name}_{self.extension_name}"
         has_members = bool(self.margins or extension_indexes)
-        self.extension = self._build_side(
+        extension_collection_path = collection_path / extension_name if has_members else collection_path
+        self.extension = SplitSide(
             name=extension_name,
-            collection_path=collection_path / extension_name if has_members else collection_path,
+            collection_path=extension_collection_path,
+            catalog_path=extension_collection_path / extension_name,
+            input_columns=list(extension_columns),
+            output_columns=list(extension_columns.values()),
+            input_catalog_name=core_name,
             output_path=output_path,
-            columns=extension_columns,
             indexes=extension_indexes,
             writes_collection=has_members,
-        )
-
-    def _build_side(
-        self,
-        name: str,
-        collection_path: UPath,
-        output_path: UPath,
-        columns: dict[str, str],
-        indexes: dict[str, UPath],
-        writes_collection: bool,
-    ) -> SplitSide:
-        """Build one side of the split, which reads the keys of ``columns`` from an input table,
-        and writes them under the names they map to."""
-        return SplitSide(
-            name=name,
-            collection_path=collection_path,
-            catalog_path=collection_path / name,
-            input_columns=list(columns),
-            output_columns=list(columns.values()),
-            input_catalog_name=self.input_catalog.catalog_info.catalog_name,
-            output_path=output_path,
-            indexes=indexes,
-            writes_collection=writes_collection,
         )
 
     @property

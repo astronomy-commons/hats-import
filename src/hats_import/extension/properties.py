@@ -23,11 +23,9 @@ def table_properties(
     total_rows: int,
     skymap_order: int | None,
 ) -> TableProperties:
-    """Properties of one side's copy of an input table.
-
-    Every table keeps the properties of the table it was split from, and replaces the fields
-    that the split changes: its name, its default columns, and what it points at.
-    """
+    """Properties of one side's copy of an input table. Every table keeps the properties
+    of the table it was split from, and replaces the fields that the split changes: its
+    name, its default columns, and what it points at."""
     catalog_info = input_catalog.catalog_info
 
     if isinstance(input_catalog, MarginCatalog):

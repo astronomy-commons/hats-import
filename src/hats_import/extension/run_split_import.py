@@ -10,7 +10,7 @@ from hats.io import file_io, paths
 from hats.io.parquet_metadata import write_parquet_metadata
 from hats.io.skymap import write_skymap
 from hats.io.summary_file import write_catalog_summary_file, write_partition_info_png, write_skymap_png
-from hats.io.validation import is_valid_collection
+from hats.io.validation import is_valid_catalog, is_valid_collection
 from hats.pixel_math.healpix_pixel import HealpixPixel
 from hats.pixel_math.spatial_index import split_to_row_groups
 from upath import UPath
@@ -56,7 +56,7 @@ def run(args: ExtensionArguments, client):
         if future.status == "error":
             raise future.exception()
 
-    total_steps = 2 * len(args.input_tables) + sum(len(side.indexes) for side in args.sides) + 4
+    total_steps = 2 * len(args.input_tables) + sum(len(side.indexes) for side in args.sides) + 2
 
     with print_progress(
         total=total_steps,
@@ -75,15 +75,15 @@ def run(args: ExtensionArguments, client):
                 _copy_index_catalog(args, side, index_dir)
                 step_progress.update(1)
         extension_properties(args).to_properties_file(args.core.collection_path)
-        step_progress.update(1)
         collection_properties(args).to_properties_file(args.core.collection_path)
-        step_progress.update(1)
         if args.extension.writes_collection:
             extension_collection_properties(args).to_properties_file(args.extension.collection_path)
         step_progress.update(1)
         for side in args.sides:
             if side.writes_collection:
                 assert is_valid_collection(side.collection_path)
+            else:
+                assert is_valid_catalog(side.catalog_path)
         if args.tmp_path:  # pragma: no cover (always set, but required for mypy)
             file_io.remove_directory(args.tmp_path, ignore_errors=True)
         step_progress.update(1)
@@ -92,7 +92,7 @@ def run(args: ExtensionArguments, client):
 def split_pixel(pixel: HealpixPixel, args: ExtensionArguments, input_catalog):
     """Split the data of a single input partition into its core and extension files.
     The row group structure of the input file is preserved, unless `row_group_kwargs`
-    were provided, in which case each output file is re-split accordingly."""
+    is provided, in which case each output file is re-split accordingly."""
     try:
         input_file = paths.pixel_catalog_file(
             input_catalog.catalog_path, pixel, npix_suffix=input_catalog.catalog_info.npix_suffix
@@ -156,9 +156,8 @@ def _write_table_metadata(args: ExtensionArguments, side: SplitSide, input_catal
 def _write_parquet_metadata(
     args: ExtensionArguments, side: SplitSide, input_catalog, catalog_path, point_map
 ):
-    """Write the parquet metadata and skymaps of one output table.
-
-    Returns the number of rows written, and the order of the skymap, if one was written."""
+    """Write the parquet metadata and skymaps of one output table. Returns the number
+    of rows written, and the order of the skymap, if one was written."""
     catalog_info = input_catalog.catalog_info
     if not input_catalog.get_healpix_pixels():
         _write_empty_metadata(side, input_catalog, catalog_path)
