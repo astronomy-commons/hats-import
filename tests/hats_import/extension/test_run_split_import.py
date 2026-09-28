@@ -118,6 +118,8 @@ def test_split_metadata_files(small_sky_order1_catalog, tmp_path, dask_client):
 @pytest.mark.dask
 def test_split_summary_files(small_sky_order1_catalog, tmp_path, dask_client):
     """The optional visual and summary files are written for both sides."""
+    pytest.importorskip("matplotlib.pyplot")
+
     args = split_args(
         small_sky_order1_catalog,
         tmp_path,
