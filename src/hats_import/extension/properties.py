@@ -26,7 +26,7 @@ def table_properties(
     """Properties of one side's copy of an input table.
 
     Every table keeps the properties of the table it was split from, and replaces the fields
-    that the split changes: its name, the columns it holds, and what it points at.
+    that the split changes: its name, its default columns, and what it points at.
     """
     catalog_info = input_catalog.catalog_info
 
@@ -39,8 +39,10 @@ def table_properties(
     else:
         overrides = {"catalog_name": side.name}
 
+    # The core keeps the default columns for the columns it holds.
+    # The extension carries no default columns.
     default_columns = None
-    if catalog_info.default_columns:
+    if side is args.core and catalog_info.default_columns:
         default_columns = [
             col for col in catalog_info.default_columns if col.split(".")[0] in side.output_columns
         ] or None

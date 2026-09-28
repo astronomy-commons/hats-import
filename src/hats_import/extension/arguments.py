@@ -238,7 +238,7 @@ class ExtensionArguments(RuntimeArguments):
     @property
     def sides(self) -> tuple[SplitSide, SplitSide]:
         """The two sides of the split, the core first."""
-        return (self.core, self.extension)
+        return self.core, self.extension
 
     @property
     def input_tables(self) -> list:

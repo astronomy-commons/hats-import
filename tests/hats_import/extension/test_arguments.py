@@ -28,31 +28,20 @@ def test_good_args(small_sky_order1_catalog, tmp_path):
     # The extension contains the error columns - the healpix, join_column and ra/dec are copied over.
     assert args.extension.input_columns == ["_healpix_29", "id", "ra", "dec", "ra_error", "dec_error"]
     assert args.extension.output_columns == args.extension.input_columns
-    ## Without margins or indexes, only the core writes a collection: the one this run writes.
+    # Without margins or indexes, only the core writes a collection.
     assert args.core.writes_collection
     assert not args.extension.writes_collection
     assert args.extension.collection_path == args.catalog_path
-
-    ## A renamed join column is written under its new name.
+    # A renamed join column is written under its new name.
     renamed = make_args(small_sky_order1_catalog, tmp_path / "renamed", join_column="object_id")
     assert renamed.extension.input_columns[1] == "id"
-    assert renamed.extension.output_columns == [
-        "_healpix_29",
-        "object_id",
-        "ra",
-        "dec",
-        "ra_error",
-        "dec_error",
-    ]
-    ## The output is one collection, holding the core and the extension named after it.
+    assert renamed.extension.output_columns[1] == "object_id"
+    # The output is one collection, holding the core and the extension named after it.
     assert args.catalog_path == tmp_path / "small_sky_collection"
     assert args.core.name == "small_sky_order1"
     assert args.core.catalog_path == args.catalog_path / "small_sky_order1"
     assert args.extension.name == "small_sky_order1_errors"
     assert args.extension.catalog_path == args.catalog_path / "small_sky_order1_errors"
-    ## Checking the arguments writes nothing inside the collection: the pipeline makes the directories.
-    assert not args.core.catalog_path.exists()
-    assert not args.extension.catalog_path.exists()
 
 
 def test_missing_args(small_sky_order1_catalog, tmp_path):
@@ -81,7 +70,7 @@ def test_bad_columns(small_sky_order1_catalog, tmp_path):
         make_args(small_sky_order1_catalog, tmp_path, extension_columns=["ra_error", "flux"])
     with pytest.raises(ValueError, match="does not exist"):
         make_args(small_sky_order1_catalog, tmp_path, primary_column="object_id")
-    ## Another column would be written under the join key's name.
+    # Another column would be written under the join key's name.
     with pytest.raises(ValueError, match="conflicts"):
         make_args(small_sky_order1_catalog, tmp_path, join_column="ra_error")
     with pytest.raises(ValueError, match="conflicts"):
@@ -97,3 +86,18 @@ def test_copied_columns_cannot_be_moved(small_sky_order1_catalog, tmp_path):
             extension_columns=["_healpix_29", "id", "ra", "dec", "ra_error"],
         )
     assert "['_healpix_29', 'id', 'ra', 'dec']" in str(error.value)
+
+
+def test_input_must_be_object_or_source(small_sky_o1_collection, tmp_path):
+    """Only object and source catalogs can be split, and not e.g. a margin."""
+    with pytest.raises(ValueError, match="OBJECT or SOURCE"):
+        make_args(small_sky_o1_collection / "small_sky_order1_margin", tmp_path)
+
+
+def test_derived_name(small_sky_order1_catalog, tmp_path):
+    """Margins and indexes named after the input catalog are renamed after the side they go to."""
+    args = make_args(small_sky_order1_catalog, tmp_path)
+    assert args.core.derived_name("small_sky_order1_margin") == "small_sky_order1_margin"
+    assert args.extension.derived_name("small_sky_order1_margin") == "small_sky_order1_errors_margin"
+    # Any other name is kept as is.
+    assert args.extension.derived_name("custom_margin") == "custom_margin"

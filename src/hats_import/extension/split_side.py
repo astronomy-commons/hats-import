@@ -45,10 +45,8 @@ class SplitSide:
 
     @property
     def catalog_reference(self) -> str:
-        """Path of this side's main catalog, for its margins and indexes to point at.
-
-        As elsewhere in hats-import, it is relative to the directory that holds the collection."""
-        return str(self.catalog_path.relative_to(self.output_path))
+        """Path of this side's main catalog, for its margins and indexes to point at."""
+        return self.catalog_path.relative_to(self.output_path).as_posix()
 
     def derived_name(self, member_name: str) -> str:
         """Name of a margin or an index on this side, with the input catalog's name replaced.

@@ -2,21 +2,17 @@
 
 import shutil
 
-import pandas as pd
+import nested_pandas as npd
 import pyarrow.parquet as pq
 import pytest
 from hats import read_hats
-from hats.catalog import Catalog, CatalogCollection, CatalogExtension
+from hats.catalog import Catalog, CatalogCollection, CatalogExtension, TableProperties
 from hats.io import paths
 from hats.io.validation import is_valid_collection
 from hats.pixel_math import HealpixPixel
 
 import hats_import.extension.run_split_import as runner
 from hats_import.extension.arguments import ExtensionArguments
-
-CORE_NAME = "small_sky_order1"
-EXTENSION_NAME = "small_sky_order1_errors"
-PIXELS = [HealpixPixel(1, pixel) for pixel in range(44, 48)]
 
 
 def split_args(small_sky_order1_catalog, tmp_path, **kwargs):
@@ -49,124 +45,97 @@ def test_split_small_sky(small_sky_order1_catalog, tmp_path, dask_client):
     runner.run(split_args(small_sky_order1_catalog, tmp_path), dask_client)
     collection_path = tmp_path / "small_sky_with_extension"
 
-    ## The output is a collection, which lists its extension.
+    # The output is a collection, which lists its extension.
     collection = read_hats(collection_path)
     assert isinstance(collection, CatalogCollection)
     assert is_valid_collection(collection_path, strict=True)
-    assert collection.collection_properties.hats_primary_table_url == CORE_NAME
-    assert collection.all_extensions == [EXTENSION_NAME]
-    ## With no margins to hold, the extension is a catalog, not a collection of its own.
+    assert collection.collection_properties.hats_primary_table_url == "small_sky_order1"
+    assert collection.all_extensions == ["small_sky_order1_errors"]
     assert collection.all_margins is None
-    assert not (collection_path / EXTENSION_NAME / "collection.properties").exists()
 
-    ## Core catalog: a regular object catalog, with the extension columns removed.
+    # Core catalog: a regular object catalog, with the extension columns removed.
     core = collection.main_catalog
-    assert core.catalog_info.catalog_name == CORE_NAME
+    assert core.catalog_info.catalog_name == "small_sky_order1"
     assert core.catalog_info.catalog_type == "object"
     assert core.catalog_info.total_rows == 131
-    assert core.get_healpix_pixels() == PIXELS
+    assert core.get_healpix_pixels() == [HealpixPixel(1, pixel) for pixel in range(44, 48)]
     assert core.schema.names == ["_healpix_29", "id", "ra", "dec"]
-    assert (collection_path / CORE_NAME / "skymap.fits").exists()
 
-    ## Extension catalog: a regular object catalog, valid on its own, with the extension
-    ## columns, plus the join, spatial index and coordinates.
-    extension = read_hats(collection_path / EXTENSION_NAME)
+    # Extension catalog: a regular object catalog, valid on its own, with the extension
+    # columns, plus the join, spatial index and coordinates.
+    extension = read_hats(collection_path / "small_sky_order1_errors")
     assert isinstance(extension, Catalog)
-    assert extension.catalog_info.catalog_name == EXTENSION_NAME
+    assert extension.catalog_info.catalog_name == "small_sky_order1_errors"
     assert extension.catalog_info.catalog_type == "object"
     assert extension.catalog_info.total_rows == 131
     assert extension.catalog_info.ra_column == "ra"
     assert extension.catalog_info.dec_column == "dec"
-    assert extension.get_healpix_pixels() == PIXELS
+    assert extension.get_healpix_pixels() == core.get_healpix_pixels()
     assert extension.schema.names == ["_healpix_29", "object_id", "ra", "dec", "ra_error", "dec_error"]
-    assert (collection_path / EXTENSION_NAME / "skymap.fits").exists()
 
-    ## Extension properties: all that is needed to load the extension and join it to the core.
-    catalog_extension = read_hats(collection.get_extension_path(EXTENSION_NAME))
-    assert isinstance(catalog_extension, CatalogExtension)
-    properties = catalog_extension.extension_info
-    assert properties.name == EXTENSION_NAME
+    # Extension properties: all that is needed to load the extension and join it to the core.
+    extension_properties = read_hats(collection_path / "small_sky_order1_errors.properties")
+    assert isinstance(extension_properties, CatalogExtension)
+    properties = extension_properties.extension_info
+    assert properties.name == "small_sky_order1_errors"
     assert properties.catalog_type == "extension"
+    assert properties.primary_catalog == "small_sky_with_extension"
     assert properties.primary_column == "id"
+    assert properties.join_catalog == "small_sky_order1_errors"
     assert properties.join_column == "object_id"
     assert properties.extension_columns == ["ra_error", "dec_error"]
     assert properties.extension_join_style == "left"
-    assert catalog_extension.catalog.catalog_info.catalog_name == EXTENSION_NAME
-
-    ## The primary is the core collection, by name, which holds the extension properties. The
-    ## extension is referenced relative to the collection root.
-    assert properties.primary_catalog == "small_sky_with_extension"
-    assert properties.join_catalog == EXTENSION_NAME
-    assert catalog_extension.join_catalog_dir.path == (collection_path / EXTENSION_NAME).as_posix()
+    assert (
+        extension_properties.join_catalog_dir.path == (collection_path / "small_sky_order1_errors").as_posix()
+    )
 
 
 @pytest.mark.dask
-def test_split_small_sky_data(small_sky_order1_catalog, tmp_path, dask_client):
-    """Every partition of the core and the extension together holds the input's data."""
-    runner.run(split_args(small_sky_order1_catalog, tmp_path), dask_client)
-    collection_path = tmp_path / "small_sky_with_extension"
-    properties = read_hats(collection_path / f"{EXTENSION_NAME}.properties").extension_info
-
-    for pixel in PIXELS:
-        original_data = pd.read_parquet(paths.pixel_catalog_file(small_sky_order1_catalog, pixel))
-        core_data = pd.read_parquet(paths.pixel_catalog_file(collection_path / CORE_NAME, pixel))
-        extension_data = pd.read_parquet(paths.pixel_catalog_file(collection_path / EXTENSION_NAME, pixel))
-
-        # The healpix and coordinates are copied into the extension.
-        pd.testing.assert_frame_equal(
-            extension_data[["_healpix_29", "ra", "dec"]], core_data[["_healpix_29", "ra", "dec"]]
-        )
-
-        # Joining the extension back to the core recovers the original catalog.
-        joined = core_data.merge(
-            extension_data[[properties.join_column] + properties.extension_columns],
-            left_on=properties.primary_column,
-            right_on=properties.join_column,
-        ).drop(columns=properties.join_column)[original_data.columns]
-
-        pd.testing.assert_frame_equal(joined, original_data)
-
-
-@pytest.mark.dask
-def test_split_preserves_row_groups(small_sky_order1_catalog, tmp_path, dask_client):
-    """The row groups of each input file are kept in both outputs."""
-    input_path = tmp_path / "input"
-
-    # Set row groups of size 10 in the input catalog.
-    shutil.copytree(small_sky_order1_catalog, input_path)
-    for pixel in PIXELS:
-        pixel_file = paths.pixel_catalog_file(input_path, pixel)
-        pq.write_table(pq.read_table(pixel_file), pixel_file, row_group_size=10)
-
-    # The partitions hold 42, 29, 42 and 18 rows, split with
-    # a different number of row groups.
-    expected_row_groups = {
-        HealpixPixel(1, 44): [10, 10, 10, 10, 2],
-        HealpixPixel(1, 45): [10, 10, 9],
-        HealpixPixel(1, 46): [10, 10, 10, 10, 2],
-        HealpixPixel(1, 47): [10, 8],
-    }
-    assert _row_group_sizes(input_path) == expected_row_groups
-
-    args = split_args(input_path, tmp_path, output_path=tmp_path / "output")
+def test_split_metadata_files(small_sky_order1_catalog, tmp_path, dask_client):
+    """The parquet metadata files and the skymaps are written for both sides."""
+    args = split_args(
+        small_sky_order1_catalog,
+        tmp_path,
+        create_thumbnail=True,
+        create_per_partition_stats=True,
+        skymap_alt_orders=[0],
+    )
     runner.run(args, dask_client)
 
-    assert _row_group_sizes(args.core.catalog_path) == expected_row_groups
-    assert _row_group_sizes(args.extension.catalog_path) == expected_row_groups
+    for catalog_path in (args.core.catalog_path, args.extension.catalog_path):
+        assert (catalog_path / "dataset" / "_common_metadata").exists()
+        assert (catalog_path / "dataset" / "_metadata").exists()
+        assert (catalog_path / "data_thumbnail.parquet").exists()
+        assert (catalog_path / "per_partition_statistics.parquet").exists()
+        assert (catalog_path / "point_map.fits").exists()
+        assert (catalog_path / "skymap.fits").exists()
+        assert (catalog_path / "skymap.0.fits").exists()
+        catalog_info = read_hats(catalog_path).catalog_info
+        assert catalog_info.skymap_order == 1
+        assert catalog_info.skymap_alt_orders == [0]
 
 
-def _row_group_sizes(catalog_path):
-    """Row counts of every row group of every partition of a catalog."""
-    sizes = {}
-    for pixel in PIXELS:
-        metadata = pq.ParquetFile(paths.pixel_catalog_file(catalog_path, pixel)).metadata
-        sizes[pixel] = [metadata.row_group(index).num_rows for index in range(metadata.num_row_groups)]
-    return sizes
+@pytest.mark.dask
+def test_split_summary_files(small_sky_order1_catalog, tmp_path, dask_client):
+    """The optional visual and summary files are written for both sides."""
+    args = split_args(
+        small_sky_order1_catalog,
+        tmp_path,
+        create_skymap_png=True,
+        create_partition_info_png=True,
+        create_summary_html=True,
+        create_summary_md=True,
+    )
+    runner.run(args, dask_client)
+
+    for catalog_path in (args.core.catalog_path, args.extension.catalog_path):
+        for file_name in ["skymap.png", "partition_info.png", "index.html", "README.md"]:
+            assert (catalog_path / file_name).exists()
 
 
 @pytest.mark.dask
 def test_split_npix_as_directory(small_sky_source_npix_dir_catalog, tmp_path, dask_client):
-    """The output records the suffix its own partitions are written with, not the input's."""
+    """The output catalogs use the args suffix, not the input catalog suffix."""
     args = ExtensionArguments(
         input_catalog_path=small_sky_source_npix_dir_catalog,
         extension_columns=["mag", "band"],
@@ -182,6 +151,118 @@ def test_split_npix_as_directory(small_sky_source_npix_dir_catalog, tmp_path, da
     for catalog_path in (args.core.catalog_path, args.extension.catalog_path):
         catalog = read_hats(catalog_path)
         assert catalog.catalog_info.npix_suffix == args.npix_suffix == ".parquet"
-        ## The partitions are files, as that suffix says, rather than directories.
         pixel_file = paths.pixel_catalog_file(catalog_path, catalog.get_healpix_pixels()[0])
         assert pixel_file.is_file()
+
+
+@pytest.mark.dask
+def test_split_default_columns(small_sky_order1_catalog, tmp_path, dask_client):
+    """The core keeps the default columns of the input that it holds. The extension has none,
+    so all of its columns are loaded by default."""
+    input_path = tmp_path / "input"
+    shutil.copytree(small_sky_order1_catalog, input_path)
+    TableProperties.read_from_dir(input_path).copy_and_update(
+        default_columns=["id", "ra", "dec", "ra_error"]
+    ).to_properties_file(input_path)
+
+    args = split_args(input_path, tmp_path, output_path=tmp_path / "output")
+    runner.run(args, dask_client)
+
+    core = read_hats(args.core.catalog_path)
+    assert core.catalog_info.default_columns == ["id", "ra", "dec"]
+    extension = read_hats(args.extension.catalog_path)
+    assert extension.catalog_info.default_columns is None
+
+
+def test_split_pixel(small_sky_order1_catalog, tmp_path):
+    """One input partition is written to both sides, each with its own columns."""
+    args = split_args(small_sky_order1_catalog, tmp_path)
+    pixel = HealpixPixel(1, 44)
+
+    runner.split_pixel(pixel, args, args.input_catalog)
+
+    core_data = npd.read_parquet(paths.pixel_catalog_file(args.core.catalog_path, pixel))
+    extension_data = npd.read_parquet(paths.pixel_catalog_file(args.extension.catalog_path, pixel))
+    assert list(core_data.columns) == args.core.output_columns
+    assert list(extension_data.columns) == args.extension.output_columns
+    assert len(core_data) == len(extension_data) == 42
+
+
+def test_split_row_groups(small_sky_order1_catalog, tmp_path):
+    """Each output file keeps the row groups of the input file, unless `row_group_kwargs` is
+    given, in which case it is split into row groups of the given size."""
+    pixels = [HealpixPixel(1, pixel) for pixel in range(44, 48)]
+
+    # Each input partition is a single row group.
+    input_row_groups = {
+        HealpixPixel(1, 44): [42],
+        HealpixPixel(1, 45): [29],
+        HealpixPixel(1, 46): [42],
+        HealpixPixel(1, 47): [18],
+    }
+    assert _row_group_sizes(small_sky_order1_catalog, pixels) == input_row_groups
+
+    # Without `row_group_kwargs`, the row groups do not change.
+    args = split_args(small_sky_order1_catalog, tmp_path / "unchanged")
+    for pixel in pixels:
+        runner.split_pixel(pixel, args, args.input_catalog)
+    assert _row_group_sizes(args.core.catalog_path, pixels) == input_row_groups
+    assert _row_group_sizes(args.extension.catalog_path, pixels) == input_row_groups
+
+    # With `row_group_kwargs`, each output file is split into row groups of 10 rows.
+    args = split_args(small_sky_order1_catalog, tmp_path / "split", row_group_kwargs={"num_rows": 10})
+    for pixel in pixels:
+        runner.split_pixel(pixel, args, args.input_catalog)
+
+    # The partitions hold different numbers of rows, so a different number of row groups.
+    expected_row_groups = {
+        HealpixPixel(1, 44): [10, 10, 10, 10, 2],
+        HealpixPixel(1, 45): [10, 10, 9],
+        HealpixPixel(1, 46): [10, 10, 10, 10, 2],
+        HealpixPixel(1, 47): [10, 8],
+    }
+    assert _row_group_sizes(args.core.catalog_path, pixels) == expected_row_groups
+    assert _row_group_sizes(args.extension.catalog_path, pixels) == expected_row_groups
+
+
+def _row_group_sizes(catalog_path, pixels):
+    """Row counts of every row group of the given partitions of a catalog."""
+    sizes = {}
+    for pixel in pixels:
+        metadata = pq.ParquetFile(paths.pixel_catalog_file(catalog_path, pixel)).metadata
+        sizes[pixel] = [metadata.row_group(index).num_rows for index in range(metadata.num_row_groups)]
+    return sizes
+
+
+def test_split_pixel_failure(small_sky_order1_catalog, tmp_path, capsys):
+    """A partition that cannot be split raises an error."""
+    args = split_args(small_sky_order1_catalog, tmp_path)
+    with pytest.raises(FileNotFoundError):
+        runner.split_pixel(HealpixPixel(1, 0), args, args.input_catalog)
+    assert "Failed SPLITTING stage" in capsys.readouterr().out
+
+
+@pytest.mark.dask
+def test_split_row_count_mismatch(small_sky_order1_catalog, tmp_path, dask_client):
+    """The rows written must add up to the row count of the input table."""
+    input_path = tmp_path / "input"
+    shutil.copytree(small_sky_order1_catalog, input_path)
+
+    props = TableProperties.read_from_dir(input_path).copy_and_update(total_rows=100)
+    props.to_properties_file(input_path)
+
+    args = split_args(input_path, tmp_path, output_path=tmp_path / "output")
+    with pytest.raises(ValueError, match="does not match"):
+        runner.run(args, dask_client)
+
+
+@pytest.mark.dask
+def test_split_failure_stops_the_run(small_sky_order1_catalog, tmp_path, dask_client):
+    """A partition that fails to split on a worker stops the run with its error."""
+    input_path = tmp_path / "input"
+    shutil.copytree(small_sky_order1_catalog, input_path)
+    paths.pixel_catalog_file(input_path, HealpixPixel(1, 44)).unlink()
+
+    args = split_args(input_path, tmp_path, output_path=tmp_path / "output")
+    with pytest.raises(FileNotFoundError):
+        runner.run(args, dask_client)

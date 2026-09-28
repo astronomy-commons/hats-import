@@ -12,9 +12,9 @@ from hats.io.skymap import write_skymap
 from hats.io.summary_file import write_catalog_summary_file, write_partition_info_png, write_skymap_png
 from hats.io.validation import is_valid_collection
 from hats.pixel_math.healpix_pixel import HealpixPixel
+from hats.pixel_math.spatial_index import split_to_row_groups
 from upath import UPath
 
-from hats_import.catalog.map_reduce import _split_to_row_groups
 from hats_import.extension.arguments import ExtensionArguments
 from hats_import.extension.properties import (
     collection_properties,
@@ -115,7 +115,7 @@ def split_pixel(pixel: HealpixPixel, args: ExtensionArguments, input_catalog):
 def _write_table(table, destination_file, pixel, args):
     """Write one output file, as one row group per chunk of the table."""
     if args.row_group_kwargs:
-        rowgroups = _split_to_row_groups(table, args.row_group_kwargs, pixel.order)
+        rowgroups = split_to_row_groups(table, args.row_group_kwargs, pixel.order)
     else:
         rowgroups = table.to_batches()
     with pq.ParquetWriter(
