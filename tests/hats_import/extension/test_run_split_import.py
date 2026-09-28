@@ -6,7 +6,7 @@ import pandas as pd
 import pyarrow.parquet as pq
 import pytest
 from hats import read_hats
-from hats.catalog import CatalogCollection, ExtensionCatalog
+from hats.catalog import Catalog, CatalogCollection, CatalogExtension
 from hats.io import paths
 from hats.io.validation import is_valid_collection
 from hats.pixel_math import HealpixPixel
@@ -68,27 +68,36 @@ def test_split_small_sky(small_sky_order1_catalog, tmp_path, dask_client):
     assert core.schema.names == ["_healpix_29", "id", "ra", "dec"]
     assert (collection_path / CORE_NAME / "skymap.fits").exists()
 
-    ## Extension catalog: the extension columns, plus the join, spatial index and coordinates.
+    ## Extension catalog: a regular object catalog, valid on its own, with the extension
+    ## columns, plus the join, spatial index and coordinates.
     extension = read_hats(collection_path / EXTENSION_NAME)
-    assert isinstance(extension, ExtensionCatalog)
-    properties = extension.catalog_info
-    assert properties.catalog_name == EXTENSION_NAME
-    assert properties.catalog_type == "extension"
-    assert properties.total_rows == 131
-    assert properties.primary_column == "id"
-    assert properties.join_column == "object_id"
-    assert properties.extension_columns == ["ra_error", "dec_error"]
-    assert properties.extension_join_style == "left"
-    assert properties.ra_column == "ra"
-    assert properties.dec_column == "dec"
+    assert isinstance(extension, Catalog)
+    assert extension.catalog_info.catalog_name == EXTENSION_NAME
+    assert extension.catalog_info.catalog_type == "object"
+    assert extension.catalog_info.total_rows == 131
+    assert extension.catalog_info.ra_column == "ra"
+    assert extension.catalog_info.dec_column == "dec"
     assert extension.get_healpix_pixels() == PIXELS
     assert extension.schema.names == ["_healpix_29", "object_id", "ra", "dec", "ra_error", "dec_error"]
     assert (collection_path / EXTENSION_NAME / "skymap.fits").exists()
 
-    ## References are relative to the directory holding the collection.
-    assert properties.primary_catalog == f"small_sky_with_extension/{CORE_NAME}"
-    assert properties.join_catalog == f"small_sky_with_extension/{EXTENSION_NAME}"
-    assert read_hats(tmp_path / properties.primary_catalog).catalog_info.catalog_name == CORE_NAME
+    ## Extension properties: all that is needed to load the extension and join it to the core.
+    catalog_extension = read_hats(collection.get_extension_path(EXTENSION_NAME))
+    assert isinstance(catalog_extension, CatalogExtension)
+    properties = catalog_extension.extension_info
+    assert properties.name == EXTENSION_NAME
+    assert properties.catalog_type == "extension"
+    assert properties.primary_column == "id"
+    assert properties.join_column == "object_id"
+    assert properties.extension_columns == ["ra_error", "dec_error"]
+    assert properties.extension_join_style == "left"
+    assert catalog_extension.catalog.catalog_info.catalog_name == EXTENSION_NAME
+
+    ## The primary is the core collection, by name, which holds the extension properties. The
+    ## extension is referenced relative to the collection root.
+    assert properties.primary_catalog == "small_sky_with_extension"
+    assert properties.join_catalog == EXTENSION_NAME
+    assert catalog_extension.join_catalog_dir.path == (collection_path / EXTENSION_NAME).as_posix()
 
 
 @pytest.mark.dask
@@ -96,7 +105,7 @@ def test_split_small_sky_data(small_sky_order1_catalog, tmp_path, dask_client):
     """Every partition of the core and the extension together holds the input's data."""
     runner.run(split_args(small_sky_order1_catalog, tmp_path), dask_client)
     collection_path = tmp_path / "small_sky_with_extension"
-    properties = read_hats(collection_path / EXTENSION_NAME).catalog_info
+    properties = read_hats(collection_path / f"{EXTENSION_NAME}.properties").extension_info
 
     for pixel in PIXELS:
         original_data = pd.read_parquet(paths.pixel_catalog_file(small_sky_order1_catalog, pixel))

@@ -23,18 +23,36 @@ def test_good_args(small_sky_order1_catalog, tmp_path):
     """Valid arguments give the expected paths and column lists."""
     args = make_args(small_sky_order1_catalog, tmp_path)
     assert args.join_column == "id"
-    assert args.core_columns == ["_healpix_29", "id", "ra", "dec"]
-    assert args.extension_input_columns == ["_healpix_29", "id", "ra", "dec", "ra_error", "dec_error"]
+    assert args.core.input_columns == ["_healpix_29", "id", "ra", "dec"]
+    assert args.core.output_columns == args.core.input_columns
     # The extension contains the error columns - the healpix, join_column and ra/dec are copied over.
-    assert args.extension_output_columns == args.extension_input_columns
+    assert args.extension.input_columns == ["_healpix_29", "id", "ra", "dec", "ra_error", "dec_error"]
+    assert args.extension.output_columns == args.extension.input_columns
+    ## Without margins or indexes, only the core writes a collection: the one this run writes.
+    assert args.core.writes_collection
+    assert not args.extension.writes_collection
+    assert args.extension.collection_path == args.catalog_path
+
+    ## A renamed join column is written under its new name.
+    renamed = make_args(small_sky_order1_catalog, tmp_path / "renamed", join_column="object_id")
+    assert renamed.extension.input_columns[1] == "id"
+    assert renamed.extension.output_columns == [
+        "_healpix_29",
+        "object_id",
+        "ra",
+        "dec",
+        "ra_error",
+        "dec_error",
+    ]
     ## The output is one collection, holding the core and the extension named after it.
     assert args.catalog_path == tmp_path / "small_sky_collection"
     assert args.core.name == "small_sky_order1"
     assert args.core.catalog_path == args.catalog_path / "small_sky_order1"
     assert args.extension.name == "small_sky_order1_errors"
     assert args.extension.catalog_path == args.catalog_path / "small_sky_order1_errors"
-    assert args.core.catalog_path.exists()
-    assert args.extension.catalog_path.exists()
+    ## Checking the arguments writes nothing inside the collection: the pipeline makes the directories.
+    assert not args.core.catalog_path.exists()
+    assert not args.extension.catalog_path.exists()
 
 
 def test_missing_args(small_sky_order1_catalog, tmp_path):

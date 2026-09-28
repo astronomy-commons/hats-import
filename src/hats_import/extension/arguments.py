@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
 from hats import read_hats
 from hats.catalog import Catalog, CatalogCollection, CatalogType, MarginCatalog
-from hats.io import file_io
 from hats.io.validation import is_valid_catalog
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN
 from upath import UPath
@@ -31,16 +29,22 @@ class ExtensionArguments(RuntimeArguments):
         small_sky_collection/
         ├── small_sky/                        the core
         ├── small_sky_margin/                 a margin of the input, split for the core
-        ├── small_sky_index/                  an index of the input, copied
-        ├── small_sky_spectra/                the extension, a collection when it has margins
+        ├── small_sky_id_index/               an index over a column that stays in the core, copied
+        ├── small_sky_spectra/                the extension, a collection when it has margins or indexes
         │   ├── small_sky_spectra/
         │   ├── small_sky_spectra_margin/     the same margin, split for the extension
         │   └── collection.properties
+        ├── small_sky_spectra.properties      describes the extension, and how to join it to the core
         └── collection.properties             lists the margins, indexes and extensions
 
-    With no margins to hold, the extension is written as a catalog directory, without a
-    collection of its own. A margin holds the same columns as the catalog it belongs to, and
-    an index is carried over as long as it indexes a column that stays in the core.
+    A few things to know about the layout:
+
+    * Each margin of the input is split in two, so the core and the extension each get a margin
+      with their own columns.
+    * Each index follows the column it indexes. If that column moves to the extension, the index
+      moves too (and is renamed after the extension). Otherwise, it stays with the core.
+    * If the extension ends up with no margins or indexes, it is written as a plain catalog
+      directory, rather than as a collection of its own.
     """
 
     ## Input
@@ -71,27 +75,19 @@ class ExtensionArguments(RuntimeArguments):
     """modality of the data that the extension stores (e.g. "spectra", "images")"""
 
     ## Constructed
-    copied_columns: list[str] = field(default_factory=list)
-    """columns the extension always holds, which stay in the core as well"""
-    core_columns: list[str] = field(default_factory=list)
-    """columns of the input catalog that are written to the core"""
-    extension_input_columns: list[str] = field(default_factory=list)
-    """columns to read from an input table, to write the extension"""
-    extension_output_columns: list[str] = field(default_factory=list)
-    """names to write `extension_input_columns` under, in the same order"""
     core: SplitSide = None
     """the core side of the split"""
     extension: SplitSide = None
     """the extension side of the split"""
     margins: list[MarginCatalog] = field(default_factory=list)
     """the margins of the input collection, each split into both sides"""
+    indexes: dict[str, UPath] = field(default_factory=dict)
+    """the index catalogs of the input collection, by the column each one indexes. Each goes to
+    the side that keeps its column"""
     default_margin_name: str | None = None
     """name of the input collection's default margin, if it has one"""
     default_index_column: str | None = None
-    """column of the input collection's default index, if it is carried over"""
-    indexes: dict[str, UPath] = field(default_factory=dict)
-    """the index catalogs to carry over, by the column each one indexes. An index over a column
-    that moves to the extension is not carried over"""
+    """column of the input collection's default index, if it has one"""
 
     def _check_arguments(self):
         super()._check_arguments()
@@ -100,8 +96,10 @@ class ExtensionArguments(RuntimeArguments):
         if not self.extension_name:
             raise ValueError("extension_name is required")
 
-        self._check_columns()
-        self._prepare_output_paths()
+        core_columns, extension_columns = self._check_columns()
+        if self.input_collection is not None:
+            self._plan_collection_members()
+        self._build_sides(core_columns, extension_columns)
 
     def _read_input(self):
         """Read the input path, which may be a single catalog or a whole collection."""
@@ -116,10 +114,12 @@ class ExtensionArguments(RuntimeArguments):
         else:
             self.input_catalog = input_dataset
         if self.input_catalog.catalog_info.catalog_type not in (CatalogType.OBJECT, CatalogType.SOURCE):
-            raise ValueError("Extensions can only be split from object or source catalogs")
+            raise ValueError("Extensions can only be created from OBJECT or SOURCE catalogs")
 
     def _check_columns(self):
-        """Check that the requested columns can be split out of the input catalog."""
+        """Check that the requested columns can be split out of the input catalog.
+
+        Returns the columns of the core and of the extension, mapped to their new names."""
         if not self.extension_columns:
             raise ValueError("extension_columns is required")
         if not self.primary_column:
@@ -127,7 +127,7 @@ class ExtensionArguments(RuntimeArguments):
         if not self.join_column:
             self.join_column = self.primary_column
 
-        # Remove duplicates, preserving order
+        # Remove duplicates and preserve order.
         self.extension_columns = list(dict.fromkeys(self.extension_columns))
 
         column_names = self.input_catalog.schema.names
@@ -137,99 +137,103 @@ class ExtensionArguments(RuntimeArguments):
         if self.primary_column not in column_names:
             raise ValueError(f"primary_column '{self.primary_column}' does not exist in the input catalog")
 
+        # The healpix, join key and coordinate columns are copied into the extension, and stay in the core.
         catalog_info = self.input_catalog.catalog_info
-        self.copied_columns = list(
+        copied_columns = list(
             dict.fromkeys(
                 [self.healpix_column, self.primary_column, catalog_info.ra_column, catalog_info.dec_column]
             )
         )
-        self.extension_input_columns = self.copied_columns + self.extension_columns
-        self.extension_output_columns = [
-            self.join_column if col == self.primary_column else col for col in self.extension_input_columns
-        ]
-
-        listed_copies = [col for col in self.extension_columns if col in self.copied_columns]
-        if listed_copies:
+        invalid_extension_columns = [col for col in self.extension_columns if col in copied_columns]
+        if invalid_extension_columns:
             raise ValueError(
-                f"The following columns {listed_copies} are copied into the extension and "
+                f"The following columns {invalid_extension_columns} are copied into the extension and "
                 f"cannot be listed in extension_columns."
             )
-        ## The join key is written under its new name, so nothing else may claim that name.
-        renamed_over = [col for col in self.extension_input_columns if col != self.primary_column]
-        if self.join_column in renamed_over:
+
+        # The join key is written under its new name, so nothing else may claim that name.
+        extension_input_columns = copied_columns + self.extension_columns
+        if self.join_column in [col for col in extension_input_columns if col != self.primary_column]:
             raise ValueError(
                 f"join_column '{self.join_column}' conflicts with an existing extension column. "
-                f"Please choose a different name for join_column."
+                f"Please unset join_column or choose a different name."
             )
 
-        self.core_columns = [col for col in column_names if col not in self.extension_columns]
-
-    def _prepare_output_paths(self):
-        """Build the two sides of the split, inside the collection this run writes.
-
-        The base class has already made ``catalog_path``, which is the collection's root. The
-        core catalog keeps the input catalog's name, and the extension is named after it. An
-        extension with margins to hold is a collection of its own, inside this one.
-        """
-        if not self.output_path:  # pragma: no cover (not reachable, but required for mypy)
-            raise ValueError("output_path is required")
-        output_path = file_io.get_upath(self.output_path)
-        collection_path = output_path / self.output_artifact_name
-        if self.input_collection is not None:
-            self._plan_collection_members()
-
-        core_name = self.input_catalog.catalog_info.catalog_name
-        self.core = self._build_side(
-            name=core_name,
-            collection_path=collection_path,
-            output_path=output_path,
-            columns=(self.core_columns, self.core_columns),
-        )
-        extension_name = f"{core_name}_{self.extension_name}"
-        self.extension = self._build_side(
-            name=extension_name,
-            ## Margins of the extension need a collection to hold them.
-            collection_path=collection_path / extension_name if self.margins else collection_path,
-            output_path=output_path,
-            columns=(self.extension_input_columns, self.extension_output_columns),
-            is_core=False,
-        )
-
-    def _build_side(self, name, collection_path, output_path, columns, is_core=True) -> SplitSide:
-        """Build one side of the split, and make the directory its main catalog goes in."""
-        catalog_path = collection_path / name
-        file_io.make_directory(catalog_path, exist_ok=True)
-        return SplitSide(
-            name=name,
-            collection_path=collection_path,
-            catalog_path=catalog_path,
-            input_columns=columns[0],
-            output_columns=columns[1],
-            input_catalog_name=self.input_catalog.catalog_info.catalog_name,
-            output_path=output_path,
-            is_core=is_core,
-        )
+        core_columns = {col: col for col in column_names if col not in self.extension_columns}
+        extension_columns = {
+            col: self.join_column if col == self.primary_column else col for col in extension_input_columns
+        }
+        return core_columns, extension_columns
 
     def _plan_collection_members(self):
-        """Record the margins to split, and the index catalogs to carry over."""
+        """Record the margins to split, the index catalogs to carry over, and the default margin and index."""
         collection = self.input_collection
         self.default_margin_name = collection.default_margin
         self.default_index_column = collection.default_index_field
         for margin_name in collection.all_margins or []:
             margin_dir = CatalogCollection.resolve_inner_path(collection.collection_path, margin_name)
             self.margins.append(read_hats(margin_dir))
-        for indexing_column, index_name in (collection.all_indexes or {}).items():
-            if indexing_column not in self.core_columns:
-                warnings.warn(
-                    f"Index {index_name} is not carried over, as it indexes {indexing_column}, "
-                    "which is moved to the extension"
-                )
-                continue
-            self.indexes[indexing_column] = CatalogCollection.resolve_inner_path(
+        for column, index_name in (collection.all_indexes or {}).items():
+            self.indexes[column] = CatalogCollection.resolve_inner_path(
                 collection.collection_path, index_name
             )
-        if self.default_index_column not in self.indexes:
-            self.default_index_column = None
+
+    def _build_sides(self, core_columns: dict[str, str], extension_columns: dict[str, str]):
+        """Build the two sides of the split (for the core and extension)."""
+        if self.catalog_path is None:  # pragma: no cover (not reachable, but required for mypy)
+            raise ValueError("catalog_path is required")
+        collection_path = self.catalog_path
+        output_path = collection_path.parent
+
+        extension_indexes = {
+            column: path for column, path in self.indexes.items() if column in self.extension_columns
+        }
+        core_indexes = {
+            column: path for column, path in self.indexes.items() if column not in extension_indexes
+        }
+
+        core_name = self.input_catalog.catalog_info.catalog_name
+        self.core = self._build_side(
+            name=core_name,
+            collection_path=collection_path,
+            output_path=output_path,
+            columns=core_columns,
+            indexes=core_indexes,
+            writes_collection=True,
+        )
+        extension_name = f"{core_name}_{self.extension_name}"
+        has_members = bool(self.margins or extension_indexes)
+        self.extension = self._build_side(
+            name=extension_name,
+            collection_path=collection_path / extension_name if has_members else collection_path,
+            output_path=output_path,
+            columns=extension_columns,
+            indexes=extension_indexes,
+            writes_collection=has_members,
+        )
+
+    def _build_side(
+        self,
+        name: str,
+        collection_path: UPath,
+        output_path: UPath,
+        columns: dict[str, str],
+        indexes: dict[str, UPath],
+        writes_collection: bool,
+    ) -> SplitSide:
+        """Build one side of the split, which reads the keys of ``columns`` from an input table,
+        and writes them under the names they map to."""
+        return SplitSide(
+            name=name,
+            collection_path=collection_path,
+            catalog_path=collection_path / name,
+            input_columns=list(columns),
+            output_columns=list(columns.values()),
+            input_catalog_name=self.input_catalog.catalog_info.catalog_name,
+            output_path=output_path,
+            indexes=indexes,
+            writes_collection=writes_collection,
+        )
 
     @property
     def sides(self) -> tuple[SplitSide, SplitSide]:

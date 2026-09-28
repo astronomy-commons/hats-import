@@ -5,9 +5,9 @@ import shutil
 import pandas as pd
 import pytest
 from hats import read_hats
-from hats.catalog import CatalogCollection, CatalogType, CollectionProperties
+from hats.catalog import CatalogCollection, CatalogExtension, CatalogType, CollectionProperties
 from hats.io import paths
-from hats.io.validation import is_valid_collection
+from hats.io.validation import is_valid_catalog, is_valid_collection
 
 import hats_import.extension.run_split_import as runner
 from hats_import.extension.arguments import ExtensionArguments
@@ -81,18 +81,21 @@ def test_split_collection_extension(split_collection):
     assert extension_collection.all_indexes is None
 
     extension = extension_collection.main_catalog
-    properties = extension.catalog_info
-    assert properties.catalog_name == EXTENSION_NAME
-    assert properties.catalog_type == CatalogType.EXTENSION
-    assert properties.extension_columns == ["ra_error", "dec_error"]
+    assert extension.catalog_info.catalog_name == EXTENSION_NAME
+    assert extension.catalog_info.catalog_type == CatalogType.OBJECT
     assert extension.schema.names == ["_healpix_29", "object_id", "ra", "dec", "ra_error", "dec_error"]
 
-    ## References are relative to the directory holding the collection this run writes.
-    assert properties.primary_catalog == f"small_sky_collection/{MAIN_NAME}"
-    assert properties.join_catalog == f"small_sky_collection/{EXTENSION_NAME}/{EXTENSION_NAME}"
-    core_reference = split_collection.parent / properties.primary_catalog
-    assert core_reference == split_collection / MAIN_NAME
-    assert read_hats(core_reference).catalog_info.catalog_name == MAIN_NAME
+    ## The extension properties name the core collection, which holds them, and point to the
+    ## extension collection, so that its margins can be found.
+    catalog_extension = read_hats(split_collection / f"{EXTENSION_NAME}.properties")
+    assert isinstance(catalog_extension, CatalogExtension)
+    properties = catalog_extension.extension_info
+    assert properties.catalog_type == CatalogType.EXTENSION
+    assert properties.extension_columns == ["ra_error", "dec_error"]
+    assert properties.primary_catalog == split_collection.name
+    assert properties.join_catalog == EXTENSION_NAME
+    assert isinstance(catalog_extension.catalog, CatalogCollection)
+    assert catalog_extension.catalog.main_catalog.catalog_info.catalog_name == EXTENSION_NAME
 
 
 @pytest.mark.dask
@@ -167,21 +170,34 @@ def test_split_collection_index(small_sky_o1_collection, split_collection):
 
 @pytest.mark.dask
 def test_split_collection_index_over_moved_column(small_sky_o1_collection, tmp_path, dask_client):
-    """An index over a column that moves to the extension cannot be carried over."""
+    """An index over a column that moves to the extension goes to the extension's collection,
+    which the extension then writes, even with no margins to hold."""
     input_collection = tmp_path / "input_collection"
     shutil.copytree(small_sky_o1_collection, input_collection)
     CollectionProperties(
         name="input_collection",
         hats_primary_table_url=MAIN_NAME,
-        all_margins=[MARGIN_NAME],
         all_indexes={"ra_error": INDEX_NAME},
+        default_index="ra_error",
     ).to_properties_file(input_collection)
 
-    with pytest.warns(UserWarning, match="not carried over"):
-        args = split_args(input_collection, tmp_path)
-    assert len(args.indexes) == 0
+    args = split_args(input_collection, tmp_path)
+    assert not args.core.indexes
+    assert list(args.extension.indexes) == ["ra_error"]
 
     runner.run(args, dask_client)
     collection = read_hats(tmp_path / "output" / "small_sky_collection")
     assert collection.all_indexes is None
-    assert collection.all_margins == [MARGIN_NAME]
+    assert collection.default_index_field is None
+
+    extension_collection = read_hats(args.extension.collection_path)
+    assert extension_collection.all_margins is None
+    ## The index is renamed after the extension, like its margins.
+    assert extension_collection.all_indexes == {"ra_error": f"{EXTENSION_NAME}_id_index"}
+    assert extension_collection.default_index_field == "ra_error"
+    index_dir = extension_collection.get_index_dir_for_field("ra_error")
+    assert is_valid_catalog(index_dir)
+    ## The index points at the extension catalog, which it now indexes.
+    index = read_hats(index_dir)
+    assert index.catalog_info.catalog_name == f"{EXTENSION_NAME}_id_index"
+    assert index.catalog_info.primary_catalog == f"small_sky_collection/{EXTENSION_NAME}/{EXTENSION_NAME}"
