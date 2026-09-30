@@ -22,7 +22,7 @@ jobs:
     steps:
     - uses: actions/checkout@v7
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install uv
@@ -33,8 +33,11 @@ jobs:
     - name: Install required dependencies
       run: |
         sudo apt-get update
-        uv pip install --system -e .[dev]
-        if [ -f requirements.txt ]; then uv pip install --system -r requirements.txt; fi
+        if [ -f requirements.txt ]; then
+          uv pip install --system -e .[dev] -r requirements.txt
+        else
+          uv pip install --system -e .[dev]
+        fi
     - name: List dependencies
       run: |
         pip list
@@ -58,7 +61,7 @@ jobs:
     - name: Send status to Slack app
       if: ${{ failure() && github.event_name != 'workflow_dispatch' }}
       id: slack
-      uses: slackapi/slack-github-action@v3
+      uses: slackapi/slack-github-action@v4
       with:
         # For posting a rich message using Block Kit
         webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -67,27 +70,10 @@ jobs:
           {
             "blocks": [
               {
-                "type": "header",
-                "text": {
-                  "type": "plain_text",
-                  "text": "${{ github.repository }}"
-                }
-              },
-              {
                 "type": "section",
                 "text": {
                   "type": "mrkdwn",
-                  "text": "GitHub Action build result: *${{ job.status }}* :${{ job.status }}:"
-                }
-              },
-              {
-                "type": "divider"
-              },
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  "text": ":${{ job.status }}: *${{ github.repository }}:* ${{ matrix.python-version }} (<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|run #${{ github.run_number }}>)"
                 }
               }
             ]

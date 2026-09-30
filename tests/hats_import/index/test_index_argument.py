@@ -113,6 +113,30 @@ def test_good_paths(tmp_path, small_sky_object_catalog):
     Version.from_parts(release=sys.version_info[:2]) == Version("3.11"),
     reason="dask expr regression with python 3.11",
 )
+def test_npix_args_warn(tmp_path, small_sky_object_catalog):
+    """Index tables are not pixel-partitioned, so pixel naming arguments should warn."""
+    with pytest.warns(UserWarning, match="npix_suffix"):
+        IndexArguments(
+            input_catalog_path=small_sky_object_catalog,
+            indexing_column="id",
+            output_path=tmp_path,
+            output_artifact_name="small_sky_object_index",
+            npix_suffix="/",
+        )
+    with pytest.warns(UserWarning, match="npix_parquet_name"):
+        IndexArguments(
+            input_catalog_path=small_sky_object_catalog,
+            indexing_column="id",
+            output_path=tmp_path,
+            output_artifact_name="small_sky_object_index2",
+            npix_parquet_name="pixel.parquet",
+        )
+
+
+@pytest.mark.skipif(
+    Version.from_parts(release=sys.version_info[:2]) == Version("3.11"),
+    reason="dask expr regression with python 3.11",
+)
 def test_column_inclusion_args(tmp_path, small_sky_object_catalog):
     """Test errors for healpix partitioning arguments"""
     with pytest.raises(ValueError, match="one of"):

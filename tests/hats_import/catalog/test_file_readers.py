@@ -168,7 +168,7 @@ def test_csv_reader_pipe_delimited(formats_pipe_csv, tmp_path):
     assert np.all(frame["letters"] == ["AA", "BB", "CC"])
     column_types = frame.dtypes.to_dict()
     expected_column_types = {
-        "letters": object,
+        "letters": "str",
         "ints": int,
         "empty": float,
         "numeric": float,

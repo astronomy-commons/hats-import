@@ -32,7 +32,11 @@ def run(args, client):
         step_progress.update(1)
         file_io.remove_directory(args.tmp_path, ignore_errors=True)
         step_progress.update(1)
-        parquet_metadata.write_parquet_metadata(args.catalog_path, order_by_healpix=False)
+        parquet_metadata.write_parquet_metadata(
+            args.catalog_path,
+            order_by_healpix=False,
+            create_metadata=args.create_metadata,
+        )
         step_progress.update(1)
 
         if args.create_summary_html:

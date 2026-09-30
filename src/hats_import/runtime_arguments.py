@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from importlib.metadata import version
 from pathlib import Path
 
@@ -108,6 +108,8 @@ class RuntimeArguments:
     a new temp directory under catalog_path if no other options are provided"""
     tmp_base_path: UPath | None = None
     """temporary base directory: either `tmp_dir` or `dask_dir`, if those were provided by the user"""
+    _resume_tmp_source: UPath | None = field(default=None, init=False, repr=False, compare=False)
+    """original user-provided resume_tmp value, before path construction"""
 
     def __post_init__(self):
         self._check_arguments()
@@ -147,6 +149,7 @@ class RuntimeArguments:
         if not self.resume:
             file_io.remove_directory(self.tmp_path, ignore_errors=True)
         file_io.make_directory(self.tmp_path, exist_ok=True)
+        self._resume_tmp_source = file_io.get_upath(self.resume_tmp) if self.resume_tmp else None
         if self.resume_tmp:
             self.resume_tmp = import_io.append_paths_to_pointer(self.resume_tmp, self.output_artifact_name)
         else:
