@@ -3,6 +3,7 @@
 import dask.dataframe as dd
 import numpy as np
 import pyarrow as pa
+import pyarrow.parquet as pq
 from hats.io import file_io, paths
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN
 
@@ -98,9 +99,11 @@ def create_index(args, client):
 
     meta = data._meta.reset_index()  # pylint: disable=protected-access
     output_schema = pa.Table.from_pandas(meta, preserve_index=False).schema
+    sorting_columns = pq.SortingColumn.from_ordering(output_schema, [(args.indexing_column, "ascending")])
     write_table_kwargs = file_io.get_parquet_write_table_kwargs(
         output_schema,
-        write_table_kwargs={"data_page_size": INDEX_DATA_PAGE_SIZE} | (args.write_table_kwargs or {}),
+        write_table_kwargs={"data_page_size": INDEX_DATA_PAGE_SIZE, "sorting_columns": sorting_columns}
+        | (args.write_table_kwargs or {}),
     )
 
     # Now just write it out to leaf parquet files!
