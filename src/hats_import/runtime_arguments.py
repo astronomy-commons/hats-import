@@ -39,7 +39,8 @@ class RuntimeArguments:
     """Name of the pixel parquet file to be used when npix_suffix=/. By default, it will be named
     after the pixel with a .parquet extension (e.g. 'Npix=10.parquet')"""
     write_table_kwargs: dict | None = None
-    """additional keyword arguments to use when writing files to parquet (e.g. compression schemes)."""
+    """additional keyword arguments to use when writing files to parquet (e.g. compression schemes).
+    These override the defaults from ``hats.io.file_io.get_parquet_write_table_kwargs``."""
     row_group_kwargs: dict | None = None
     """additional keyword arguments to use in creation of rowgroups when writing files to parquet."""
     should_write_skymap: bool = True
@@ -157,11 +158,6 @@ class RuntimeArguments:
 
         if self.write_table_kwargs is None:
             self.write_table_kwargs = {}
-        if "compression" not in self.write_table_kwargs:
-            self.write_table_kwargs = self.write_table_kwargs | {
-                "compression": "ZSTD",
-                "compression_level": 15,
-            }
 
     def extra_property_dict(self):
         """Generate additional HATS properties for this import run as a dictionary."""

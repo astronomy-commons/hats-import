@@ -420,6 +420,12 @@ def reduce_pixel_shards(
         # Obtain the row groups for the target file
         rowgroup_tables = split_to_row_groups(merged_table, row_group_kwargs, destination_pixel_order)
 
+        write_table_kwargs = file_io.get_parquet_write_table_kwargs(
+            merged_table.schema, write_table_kwargs=write_table_kwargs
+        )
+        # Row groups are already split above; ParquetWriter's constructor has no such kwarg.
+        write_table_kwargs.pop("row_group_size", None)
+
         with pq.ParquetWriter(
             destination_file.path,
             merged_table.schema,
