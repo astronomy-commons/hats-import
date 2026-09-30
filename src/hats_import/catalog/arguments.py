@@ -9,6 +9,7 @@ from typing import Sequence
 import hats
 from hats.catalog import TableProperties
 from hats.catalog.catalog_collection import CatalogCollection
+from hats.catalog.catalog_extension import CatalogExtension
 from hats.io.file_io import get_upath
 from hats.io.paths import DATASET_DIR, HIVE_COLUMNS, PARTITION_ORDER
 from hats.io.validation import is_valid_catalog
@@ -215,6 +216,8 @@ class ImportArguments(RuntimeArguments):
         if isinstance(catalog, CatalogCollection):
             path = catalog.main_catalog_dir
             catalog = catalog.main_catalog
+        if isinstance(catalog, CatalogExtension):  # pragma: no cover
+            raise ValueError("path must be a catalog or collection, found extension.")
         if not is_valid_catalog(path, strict=True):
             raise ValueError("path not a valid catalog")
 
