@@ -8,6 +8,7 @@ from typing import Literal
 import hats.io.paths
 from hats import read_hats
 from hats.catalog import CatalogCollection
+from hats.catalog.catalog_extension import CatalogExtension
 from hats.io import file_io
 from upath import UPath
 
@@ -74,6 +75,8 @@ class VerificationArguments:
             self.input_collection_path = self.input_catalog_path
             self.input_catalog_path = catalog.main_catalog_dir
             catalog = catalog.main_catalog
+        if isinstance(catalog, CatalogExtension):  # pragma: no cover
+            raise ValueError("input_catalog_path must be a catalog or collection, found extension.")
         self.catalog_total_rows = catalog.catalog_info.total_rows
 
         if self.truth_schema is not None:
