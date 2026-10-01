@@ -5,10 +5,10 @@ import pytest
 from hats_import.extension.arguments import ExtensionArguments
 
 
-def make_args(small_sky_order1_catalog, tmp_path, **kwargs):
-    """Arguments for splitting the small sky catalog, with any overrides."""
+def make_args(catalog_path, tmp_path, **kwargs):
+    """Arguments for splitting the given catalog, with any overrides."""
     arguments = {
-        "input_catalog_path": small_sky_order1_catalog,
+        "input_catalog_path": catalog_path,
         "extension_columns": ["ra_error", "dec_error"],
         "primary_column": "id",
         "output_path": tmp_path,
@@ -28,10 +28,9 @@ def test_good_args(small_sky_order1_catalog, tmp_path):
     # The extension contains the error columns - the healpix, join_column and ra/dec are copied over.
     assert args.extension.input_columns == ["_healpix_29", "id", "ra", "dec", "ra_error", "dec_error"]
     assert args.extension.output_columns == args.extension.input_columns
-    # Without margins or indexes, only the core writes a collection.
-    assert args.core.writes_collection
-    assert not args.extension.writes_collection
-    assert args.extension.collection_path == args.catalog_path
+    # The extension is a collection of its own, inside the one this run writes.
+    assert args.core.collection_path == args.catalog_path
+    assert args.extension.collection_path == args.catalog_path / "small_sky_order1_errors"
     # A renamed join column is written under its new name.
     renamed = make_args(small_sky_order1_catalog, tmp_path / "renamed", join_column="object_id")
     assert renamed.extension.input_columns[1] == "id"
@@ -41,7 +40,9 @@ def test_good_args(small_sky_order1_catalog, tmp_path):
     assert args.core.name == "small_sky_order1"
     assert args.core.catalog_path == args.catalog_path / "small_sky_order1"
     assert args.extension.name == "small_sky_order1_errors"
-    assert args.extension.catalog_path == args.catalog_path / "small_sky_order1_errors"
+    assert args.extension.catalog_path == (
+        args.catalog_path / "small_sky_order1_errors" / "small_sky_order1_errors"
+    )
 
 
 def test_missing_args(small_sky_order1_catalog, tmp_path):
@@ -54,6 +55,8 @@ def test_missing_args(small_sky_order1_catalog, tmp_path):
         make_args(small_sky_order1_catalog, tmp_path, output_artifact_name="")
     with pytest.raises(ValueError, match="extension_columns is required"):
         make_args(small_sky_order1_catalog, tmp_path, extension_columns=[])
+    with pytest.raises(ValueError, match="extension columns do not exist"):
+        make_args(small_sky_order1_catalog, tmp_path, extension_columns=[""])
     with pytest.raises(ValueError, match="primary_column is required"):
         make_args(small_sky_order1_catalog, tmp_path, primary_column="")
 
@@ -75,6 +78,17 @@ def test_bad_columns(small_sky_order1_catalog, tmp_path):
         make_args(small_sky_order1_catalog, tmp_path, join_column="ra_error")
     with pytest.raises(ValueError, match="conflicts"):
         make_args(small_sky_order1_catalog, tmp_path, join_column="ra")
+
+
+def test_nested_columns(small_sky_nested_catalog, tmp_path):
+    """A whole nested column can move to the extension, a single field of one cannot."""
+    with pytest.raises(ValueError, match="fields of a nested column"):
+        make_args(small_sky_nested_catalog, tmp_path, extension_columns=["lc.mjd", "lc.mag"])
+    with pytest.raises(ValueError, match="primary_column 'lc.mjd' is a field of a nested column"):
+        make_args(small_sky_nested_catalog, tmp_path, primary_column="lc.mjd")
+    args = make_args(small_sky_nested_catalog, tmp_path, extension_columns=["lc"])
+    assert args.extension.input_columns == ["_healpix_29", "id", "ra", "dec", "lc"]
+    assert "lc" not in args.core.output_columns
 
 
 def test_copied_columns_cannot_be_moved(small_sky_order1_catalog, tmp_path):

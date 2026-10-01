@@ -10,6 +10,7 @@ from hats import read_hats
 from hats.catalog import Catalog, CatalogCollection, CatalogType, MarginCatalog
 from hats.io.validation import is_valid_catalog
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN
+from nested_pandas.nestedframe.io import from_pyarrow
 from upath import UPath
 
 from hats_import.extension.split_side import SplitSide
@@ -30,7 +31,7 @@ class ExtensionArguments(RuntimeArguments):
         ├── small_sky/                        the core
         ├── small_sky_margin/                 a margin of the input, split for the core
         ├── small_sky_id_index/               an index over a column that stays in the core, copied
-        ├── small_sky_spectra/                the extension, a collection when it has margins or indexes
+        ├── small_sky_spectra/                the extension, a collection of its own
         │   ├── small_sky_spectra/
         │   ├── small_sky_spectra_margin/     the same margin, split for the extension
         │   └── collection.properties
@@ -43,8 +44,6 @@ class ExtensionArguments(RuntimeArguments):
       with their own columns.
     * Each index follows the column it indexes. If that column moves to the extension, the index
       moves too (and is renamed after the extension). Otherwise, it stays with the core.
-    * If the extension ends up with no margins or indexes, it is written as a plain catalog
-      directory, rather than as a collection of its own.
     """
 
     ## Input
@@ -131,9 +130,22 @@ class ExtensionArguments(RuntimeArguments):
         self.extension_columns = list(dict.fromkeys(self.extension_columns))
 
         column_names = self.input_catalog.schema.names
+        # A whole nested column can move to the extension, but a single field of one cannot.
+        subcolumns = from_pyarrow(self.input_catalog.schema.empty_table()).get_subcolumns()
+        nested_fields = [col for col in self.extension_columns if col in subcolumns]
+        if nested_fields:
+            raise ValueError(
+                f"The following columns {nested_fields} are fields of a nested column and cannot be "
+                f"listed in extension_columns. List the whole nested column instead."
+            )
         missing_columns = [col for col in self.extension_columns if col not in column_names]
         if missing_columns:
             raise ValueError(f"Some extension columns do not exist in the input catalog: {missing_columns}")
+        if self.primary_column in subcolumns:
+            raise ValueError(
+                f"primary_column '{self.primary_column}' is a field of a nested column, "
+                f"and cannot be used as a join key."
+            )
         if self.primary_column not in column_names:
             raise ValueError(f"primary_column '{self.primary_column}' does not exist in the input catalog")
 
@@ -202,11 +214,9 @@ class ExtensionArguments(RuntimeArguments):
             input_catalog_name=core_name,
             output_path=output_path,
             indexes=core_indexes,
-            writes_collection=True,
         )
         extension_name = f"{core_name}_{self.extension_name}"
-        has_members = bool(self.margins or extension_indexes)
-        extension_collection_path = collection_path / extension_name if has_members else collection_path
+        extension_collection_path = collection_path / extension_name
         self.extension = SplitSide(
             name=extension_name,
             collection_path=extension_collection_path,
@@ -216,7 +226,6 @@ class ExtensionArguments(RuntimeArguments):
             input_catalog_name=core_name,
             output_path=output_path,
             indexes=extension_indexes,
-            writes_collection=has_members,
         )
 
     @property

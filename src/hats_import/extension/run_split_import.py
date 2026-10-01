@@ -10,7 +10,7 @@ from hats.io import file_io, paths
 from hats.io.parquet_metadata import write_parquet_metadata
 from hats.io.skymap import write_skymap
 from hats.io.summary_file import write_catalog_summary_file, write_partition_info_png, write_skymap_png
-from hats.io.validation import is_valid_catalog, is_valid_collection
+from hats.io.validation import is_valid_collection
 from hats.pixel_math.healpix_pixel import HealpixPixel
 from hats.pixel_math.spatial_index import split_to_row_groups
 from upath import UPath
@@ -76,14 +76,10 @@ def run(args: ExtensionArguments, client):
                 step_progress.update(1)
         extension_properties(args).to_properties_file(args.core.collection_path)
         collection_properties(args).to_properties_file(args.core.collection_path)
-        if args.extension.writes_collection:
-            extension_collection_properties(args).to_properties_file(args.extension.collection_path)
+        extension_collection_properties(args).to_properties_file(args.extension.collection_path)
         step_progress.update(1)
         for side in args.sides:
-            if side.writes_collection:
-                assert is_valid_collection(side.collection_path)
-            else:
-                assert is_valid_catalog(side.catalog_path)
+            assert is_valid_collection(side.collection_path)
         if args.tmp_path:  # pragma: no cover (always set, but required for mypy)
             file_io.remove_directory(args.tmp_path, ignore_errors=True)
         step_progress.update(1)

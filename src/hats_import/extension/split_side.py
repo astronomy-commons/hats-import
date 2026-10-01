@@ -16,8 +16,8 @@ class SplitSide:
     name: str
     """name of this side's main catalog"""
     collection_path: UPath
-    """directory holding this side's tables. The collection this run writes, or, for an
-    extension that has margins or indexes, its own collection inside it"""
+    """directory holding this side's tables: the collection this run writes for the core, and
+    the extension's own collection inside it"""
     catalog_path: UPath
     """directory of this side's main catalog"""
     input_columns: list[str]
@@ -30,15 +30,6 @@ class SplitSide:
     """directory holding the collection this run writes, which references are relative to"""
     indexes: dict[str, UPath]
     """index catalogs of the input that go with this side, by the column each one indexes"""
-    writes_collection: bool
-    """whether this side writes a collection of its own. The core always writes a collection
-    but the extension only writes one when it has margins or indexes to hold"""
-
-    @property
-    def root_path(self) -> UPath:
-        """Directory of this side as a whole: its collection when it writes one, or its main
-        catalog otherwise."""
-        return self.collection_path if self.writes_collection else self.catalog_path
 
     @property
     def catalog_reference(self) -> str:

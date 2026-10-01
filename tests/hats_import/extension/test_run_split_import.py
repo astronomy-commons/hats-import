@@ -10,15 +10,16 @@ from hats.catalog import Catalog, CatalogCollection, CatalogExtension, TableProp
 from hats.io import paths
 from hats.io.validation import is_valid_collection
 from hats.pixel_math import HealpixPixel
+from nested_pandas.nestedframe.io import from_pyarrow
 
 import hats_import.extension.run_split_import as runner
 from hats_import.extension.arguments import ExtensionArguments
 
 
-def split_args(small_sky_order1_catalog, tmp_path, **kwargs):
-    """Arguments for splitting the small sky catalog, with any overrides."""
+def split_args(catalog_path, tmp_path, **kwargs):
+    """Arguments for splitting the given catalog, with any overrides."""
     arguments = {
-        "input_catalog_path": small_sky_order1_catalog,
+        "input_catalog_path": catalog_path,
         "extension_columns": ["ra_error", "dec_error"],
         "primary_column": "id",
         "join_column": "object_id",
@@ -61,9 +62,12 @@ def test_split_small_sky(small_sky_order1_catalog, tmp_path, dask_client):
     assert core.get_healpix_pixels() == [HealpixPixel(1, pixel) for pixel in range(44, 48)]
     assert core.schema.names == ["_healpix_29", "id", "ra", "dec"]
 
-    # Extension catalog: a regular object catalog, valid on its own, with the extension
+    # Extension: a collection of its own, holding a regular object catalog with the extension
     # columns, plus the join, spatial index and coordinates.
-    extension = read_hats(collection_path / "small_sky_order1_errors")
+    extension_collection = read_hats(collection_path / "small_sky_order1_errors")
+    assert isinstance(extension_collection, CatalogCollection)
+    assert extension_collection.all_margins is None
+    extension = extension_collection.main_catalog
     assert isinstance(extension, Catalog)
     assert extension.catalog_info.catalog_name == "small_sky_order1_errors"
     assert extension.catalog_info.catalog_type == "object"
@@ -268,3 +272,20 @@ def test_split_failure_stops_the_run(small_sky_order1_catalog, tmp_path, dask_cl
     args = split_args(input_path, tmp_path, output_path=tmp_path / "output")
     with pytest.raises(FileNotFoundError):
         runner.run(args, dask_client)
+
+
+@pytest.mark.dask
+def test_split_nested_column(small_sky_nested_catalog, tmp_path, dask_client):
+    """A nested column moves to the extension whole."""
+    args = split_args(
+        small_sky_nested_catalog, tmp_path, extension_columns=["lc"], extension_name="lightcurves"
+    )
+    runner.run(args, dask_client)
+
+    core = read_hats(args.core.catalog_path)
+    extension = read_hats(args.extension.catalog_path)
+    assert "lc" not in core.schema.names
+    extension_frame = from_pyarrow(extension.schema.empty_table())
+    assert extension_frame.nested_columns == ["lc"]
+    original_frame = from_pyarrow(read_hats(small_sky_nested_catalog).schema.empty_table())
+    assert extension_frame.get_subcolumns() == original_frame.get_subcolumns()

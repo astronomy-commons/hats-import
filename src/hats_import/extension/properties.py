@@ -93,7 +93,7 @@ def _collection_info(args: ExtensionArguments, side: SplitSide) -> dict:
 def extension_properties(args: ExtensionArguments) -> ExtensionProperties:
     """Properties of the extension, written to ``<extension>.properties`` at the root of the
     collection."""
-    extension_path = args.extension.root_path
+    extension_path = args.extension.collection_path
     info = {
         "name": args.extension.name,
         "primary_catalog": args.output_artifact_name,
