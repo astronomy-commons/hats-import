@@ -4,7 +4,6 @@ import shutil
 
 import hats.pixel_math.healpix_shim as hp
 import pyarrow.parquet as pq
-from dask.distributed import as_completed
 from hats.catalog import PartitionInfo, TableProperties
 from hats.io import file_io, paths
 from hats.io.parquet_metadata import write_parquet_metadata
@@ -22,8 +21,9 @@ from hats_import.extension.properties import (
     extension_properties,
     table_properties,
 )
+from hats_import.extension.resume_plan import ExtensionSplitPlan
 from hats_import.extension.split_side import SplitSide
-from hats_import.pipeline_resume_plan import print_progress, print_task_failure
+from hats_import.pipeline_resume_plan import print_task_failure
 
 
 def run(args: ExtensionArguments, client):
@@ -40,31 +40,26 @@ def run(args: ExtensionArguments, client):
     for side in args.sides:
         file_io.make_directory(side.catalog_path, exist_ok=True)
 
-    futures = []
-    for input_catalog in args.input_tables:
-        for pixel in input_catalog.get_healpix_pixels():
-            futures.append(client.submit(split_pixel, pixel=pixel, args=args, input_catalog=input_catalog))
+    resume_plan = ExtensionSplitPlan(args)
 
-    for future in print_progress(
-        as_completed(futures),
-        stage_name="Splitting",
-        total=len(futures),
-        use_progress_bar=args.progress_bar,
-        simple_progress_bar=args.simple_progress_bar,
-        tqdm_kwargs=args.tqdm_kwargs,
-    ):
-        if future.status == "error":
-            raise future.exception()
+    if not resume_plan.is_splitting_done():
+        for input_catalog in args.input_tables:
+            futures = [
+                client.submit(
+                    split_pixel,
+                    pixel=pixel,
+                    args=args,
+                    input_catalog=input_catalog,
+                    resume_path=resume_plan.tmp_path,
+                )
+                for pixel in resume_plan.remaining_pixels(input_catalog)
+            ]
+            resume_plan.wait_for_splitting(futures, input_catalog)
+        resume_plan.splitting_done()
 
     total_steps = 2 * len(args.input_tables) + sum(len(side.indexes) for side in args.sides) + 2
 
-    with print_progress(
-        total=total_steps,
-        stage_name="Finishing",
-        use_progress_bar=args.progress_bar,
-        simple_progress_bar=args.simple_progress_bar,
-        tqdm_kwargs=args.tqdm_kwargs,
-    ) as step_progress:
+    with resume_plan.print_progress(total=total_steps, stage_name="Finishing") as step_progress:
         for input_catalog in args.input_tables:
             point_map = _read_point_map(args, input_catalog)
             for side in args.sides:
@@ -80,12 +75,11 @@ def run(args: ExtensionArguments, client):
         step_progress.update(1)
         for side in args.sides:
             assert is_valid_collection(side.collection_path)
-        if args.tmp_path:  # pragma: no cover (always set, but required for mypy)
-            file_io.remove_directory(args.tmp_path, ignore_errors=True)
+        resume_plan.clean_resume_files()
         step_progress.update(1)
 
 
-def split_pixel(pixel: HealpixPixel, args: ExtensionArguments, input_catalog):
+def split_pixel(pixel: HealpixPixel, args: ExtensionArguments, input_catalog, resume_path: UPath):
     """Split the data of a single input partition into its core and extension files.
     The row group structure of the input file is preserved, unless `row_group_kwargs`
     is provided, in which case each output file is re-split accordingly."""
@@ -103,6 +97,9 @@ def split_pixel(pixel: HealpixPixel, args: ExtensionArguments, input_catalog):
             )
             side_table = table.select(side.input_columns).rename_columns(side.output_columns)
             _write_table(side_table, destination_file, pixel, args)
+        ExtensionSplitPlan.splitting_key_done(
+            resume_path, ExtensionSplitPlan.splitting_key(input_catalog, pixel)
+        )
     except Exception as exception:  # pylint: disable=broad-exception-caught
         print_task_failure(f"Failed SPLITTING stage for pixel: {pixel}", exception)
         raise exception

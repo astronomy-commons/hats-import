@@ -14,6 +14,7 @@ from nested_pandas.nestedframe.io import from_pyarrow
 
 import hats_import.extension.run_split_import as runner
 from hats_import.extension.arguments import ExtensionArguments
+from hats_import.extension.resume_plan import ExtensionSplitPlan
 
 
 def split_args(catalog_path, tmp_path, **kwargs):
@@ -183,9 +184,10 @@ def test_split_default_columns(small_sky_order1_catalog, tmp_path, dask_client):
 def test_split_pixel(small_sky_order1_catalog, tmp_path):
     """One input partition is written to both sides, each with its own columns."""
     args = split_args(small_sky_order1_catalog, tmp_path)
+    resume_path = ExtensionSplitPlan(args).tmp_path
     pixel = HealpixPixel(1, 44)
 
-    runner.split_pixel(pixel, args, args.input_catalog)
+    runner.split_pixel(pixel, args, args.input_catalog, resume_path)
 
     core_data = npd.read_parquet(paths.pixel_catalog_file(args.core.catalog_path, pixel))
     extension_data = npd.read_parquet(paths.pixel_catalog_file(args.extension.catalog_path, pixel))
@@ -210,15 +212,17 @@ def test_split_row_groups(small_sky_order1_catalog, tmp_path):
 
     # Without `row_group_kwargs`, the row groups do not change.
     args = split_args(small_sky_order1_catalog, tmp_path / "unchanged")
+    resume_path = ExtensionSplitPlan(args).tmp_path
     for pixel in pixels:
-        runner.split_pixel(pixel, args, args.input_catalog)
+        runner.split_pixel(pixel, args, args.input_catalog, resume_path)
     assert _row_group_sizes(args.core.catalog_path, pixels) == input_row_groups
     assert _row_group_sizes(args.extension.catalog_path, pixels) == input_row_groups
 
     # With `row_group_kwargs`, each output file is split into row groups of 10 rows.
     args = split_args(small_sky_order1_catalog, tmp_path / "split", row_group_kwargs={"num_rows": 10})
+    resume_path = ExtensionSplitPlan(args).tmp_path
     for pixel in pixels:
-        runner.split_pixel(pixel, args, args.input_catalog)
+        runner.split_pixel(pixel, args, args.input_catalog, resume_path)
 
     # The partitions hold different numbers of rows, so a different number of row groups.
     expected_row_groups = {
@@ -244,7 +248,7 @@ def test_split_pixel_failure(small_sky_order1_catalog, tmp_path, capsys):
     """A partition that cannot be split raises an error."""
     args = split_args(small_sky_order1_catalog, tmp_path)
     with pytest.raises(FileNotFoundError):
-        runner.split_pixel(HealpixPixel(1, 0), args, args.input_catalog)
+        runner.split_pixel(HealpixPixel(1, 0), args, args.input_catalog, args.resume_tmp)
     assert "Failed SPLITTING stage" in capsys.readouterr().out
 
 
