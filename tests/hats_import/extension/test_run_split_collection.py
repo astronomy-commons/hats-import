@@ -13,8 +13,6 @@ from hats.pixel_math import HealpixPixel
 import hats_import.extension.run_split_import as runner
 from hats_import.extension.arguments import ExtensionArguments
 
-# pylint: disable=redefined-outer-name
-
 
 def split_args(input_collection, tmp_path, **kwargs):
     """Arguments for splitting the input collection, with any overrides."""
@@ -31,16 +29,11 @@ def split_args(input_collection, tmp_path, **kwargs):
     return ExtensionArguments(**(arguments | kwargs))
 
 
-@pytest.fixture
-def split_collection(small_sky_o1_collection, tmp_path, dask_client):
-    """Split the on-disk collection, and return the collection it was written to."""
-    runner.run(split_args(small_sky_o1_collection, tmp_path), dask_client)
-    return tmp_path / "output" / "small_sky_with_extension"
-
-
 @pytest.mark.dask
-def test_split_collection(small_sky_o1_collection, split_collection):
+def test_split_collection(small_sky_o1_collection, tmp_path, dask_client):
     """The output is a collection, holding the core, its margins, its index and the extension."""
+    runner.run(split_args(small_sky_o1_collection, tmp_path), dask_client)
+    split_collection = tmp_path / "output" / "small_sky_with_extension"
     original = read_hats(small_sky_o1_collection)
 
     collection = read_hats(split_collection)
@@ -98,8 +91,10 @@ def test_split_collection(small_sky_o1_collection, split_collection):
 
 
 @pytest.mark.dask
-def test_split_collection_margins(small_sky_o1_collection, split_collection):
+def test_split_collection_margins(small_sky_o1_collection, tmp_path, dask_client):
     """Each margin holds the columns of the catalog it belongs to, over the margin's pixels."""
+    runner.run(split_args(small_sky_o1_collection, tmp_path), dask_client)
+    split_collection = tmp_path / "output" / "small_sky_with_extension"
     original_margin = read_hats(small_sky_o1_collection / "small_sky_order1_margin")
     core_margin = read_hats(split_collection / "small_sky_order1_margin")
     extension_margin = read_hats(
@@ -123,8 +118,10 @@ def test_split_collection_margins(small_sky_o1_collection, split_collection):
 
 
 @pytest.mark.dask
-def test_split_collection_margin_data(small_sky_o1_collection, split_collection):
+def test_split_collection_margin_data(small_sky_o1_collection, tmp_path, dask_client):
     """The rows of a margin pixel are split the same way as the main catalog's rows."""
+    runner.run(split_args(small_sky_o1_collection, tmp_path), dask_client)
+    split_collection = tmp_path / "output" / "small_sky_with_extension"
     original_margin = read_hats(small_sky_o1_collection / "small_sky_order1_margin")
     pixel = HealpixPixel(1, 44)
     original_data = npd.read_parquet(paths.pixel_catalog_file(original_margin.catalog_path, pixel))
@@ -152,8 +149,10 @@ def test_split_collection_margin_data(small_sky_o1_collection, split_collection)
 
 
 @pytest.mark.dask
-def test_split_collection_empty_margin(split_collection):
+def test_split_collection_empty_margin(small_sky_o1_collection, tmp_path, dask_client):
     """An empty margin is also split."""
+    runner.run(split_args(small_sky_o1_collection, tmp_path), dask_client)
+    split_collection = tmp_path / "output" / "small_sky_with_extension"
     extension_path = split_collection / "small_sky_order1_errors"
     for catalog_path, margin_path in (
         (split_collection / "small_sky_order1", split_collection / "small_sky_order1_margin_10arcs"),
@@ -172,8 +171,10 @@ def test_split_collection_empty_margin(split_collection):
 
 
 @pytest.mark.dask
-def test_split_collection_index(small_sky_o1_collection, split_collection):
+def test_split_collection_index(small_sky_o1_collection, tmp_path, dask_client):
     """An index over a column that stays in the core is carried over, unchanged."""
+    runner.run(split_args(small_sky_o1_collection, tmp_path), dask_client)
+    split_collection = tmp_path / "output" / "small_sky_with_extension"
     original_index = read_hats(small_sky_o1_collection / "small_sky_order1_id_index")
     index = read_hats(split_collection / "small_sky_order1_id_index")
 
