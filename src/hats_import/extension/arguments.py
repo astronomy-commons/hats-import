@@ -44,7 +44,8 @@ class ExtensionArguments(RuntimeArguments):
     * Each margin of the input is split in two, so the core and the extension each get a margin
       with their own columns.
     * Each index follows the column it indexes. If that column moves to the extension, the index
-      moves too (and is renamed after the extension). Otherwise, it stays with the core.
+      moves too (and is renamed after the extension). Otherwise, it stays with the core. An index
+      over a field of a nested column follows the nested column.
     """
 
     ## Input
@@ -203,7 +204,9 @@ class ExtensionArguments(RuntimeArguments):
         output_path = collection_path.parent
 
         extension_indexes = {
-            column: path for column, path in self.indexes.items() if column in self.extension_columns
+            column: path
+            for column, path in self.indexes.items()
+            if column.split(".")[0] in self.extension_columns
         }
         core_indexes = {
             column: path for column, path in self.indexes.items() if column not in extension_indexes
