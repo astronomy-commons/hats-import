@@ -90,6 +90,7 @@ def test_split_small_sky(small_sky_order1_catalog, tmp_path, dask_client):
     assert properties.join_column == "object_id"
     assert properties.extension_columns == ["ra_error", "dec_error"]
     assert properties.extension_join_style == "left"
+    assert properties.shares_primary_coordinates is True
     assert (
         extension_properties.join_catalog_dir.path == (collection_path / "small_sky_order1_errors").as_posix()
     )
