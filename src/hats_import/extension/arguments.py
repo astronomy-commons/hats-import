@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
@@ -23,8 +24,8 @@ class ExtensionArguments(RuntimeArguments):
     into a "core" Catalog and its corresponding Extension.
 
     The output is always a collection, written to ``<output_path>/<output_artifact_name>``.
-    The core keeps the name of the input catalog, and the extension is named after it, with
-    ``extension_name`` appended. Both keep the partitioning of the input, so each extension
+    The core keeps the name of the input catalog, and the extension, a collection of its own,
+    is named ``extension_name``. Both keep the partitioning of the input, so each extension
     partition can be joined to the core partition with the same HEALPix pixel::
 
         small_sky_collection/
@@ -66,8 +67,9 @@ class ExtensionArguments(RuntimeArguments):
 
     ## Output
     extension_name: str = ""
-    """what this extension provides, e.g. "spectra". The extension catalog is named after
-    the input catalog, with this appended: ``small_sky`` gives ``small_sky_spectra``."""
+    """name of the extension, e.g. "small_sky_spectra". It names the extension's collection, its
+    main catalog and its ``<extension_name>.properties`` file. Its margins and indexes take it in
+    place of the input catalog's name: ``small_sky_margin`` becomes ``small_sky_spectra_margin``."""
     join_style: Literal["left", "inner"] = "left"
     """the type of join to use when combining the extension with the core"""
     product_type_served: str | None = None
@@ -94,11 +96,14 @@ class ExtensionArguments(RuntimeArguments):
 
         if not self.extension_name:
             raise ValueError("extension_name is required")
+        if re.search(r"[^A-Za-z0-9\._\-\\]", self.extension_name):
+            raise ValueError("extension_name contains invalid characters")
 
         core_columns, extension_columns = self._check_columns()
         if self.input_collection is not None:
             self._plan_collection_members()
         self._build_sides(core_columns, extension_columns)
+        self._check_extension_name_conflicts()
 
     def _read_input(self):
         """Read the input path, which may be a single catalog or a whole collection."""
@@ -215,18 +220,27 @@ class ExtensionArguments(RuntimeArguments):
             output_path=output_path,
             indexes=core_indexes,
         )
-        extension_name = f"{core_name}_{self.extension_name}"
-        extension_collection_path = collection_path / extension_name
+        extension_collection_path = collection_path / self.extension_name
         self.extension = SplitSide(
-            name=extension_name,
+            name=self.extension_name,
             collection_path=extension_collection_path,
-            catalog_path=extension_collection_path / extension_name,
+            catalog_path=extension_collection_path / self.extension_name,
             input_columns=list(extension_columns),
             output_columns=list(extension_columns.values()),
             input_catalog_name=core_name,
             output_path=output_path,
             indexes=extension_indexes,
         )
+
+    def _check_extension_name_conflicts(self):
+        """Check that the extension's name is not taken by a table of the core. The extension's
+        collection sits next to the core's tables, so it cannot share a name with one."""
+        core_tables = [self.core.table_path(table).name for table in self.input_tables]
+        core_tables += [self.core.derived_name(index_dir.name) for index_dir in self.core.indexes.values()]
+        if self.extension_name in core_tables:
+            raise ValueError(
+                f"extension_name '{self.extension_name}' is already the name of a table in the collection"
+            )
 
     @property
     def sides(self) -> tuple[SplitSide, SplitSide]:

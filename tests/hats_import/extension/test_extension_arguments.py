@@ -12,7 +12,7 @@ def make_args(catalog_path, tmp_path, **kwargs):
         "extension_columns": ["ra_error", "dec_error"],
         "primary_column": "id",
         "output_path": tmp_path,
-        "extension_name": "errors",
+        "extension_name": "small_sky_order1_errors",
         "output_artifact_name": "small_sky_collection",
         "progress_bar": False,
     }
@@ -115,3 +115,17 @@ def test_derived_name(small_sky_order1_catalog, tmp_path):
     assert args.extension.derived_name("small_sky_order1_margin") == "small_sky_order1_errors_margin"
     # Any other name is kept as is.
     assert args.extension.derived_name("custom_margin") == "custom_margin"
+    # The extension's name need not start with the input catalog's name.
+    renamed = make_args(small_sky_order1_catalog, tmp_path / "renamed", extension_name="sky_errors")
+    assert renamed.extension.name == "sky_errors"
+    assert renamed.extension.catalog_path == renamed.catalog_path / "sky_errors" / "sky_errors"
+    assert renamed.extension.derived_name("small_sky_order1_margin") == "sky_errors_margin"
+
+
+def test_bad_extension_name(small_sky_o1_collection, tmp_path):
+    """The extension's name must be a valid directory name, and not one of the core's tables."""
+    with pytest.raises(ValueError, match="extension_name contains invalid characters"):
+        make_args(small_sky_o1_collection, tmp_path, extension_name="small/sky")
+    for table_name in ["small_sky_order1", "small_sky_order1_margin", "small_sky_order1_id_index"]:
+        with pytest.raises(ValueError, match=f"extension_name '{table_name}' is already the name"):
+            make_args(small_sky_o1_collection, tmp_path, extension_name=table_name)
