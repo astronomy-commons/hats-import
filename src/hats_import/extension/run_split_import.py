@@ -111,11 +111,15 @@ def _write_table(table, destination_file, pixel, args):
         rowgroups = split_to_row_groups(table, args.row_group_kwargs, pixel.order)
     else:
         rowgroups = table.to_batches()
+    write_table_kwargs = file_io.get_parquet_write_table_kwargs(
+        table.schema, write_table_kwargs=args.write_table_kwargs
+    )
+    write_table_kwargs.pop("row_group_size", None)
     with pq.ParquetWriter(
         destination_file.path,
         table.schema,
         filesystem=destination_file.fs,
-        **args.write_table_kwargs,
+        **write_table_kwargs,
     ) as writer:
         for rowgroup in rowgroups:
             writer.write(rowgroup)
