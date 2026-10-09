@@ -1,0 +1,150 @@
+"""Inner methods for nest light curves pipeline"""
+
+import numpy as np
+import pandas as pd
+from hats import pixel_math
+from hats.io import file_io, paths, size_estimates
+from hats.pixel_math.healpix_pixel import HealpixPixel
+from hats.pixel_math.sparse_histogram import supplemental_count_histogram
+from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, spatial_index_to_healpix
+from nested_pandas.utils import count_nested
+
+from hats_import.nest_light_curves.arguments import NestLightCurveArguments
+from hats_import.pipeline_resume_plan import print_task_failure
+
+
+def _join_nested(
+    args: NestLightCurveArguments, object_pixel: HealpixPixel, source_pixels: list[HealpixPixel]
+):
+    object_path = paths.pixel_catalog_file(
+        args.object_catalog_dir, object_pixel, npix_suffix=args.object_npix_suffix
+    )
+    object_data = file_io.read_parquet_file_to_pandas(
+        object_path,
+        schema=args.object_catalog_schema,
+    )
+    object_index = object_data[[args.object_id_column]].set_index(args.object_id_column)
+
+    results = []
+
+    for source_pixel in source_pixels:
+        source_path = paths.pixel_catalog_file(
+            args.source_catalog_dir, source_pixel, npix_suffix=args.source_npix_suffix
+        )
+        source_data = file_io.read_parquet_file_to_pandas(
+            source_path, columns=args.read_source_columns()
+        ).set_index(args.source_object_id_column)
+
+        joined_data = source_data.merge(object_index, how="inner", left_index=True, right_index=True)
+
+        results.append(joined_data)
+
+    if len(results) == 0:
+        return None
+
+    sources = pd.concat(results)
+    return (
+        object_data.set_index(args.object_id_column)
+        .join_nested(sources, args.nested_column_name)
+        .reset_index()
+    )
+
+
+def _generate_alignment(args, light_curves, object_pixel):
+    if light_curves is None:
+        return np.array([], dtype=np.int64)
+    mapped_pixels = spatial_index_to_healpix(
+        light_curves[SPATIAL_INDEX_COLUMN], target_order=args.highest_healpix_order
+    )
+
+    supplemental_count = None
+    if args.partition_strategy == "object_count":
+        pass
+    elif args.partition_strategy == "source_count":
+        supplemental_count = count_nested(light_curves, args.nested_column_name, join=False)[
+            f"n_{args.nested_column_name}"
+        ].values
+    elif args.partition_strategy == "mem_size":
+        supplemental_count = size_estimates.get_mem_size_per_row(light_curves)
+    else:
+        raise ValueError(f"Unknown partition strategy: {args.partition_strategy}")
+
+    row_count_partial, mem_size_partial = supplemental_count_histogram(
+        mapped_pixels, supplemental_count, highest_order=args.highest_healpix_order
+    )
+
+    alignment = pixel_math.generate_alignment(
+        row_count_partial.to_array(),
+        highest_order=args.highest_healpix_order,
+        lowest_order=object_pixel.order,
+        threshold=args.partition_threshold,
+        mem_size_histogram=mem_size_partial.to_array() if mem_size_partial is not None else None,
+    )
+    alignment = np.array([x if x is not None else [-1, -1, 0] for x in alignment], dtype=np.int64)
+    return alignment
+
+
+def _split_to_partitions(args, light_curves, alignment, target_order):
+    if light_curves is None:
+        return
+    mapped_pixels = spatial_index_to_healpix(light_curves[SPATIAL_INDEX_COLUMN], target_order=target_order)
+
+    aligned_pixels = alignment[mapped_pixels]
+    unique_pixels, unique_inverse = np.unique(aligned_pixels, return_inverse=True, axis=0)
+
+    for unique_index, pixel_alignment_count in enumerate(unique_pixels):
+        order = pixel_alignment_count[0]
+        pixel = pixel_alignment_count[1]
+
+        destination_file = paths.new_pixel_catalog_file(
+            args.catalog_path,
+            HealpixPixel(order, pixel),
+            npix_suffix=args.npix_suffix,
+            npix_parquet_name=args.npix_parquet_name,
+        )
+
+        filtered_data = light_curves.iloc[unique_inverse == unique_index]
+
+        filtered_data.to_parquet(
+            destination_file.path,
+            filesystem=destination_file.fs,
+            **args.write_table_kwargs,
+        )
+        del filtered_data
+
+
+def _write_partition_info(args, object_pixel, alignment):
+    pixel_list = np.unique(alignment, axis=0)
+    pixel_list = {(order, pix, row_count) for (order, pix, row_count) in pixel_list if int(row_count) > 0}
+    partition_info = pd.DataFrame(pixel_list, columns=["Norder", "Npix", "num_rows"])
+    file_io.write_dataframe_to_csv(
+        dataframe=partition_info,
+        file_pointer=args.tmp_path / f"{object_pixel.order}_{object_pixel.pixel}.csv",
+        index=False,
+    )
+
+
+def _perform_nest(
+    args: NestLightCurveArguments, object_pixel: HealpixPixel, source_pixels: list[HealpixPixel]
+):
+    try:
+        # ..........    MAPPING  ..............
+        # Get the object data partition, and join in all of the matching
+        # source data partitions, keeping where object id matches.
+        light_curves = _join_nested(args, object_pixel=object_pixel, source_pixels=source_pixels)
+
+        # ..........    BINNING  ..............
+        # Determine the output partitions
+        alignment = _generate_alignment(args, light_curves, object_pixel=object_pixel)
+
+        # ..........    SPLITTING  ..............
+        # Split the object data partition, according to the output partitions
+        _split_to_partitions(args, light_curves, alignment, args.highest_healpix_order)
+
+        # ..........    FINISHING  ..............
+        # Write the new partition list.
+        # There aren't any intermediate files to clean up!
+        _write_partition_info(args, object_pixel, alignment)
+    except Exception as exception:  # pylint: disable=broad-exception-caught
+        print_task_failure(f"Failed stage for shard: {object_pixel}", exception)
+        raise exception
