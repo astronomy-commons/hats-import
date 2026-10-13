@@ -63,9 +63,8 @@ def table_properties(
 def collection_properties(args: ExtensionArguments) -> CollectionProperties:
     """Properties of the collection which holds the core. It lists the core's
     margins and indexes, and the new extension."""
-    return CollectionProperties(
-        **(_collection_info(args, args.core) | {"all_extensions": [args.extension.name]})
-    )
+    all_extensions = {args.extension_alias: f"{args.extension.name}.properties"}
+    return CollectionProperties(**(_collection_info(args, args.core) | {"all_extensions": all_extensions}))
 
 
 def extension_collection_properties(args: ExtensionArguments) -> CollectionProperties:

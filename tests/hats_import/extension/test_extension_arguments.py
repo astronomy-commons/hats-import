@@ -43,6 +43,11 @@ def test_good_args(small_sky_order1_catalog, tmp_path):
     assert args.extension.catalog_path == (
         args.catalog_path / "small_sky_order1_errors" / "small_sky_order1_errors"
     )
+    # The collection lists the extension by its name, unless it is given an alias.
+    assert args.extension_alias == "small_sky_order1_errors"
+    aliased = make_args(small_sky_order1_catalog, tmp_path / "aliased", extension_alias="errors")
+    assert aliased.extension_alias == "errors"
+    assert aliased.extension.name == "small_sky_order1_errors"
 
 
 def test_missing_args(small_sky_order1_catalog, tmp_path):
@@ -126,6 +131,8 @@ def test_bad_extension_name(small_sky_o1_collection, tmp_path):
     """The extension's name must be a valid directory name, and not one of the core's tables."""
     with pytest.raises(ValueError, match="extension_name contains invalid characters"):
         make_args(small_sky_o1_collection, tmp_path, extension_name="small/sky")
+    with pytest.raises(ValueError, match="extension_alias contains invalid characters"):
+        make_args(small_sky_o1_collection, tmp_path, extension_alias="sky errors")
     for table_name in ["small_sky_order1", "small_sky_order1_margin", "small_sky_order1_id_index"]:
         with pytest.raises(ValueError, match=f"extension_name '{table_name}' is already the name"):
             make_args(small_sky_o1_collection, tmp_path, extension_name=table_name)

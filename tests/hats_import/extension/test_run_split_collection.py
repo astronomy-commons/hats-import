@@ -22,6 +22,7 @@ def split_args(input_collection, tmp_path, **kwargs):
         "primary_column": "id",
         "join_column": "object_id",
         "extension_name": "small_sky_order1_errors",
+        "extension_alias": "errors",
         "output_path": tmp_path / "output",
         "output_artifact_name": "small_sky_with_extension",
         "progress_bar": False,
@@ -46,8 +47,8 @@ def test_split_collection(small_sky_o1_collection, tmp_path, dask_client):
     assert collection.default_margin == "small_sky_order1_margin"
     assert collection.all_indexes == {"id": "small_sky_order1_id_index"}
     assert collection.default_index_field == "id"
-    # Only the extension is new.
-    assert collection.all_extensions == ["small_sky_order1_errors"]
+    # Only the extension is new, listed by its alias.
+    assert collection.all_extensions == {"errors": "small_sky_order1_errors.properties"}
 
     core = collection.main_catalog
     assert core.catalog_info.catalog_name == "small_sky_order1"

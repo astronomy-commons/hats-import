@@ -25,6 +25,7 @@ def split_args(catalog_path, tmp_path, **kwargs):
         "primary_column": "id",
         "join_column": "object_id",
         "extension_name": "small_sky_order1_errors",
+        "extension_alias": "errors",
         "output_path": tmp_path,
         "output_artifact_name": "small_sky_with_extension",
         "progress_bar": False,
@@ -47,12 +48,12 @@ def test_split_small_sky(small_sky_order1_catalog, tmp_path, dask_client):
     runner.run(split_args(small_sky_order1_catalog, tmp_path), dask_client)
     collection_path = tmp_path / "small_sky_with_extension"
 
-    # The output is a collection, which lists its extension.
+    # The output is a collection, which lists its extension by its alias.
     collection = read_hats(collection_path)
     assert isinstance(collection, CatalogCollection)
     assert is_valid_collection(collection_path, strict=True)
     assert collection.collection_properties.hats_primary_table_url == "small_sky_order1"
-    assert collection.all_extensions == ["small_sky_order1_errors"]
+    assert collection.all_extensions == {"errors": "small_sky_order1_errors.properties"}
     assert collection.all_margins is None
 
     # Core catalog: a regular object catalog, with the extension columns removed.
@@ -282,8 +283,15 @@ def test_split_failure_stops_the_run(small_sky_order1_catalog, tmp_path, dask_cl
 @pytest.mark.dask
 def test_split_nested_column(small_sky_nested_catalog, tmp_path, dask_client):
     """A nested column moves to the extension whole."""
-    args = split_args(
-        small_sky_nested_catalog, tmp_path, extension_columns=["lc"], extension_name="lightcurves"
+    args = ExtensionArguments(
+        input_catalog_path=small_sky_nested_catalog,
+        extension_columns=["lc"],
+        primary_column="id",
+        join_column="object_id",
+        extension_name="lightcurves",
+        output_path=tmp_path,
+        output_artifact_name="small_sky_with_extension",
+        progress_bar=False,
     )
     runner.run(args, dask_client)
 
