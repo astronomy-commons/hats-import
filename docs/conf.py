@@ -24,7 +24,6 @@ version = ".".join(release.split(".")[:2])
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-templates_path = []
 exclude_patterns = ["_build", "**.ipynb_checkpoints"]
 
 # This assumes that sphinx-build is called from the root directory
@@ -44,18 +43,15 @@ extensions = [
     "sphinx.ext.autosummary",
 ]
 
-# -- autoapi configuration ----------------------------------------
+# -- autodoc / autosummary configuration -------------------------
 # Remove 'view source code' from top of page (for html, not python)
 html_show_sourcelink = False
-# Remove namespaces from class/method signatures
-add_module_names = False
+# Show the full import path in class/function signatures
+add_module_names = True
 
 templates_path = ["_templates"]
-# Hide full module path in navigation
-modindex_common_prefix = ["lsdb.", "lsdb.catalog", "lsdb.catalog.dataset."]
 # Customize display of autosummary entries
 autosummary_imported_members = True
-autodoc_class_signature = "separated"
 
 napoleon_google_docstring = True
 
