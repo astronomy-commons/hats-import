@@ -29,7 +29,7 @@ A minimal arguments block will look something like:
 More details on each of these parameters is provided in sections below.
 
 For the curious, see the API documentation for 
-:py:class:`hats_import.catalog.arguments.ImportArguments`.
+:py:class:`hats_import.ImportArguments`.
 
 Pipeline setup
 -------------------------------------------------------------------------------
