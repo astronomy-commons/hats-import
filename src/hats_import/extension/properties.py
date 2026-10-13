@@ -103,5 +103,6 @@ def extension_properties(args: ExtensionArguments) -> ExtensionProperties:
         "extension_columns": args.extension_columns,
         "extension_join_style": args.join_style,
         "extension_product_type": args.product_type_served,
+        "shares_primary_coordinates": True,
     }
     return ExtensionProperties(**(info | args.extra_property_dict(extension_path)))

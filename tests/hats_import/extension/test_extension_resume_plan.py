@@ -15,7 +15,7 @@ def split_args(catalog_path, tmp_path, **kwargs):
         "input_catalog_path": catalog_path,
         "extension_columns": ["ra_error", "dec_error"],
         "primary_column": "id",
-        "extension_name": "errors",
+        "extension_name": "small_sky_order1_errors",
         "output_path": tmp_path / "output",
         "output_artifact_name": "small_sky_with_extension",
         "tmp_dir": tmp_path / "tmp",
