@@ -71,6 +71,9 @@ class ExtensionArguments(RuntimeArguments):
     """name of the extension, e.g. "small_sky_spectra". It names the extension's collection, its
     main catalog and its ``<extension_name>.properties`` file. Its margins and indexes take it in
     place of the input catalog's name: ``small_sky_margin`` becomes ``small_sky_spectra_margin``."""
+    extension_alias: str = ""
+    """alias that the collection lists the extension by in ``all_extensions``, e.g. "spectra".
+    Defaults to `extension_name`."""
     join_style: Literal["left", "inner"] = "left"
     """the type of join to use when combining the extension with the core"""
     product_type_served: str | None = None
@@ -99,6 +102,10 @@ class ExtensionArguments(RuntimeArguments):
             raise ValueError("extension_name is required")
         if re.search(r"[^A-Za-z0-9\._\-\\]", self.extension_name):
             raise ValueError("extension_name contains invalid characters")
+        if not self.extension_alias:
+            self.extension_alias = self.extension_name
+        if re.search(r"[^A-Za-z0-9\._\-\\]", self.extension_alias):
+            raise ValueError("extension_alias contains invalid characters")
 
         core_columns, extension_columns = self._check_columns()
         if self.input_collection is not None:
