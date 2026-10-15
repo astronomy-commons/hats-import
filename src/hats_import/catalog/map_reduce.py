@@ -131,6 +131,142 @@ def _iterate_input_file(
         yield chunk_number, data, mapped_pixels
 
 
+def _is_fixed_length_arrow_type(field_type):
+    """Whether a pyarrow type takes the same number of bytes in every row."""
+    return (
+        pa.types.is_integer(field_type)
+        or pa.types.is_floating(field_type)
+        or pa.types.is_boolean(field_type)
+        or pa.types.is_decimal(field_type)
+        or pa.types.is_temporal(field_type)
+        or pa.types.is_fixed_size_binary(field_type)
+    )
+
+
+def _is_string_like_arrow_type(field_type):
+    """Whether a pyarrow type holds string or binary data."""
+    if (
+        pa.types.is_string(field_type)
+        or pa.types.is_large_string(field_type)
+        or pa.types.is_binary(field_type)
+        or pa.types.is_large_binary(field_type)
+    ):
+        return True
+    # View types only exist in newer pyarrow versions.
+    is_string_view = getattr(pa.types, "is_string_view", None)
+    is_binary_view = getattr(pa.types, "is_binary_view", None)
+    return (is_string_view is not None and is_string_view(field_type)) or (
+        is_binary_view is not None and is_binary_view(field_type)
+    )
+
+
+def _is_string_like_series(series):
+    """Whether a pandas Series holds string or binary data."""
+    dtype = series.dtype
+    if isinstance(dtype, pd.StringDtype):
+        return True
+    if isinstance(dtype, pd.ArrowDtype):
+        return _is_string_like_arrow_type(dtype.pyarrow_dtype)
+    if pd.api.types.is_object_dtype(dtype):
+        # Object dtype can hold anything (strings, lists, dicts, ...), so we
+        # have to inspect the values to know.
+        return pd.api.types.infer_dtype(series, skipna=True) in ("string", "bytes")
+    return False
+
+
+def _string_col_sizes_are_consistent(data, column):
+    """Whether a string/binary column's per-row sizes, sampled over the given
+    chunk, are consistent enough to be represented by their mean.
+
+    Guards against string columns that hold serialized variable-length data
+    (e.g. arrays or free text stored as strings), whose sizes vary too much
+    for a fixed per-row estimate. The sampled sizes include a small constant
+    per-row overhead, which only makes this check more lenient.
+    """
+    # A string/binary column is only size-estimated as a constant if its largest sampled
+    # value is at most this many times the column's mean sampled value.
+    consistent_string_max_to_mean_ratio = 2.0
+
+    col_sizes = size_estimates.get_mem_size_per_row(data, cols=[column])
+    if not col_sizes:
+        return True
+    return max(col_sizes) <= consistent_string_max_to_mean_ratio * (sum(col_sizes) / len(col_sizes))
+
+
+def get_cols_in_input_file(input_file: UPath, pickled_reader_file: str):
+    """Gets the columns available in an input file, split by whether their
+    per-row memory size can be precomputed up front.
+
+    Fixed-length columns (e.g. ints, floats, bools, datetimes) take the same
+    number of bytes in every row. String and binary columns are technically
+    variable-length, but their sizes are usually consistent from row to row
+    (and measuring every value is expensive), so they are estimated as a fixed
+    size: the mean of their measured sizes over the first chunk of the file.
+    Together these make up the "precomputed" columns. The remaining
+    variable-length columns (e.g. lists, nested arrays) must be measured row
+    by row — including any string column whose sampled sizes are too
+    inconsistent for a fixed estimate (see ``_string_col_sizes_are_consistent``),
+    such as serialized arrays or free text.
+
+    Args:
+        input_file (UPath): file to read for catalog data.
+        pickled_reader_file (str): path to the pickled instance of input
+            reader that specifies arguments necessary for reading from the input
+            file (of type hats_import.catalog.file_readers.InputReader).
+
+    Returns:
+        Tuple[list, list, float]: (var_length_cols, precomputed_cols, precomputed_row_size),
+            where var_length_cols and precomputed_cols are two disjoint lists of column names
+            whose union is every column in the input file, and precomputed_row_size is the
+            estimated number of bytes taken up by the precomputed columns in a single row.
+    """
+    with open(pickled_reader_file, "rb") as pickle_file:
+        file_reader = cloudpickle.load(pickle_file)
+    if not file_reader:
+        raise NotImplementedError("No file reader implemented")
+
+    # Gives a Pandas DataFrame or columnar batch (e.g., pyarrow.Table) containing chunk of file info.
+    data = next(iter(file_reader.read(input_file)), None)
+
+    if data is None:  # pragma: no cover
+        raise ValueError("No data returned by file reader")
+
+    precomputed_cols = []
+    var_length_cols = []
+
+    if isinstance(data, pd.DataFrame):
+        for column in data.columns:
+            dtype = data[column].dtype
+            if (
+                pd.api.types.is_numeric_dtype(dtype)
+                or pd.api.types.is_bool_dtype(dtype)
+                or pd.api.types.is_datetime64_any_dtype(dtype)
+            ):
+                precomputed_cols.append(column)
+            elif _is_string_like_series(data[column]) and _string_col_sizes_are_consistent(data, column):
+                precomputed_cols.append(column)
+            else:
+                var_length_cols.append(column)
+    elif hasattr(data, "column_names"):  # Expected: pyarrow.Table or similar
+        for column, field_type in zip(data.column_names, data.schema.types, strict=True):
+            if _is_fixed_length_arrow_type(field_type) or (
+                _is_string_like_arrow_type(field_type) and _string_col_sizes_are_consistent(data, column)
+            ):
+                precomputed_cols.append(column)
+            else:
+                var_length_cols.append(column)
+    else:
+        raise TypeError(f"Unsupported data type: {type(data)}")
+
+    # Fixed-length columns take the same number of bytes in every row, and
+    # string/binary sizes are assumed consistent enough that the mean over
+    # this first chunk can stand in for every row of the file.
+    sampled_sizes = size_estimates.get_mem_size_per_row(data, cols=precomputed_cols)
+    precomputed_row_size = sum(sampled_sizes) / len(sampled_sizes) if sampled_sizes else 0
+
+    return var_length_cols, precomputed_cols, precomputed_row_size
+
+
 def map_to_pixels(
     input_file: UPath,
     pickled_reader_file: str,
@@ -141,6 +277,7 @@ def map_to_pixels(
     dec_column,
     use_healpix_29=False,
     threshold_mode="row_count",
+    size_estimate=None,
 ):
     """Map a file of input objects to their healpix pixels.
 
@@ -155,6 +292,10 @@ def map_to_pixels(
         ra_column (str): where to find right ascension data in the dataframe
         dec_column (str): where to find declation in the dataframe
         threshold_mode (str): mode for thresholding, either "row_count" or "mem_size".
+        size_estimate (tuple): result of a previous ``get_cols_in_input_file`` call, to
+            be shared by all input files of an import (assumes the files have the same
+            schema and similarly-sized values). If None and thresholding by mem_size,
+            the estimate is computed from this input file.
 
     Returns:
         one-dimensional numpy array of long integers where the value at each index corresponds
@@ -167,15 +308,24 @@ def map_to_pixels(
         row_count_histo = HistogramAggregator(highest_order)
         mem_size_histo = HistogramAggregator(highest_order)
 
-        # Determine which columns to read from the input file. If we're using
-        # the bytewise/mem_size histogram, we need to read all columns to accurately
-        # estimate memory usage.
+        # Pre-calculate the precomputed columns' per-row size before we start
+        # (if using mem_size partitioning), unless the import pipeline already
+        # computed one to share across all of its input files.
         if threshold_mode == "mem_size":
-            read_columns = None
-        elif use_healpix_29:
-            read_columns = [SPATIAL_INDEX_COLUMN]
+            if size_estimate is None:
+                size_estimate = get_cols_in_input_file(input_file, pickled_reader_file)
+            var_length_cols, _, precomputed_row_size = size_estimate
+
+        # Determine which columns to read from the input file. If we're using
+        # the bytewise/mem_size histogram, we also need the columns whose memory
+        # usage must be measured per-row (precomputed columns need not be read).
+        position_columns = [SPATIAL_INDEX_COLUMN] if use_healpix_29 else [ra_column, dec_column]
+        if threshold_mode == "mem_size":
+            read_columns = var_length_cols + [
+                column for column in position_columns if column not in var_length_cols
+            ]
         else:
-            read_columns = [ra_column, dec_column]
+            read_columns = position_columns
 
         # Iterate through the input file in chunks, mapping pixels and updating histograms.
         for _, chunk_data, mapped_pixels in _iterate_input_file(
@@ -190,7 +340,14 @@ def map_to_pixels(
             data_mem_sizes = None
 
             if threshold_mode == "mem_size":
-                data_mem_sizes = size_estimates.get_mem_size_per_row(chunk_data)
+                if var_length_cols:
+                    # Measure only the variable-length columns (per-row).
+                    var_col_mem_sizes = size_estimates.get_mem_size_per_row(chunk_data, cols=var_length_cols)
+                    # Add precomputed_row_size to get the total size of each row.
+                    data_mem_sizes = [size + precomputed_row_size for size in var_col_mem_sizes]
+                else:
+                    # Every column's size is precomputed, so no per-row measurement is needed.
+                    data_mem_sizes = np.full(len(chunk_data), precomputed_row_size)
 
             row_count_partial, mem_size_partial = supplemental_count_histogram(
                 mapped_pixels, data_mem_sizes, highest_order=highest_order
