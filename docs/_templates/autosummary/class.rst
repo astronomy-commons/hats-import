@@ -1,12 +1,8 @@
-{%- if objname.split('.')[-1] == objname %}
 {{ objname | escape | underline }}
-{%- else %}
-{{ objname.split('.')[-1] | escape | underline }}
-{%- endif %}
 
 .. currentmodule:: {{ module }}
 
-.. autoclass:: {{ objname }}
+.. autoclass:: {{ fullname }}
 
    {% block attributes %}
    {% if attributes %}
@@ -24,7 +20,8 @@
    .. rubric:: {{ _('Methods') }}
 
    .. autosummary::
-   {% for item in methods %}
+      :toctree:
+   {% for item in methods if item != '__init__' %}
       ~{{ name }}.{{ item }}
    {%- endfor %}
 

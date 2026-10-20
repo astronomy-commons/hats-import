@@ -134,8 +134,9 @@ def reduce_margin_shards(
                 margin_cache_file_path = paths.new_pixel_catalog_file(
                     output_path, healpix_pixel, npix_suffix=npix_suffix, npix_parquet_name=npix_parquet_name
                 )
-                if not write_table_kwargs:
-                    write_table_kwargs = {}
+                write_table_kwargs = file_io.get_parquet_write_table_kwargs(
+                    margin_table.schema, write_table_kwargs=write_table_kwargs
+                )
 
                 pq.write_table(
                     margin_table,

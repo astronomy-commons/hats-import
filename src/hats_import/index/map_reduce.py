@@ -2,8 +2,12 @@
 
 import dask.dataframe as dd
 import numpy as np
+import pyarrow as pa
+import pyarrow.parquet as pq
 from hats.io import file_io, paths
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN
+
+INDEX_DATA_PAGE_SIZE = 16 * 1024
 
 
 def _read_leaf_file(
@@ -93,13 +97,22 @@ def create_index(args, client):
     if args.indexing_base_column:
         data.index = data.index.rename(args.indexing_column, sorted_index=True)
 
+    meta = data._meta.reset_index()  # pylint: disable=protected-access
+    output_schema = pa.Table.from_pandas(meta, preserve_index=False).schema
+    sorting_columns = pq.SortingColumn.from_ordering(output_schema, [(args.indexing_column, "ascending")])
+    write_table_kwargs = file_io.get_parquet_write_table_kwargs(
+        output_schema,
+        write_table_kwargs={"data_page_size": INDEX_DATA_PAGE_SIZE, "sorting_columns": sorting_columns}
+        | (args.write_table_kwargs or {}),
+    )
+
     # Now just write it out to leaf parquet files!
     result = data.to_parquet(
         path=index_dir.path,
         engine="pyarrow",
         compute_kwargs={"partition_size": args.compute_partition_size},
         filesystem=index_dir.fs,
-        **(args.write_table_kwargs or {}),
+        **write_table_kwargs,
     )
     client.compute(result)
     return len(data)

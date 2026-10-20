@@ -7,12 +7,14 @@ from dask.distributed import Client
 
 import hats_import.catalog.run_import as catalog_runner
 import hats_import.collection.run_import as collection_runner
+import hats_import.extension.run_split_import as extension_runner
 import hats_import.hipscat_conversion.run_conversion as conversion_runner
 import hats_import.index.run_index as index_runner
 import hats_import.margin_cache.margin_cache as margin_runner
 import hats_import.verification.run_verification as verification_runner
 from hats_import.catalog.arguments import ImportArguments
 from hats_import.collection.arguments import CollectionArguments
+from hats_import.extension.arguments import ExtensionArguments
 from hats_import.hipscat_conversion.arguments import ConversionArguments
 from hats_import.index.arguments import IndexArguments
 from hats_import.margin_cache.margin_cache_arguments import MarginCacheArguments
@@ -56,6 +58,8 @@ def pipeline_with_client(args: RuntimeArguments, client: Client):
             margin_runner.generate_margin_cache(args, client)
         elif isinstance(args, CollectionArguments):
             collection_runner.run(args, client)
+        elif isinstance(args, ExtensionArguments):
+            extension_runner.run(args, client)
         elif isinstance(args, VerificationArguments):
             verification_runner.run(args)
         elif isinstance(args, ConversionArguments):

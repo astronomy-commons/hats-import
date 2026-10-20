@@ -9,7 +9,7 @@ from the dataset, you might want larger partitions to make the analysis faster. 
 with HATS catalogs on smaller machines, you might want smaller partitions. Or depending on what type of
 analysis you're running, you might want to sort the partitions by different columns to make filtering faster.
 
-To reimport a catalog with different parameters, you can use the :meth:`reimport_from_hats() <hats_import.catalog.arguments.ImportArguments.reimport_from_hats>`
+To reimport a catalog with different parameters, you can use the :meth:`reimport_from_hats() <hats_import.ImportArguments.reimport_from_hats>`
 method to make an `ImportArguments` object to reimport a HATS catalog.
 
 .. code-block:: python
@@ -29,7 +29,7 @@ method to make an `ImportArguments` object to reimport a HATS catalog.
         pipeline_with_client(args, client)
 
 
-Any arguments which would normally be passed to :func:`ImportArguments <hats_import.catalog.arguments.ImportArguments>` can be passed to the method. Like
+Any arguments which would normally be passed to :class:`ImportArguments <hats_import.ImportArguments>` can be passed to the method. Like
 with any other arguments, this will output a catalog at `output_path/output_artifact_name`.
 
 For example, to reimport a catalog at a constant HEALPix pixel with different sorting within each partition,

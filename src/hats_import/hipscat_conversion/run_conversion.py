@@ -141,7 +141,10 @@ def _convert_partition_file(pixel, args, schema, ra_column, dec_column):
 
         destination_file = paths.pixel_catalog_file(args.catalog_path, pixel)
         destination_file.parent.mkdir(parents=True, exist_ok=True)
-        pq.write_table(table, destination_file.path, filesystem=destination_file.fs)
+        write_table_kwargs = file_io.get_parquet_write_table_kwargs(
+            table.schema, write_table_kwargs=args.write_table_kwargs
+        )
+        pq.write_table(table, destination_file.path, filesystem=destination_file.fs, **write_table_kwargs)
     except Exception as exception:  # pylint: disable=broad-exception-caught
         try:
             dask_print("  worker address:", get_worker().address)
