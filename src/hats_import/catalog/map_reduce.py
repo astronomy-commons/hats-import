@@ -277,7 +277,7 @@ def map_to_pixels(
     dec_column,
     use_healpix_29=False,
     threshold_mode="row_count",
-    size_estimate=None,
+    column_size_info=None,
 ):
     """Map a file of input objects to their healpix pixels.
 
@@ -292,10 +292,10 @@ def map_to_pixels(
         ra_column (str): where to find right ascension data in the dataframe
         dec_column (str): where to find declation in the dataframe
         threshold_mode (str): mode for thresholding, either "row_count" or "mem_size".
-        size_estimate (tuple): result of a previous ``get_cols_in_input_file`` call, to
+        column_size_info (tuple): result of a previous ``get_cols_in_input_file`` call, to
             be shared by all input files of an import (assumes the files have the same
             schema and similarly-sized values). If None and thresholding by mem_size,
-            the estimate is computed from this input file.
+            it is computed from this input file.
 
     Returns:
         one-dimensional numpy array of long integers where the value at each index corresponds
@@ -312,9 +312,9 @@ def map_to_pixels(
         # (if using mem_size partitioning), unless the import pipeline already
         # computed one to share across all of its input files.
         if threshold_mode == "mem_size":
-            if size_estimate is None:
-                size_estimate = get_cols_in_input_file(input_file, pickled_reader_file)
-            var_length_cols, _, precomputed_row_size = size_estimate
+            if column_size_info is None:
+                column_size_info = get_cols_in_input_file(input_file, pickled_reader_file)
+            var_length_cols, _, precomputed_row_size = column_size_info
 
         # Determine which columns to read from the input file. If we're using
         # the bytewise/mem_size histogram, we also need the columns whose memory

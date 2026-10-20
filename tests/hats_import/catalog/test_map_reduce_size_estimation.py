@@ -223,9 +223,9 @@ def test_map_to_pixels_mem_size_mixed_columns(tmp_path):
     assert expected_total - len(chunk) <= result.sum() <= expected_total
 
 
-def test_map_to_pixels_mem_size_shared_size_estimate(tmp_path):
-    """A size_estimate passed to map_to_pixels (as the import pipeline does, sharing
-    one estimate across all input files) is used as-is instead of being recomputed."""
+def test_map_to_pixels_mem_size_shared_column_size_info(tmp_path):
+    """A column_size_info passed to map_to_pixels (as the import pipeline does, sharing
+    one across all input files) is used as-is instead of being recomputed."""
     chunk = pd.DataFrame(
         {
             "ra": [290.0, 300.0, 310.0, 320.0],
@@ -250,7 +250,7 @@ def test_map_to_pixels_mem_size_shared_size_estimate(tmp_path):
         resume_path=tmp_path,
         mapping_key="map_0",
         threshold_mode="mem_size",
-        size_estimate=shared_estimate,
+        column_size_info=shared_estimate,
     )
 
     result = read_partial_histogram(tmp_path, "map_0", which_histogram="mem_size")

@@ -37,11 +37,11 @@ def run(args, client):
 
     if resume_plan.should_run_mapping:
         # When thresholding by mem_size, sample per-row sizes once, from the first
-        # input file, and share the estimate with every mapping task. All input
-        # files are assumed to share a schema and similarly-sized values.
-        size_estimate = None
+        # input file, and share the column size info with every mapping task. All
+        # input files are assumed to share a schema and similarly-sized values.
+        column_size_info = None
         if resume_plan.threshold_mode == "mem_size":
-            size_estimate = mr.get_cols_in_input_file(resume_plan.input_paths[0], pickled_reader_file)
+            column_size_info = mr.get_cols_in_input_file(resume_plan.input_paths[0], pickled_reader_file)
 
         futures = []
         for key, file_path in resume_plan.map_files:
@@ -57,7 +57,7 @@ def run(args, client):
                     dec_column=args.dec_column,
                     use_healpix_29=args.use_healpix_29,
                     threshold_mode=resume_plan.threshold_mode,
-                    size_estimate=size_estimate,
+                    column_size_info=column_size_info,
                 )
             )
         resume_plan.wait_for_mapping(futures)
