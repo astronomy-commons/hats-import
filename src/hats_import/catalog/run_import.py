@@ -21,7 +21,7 @@ from hats_import.catalog.arguments import ImportArguments
 from hats_import.catalog.resume_plan import ResumePlan
 
 
-# pylint: disable=too-many-statements
+# pylint: disable=too-many-statements,too-many-locals
 def run(args, client):
     """Run catalog creation pipeline."""
     if not args:
@@ -36,6 +36,13 @@ def run(args, client):
         cloudpickle.dump(args.file_reader, pickle_file)
 
     if resume_plan.should_run_mapping:
+        # When thresholding by mem_size, sample per-row sizes once, from the first
+        # input file, and share the column size info with every mapping task. All
+        # input files are assumed to share a schema and similarly-sized values.
+        column_size_info = None
+        if resume_plan.threshold_mode == "mem_size":
+            column_size_info = mr.get_cols_in_input_file(resume_plan.input_paths[0], pickled_reader_file)
+
         futures = []
         for key, file_path in resume_plan.map_files:
             futures.append(
@@ -50,6 +57,7 @@ def run(args, client):
                     dec_column=args.dec_column,
                     use_healpix_29=args.use_healpix_29,
                     threshold_mode=resume_plan.threshold_mode,
+                    column_size_info=column_size_info,
                 )
             )
         resume_plan.wait_for_mapping(futures)
