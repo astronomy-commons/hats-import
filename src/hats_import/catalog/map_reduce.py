@@ -188,9 +188,9 @@ def _string_col_sizes_are_consistent(data, column):
     consistent_string_max_to_mean_ratio = 2.0
 
     col_sizes = size_estimates.get_mem_size_per_row(data, cols=[column])
-    if not col_sizes:
+    if len(col_sizes) == 0:
         return True
-    return max(col_sizes) <= consistent_string_max_to_mean_ratio * (sum(col_sizes) / len(col_sizes))
+    return col_sizes.max() <= consistent_string_max_to_mean_ratio * col_sizes.mean()
 
 
 def get_cols_in_input_file(input_file: UPath, pickled_reader_file: str):
@@ -262,7 +262,7 @@ def get_cols_in_input_file(input_file: UPath, pickled_reader_file: str):
     # string/binary sizes are assumed consistent enough that the mean over
     # this first chunk can stand in for every row of the file.
     sampled_sizes = size_estimates.get_mem_size_per_row(data, cols=precomputed_cols)
-    precomputed_row_size = sum(sampled_sizes) / len(sampled_sizes) if sampled_sizes else 0
+    precomputed_row_size = sampled_sizes.mean() if len(sampled_sizes) else 0
 
     return var_length_cols, precomputed_cols, precomputed_row_size
 
@@ -344,7 +344,7 @@ def map_to_pixels(
                     # Measure only the variable-length columns (per-row).
                     var_col_mem_sizes = size_estimates.get_mem_size_per_row(chunk_data, cols=var_length_cols)
                     # Add precomputed_row_size to get the total size of each row.
-                    data_mem_sizes = [size + precomputed_row_size for size in var_col_mem_sizes]
+                    data_mem_sizes = var_col_mem_sizes + precomputed_row_size
                 else:
                     # Every column's size is precomputed, so no per-row measurement is needed.
                     data_mem_sizes = np.full(len(chunk_data), precomputed_row_size)
