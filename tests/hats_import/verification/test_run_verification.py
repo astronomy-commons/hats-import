@@ -79,7 +79,7 @@ def test_test_is_valid_catalog(small_sky_object_catalog, wrong_files_and_rows_di
 
 def test_test_is_valid_collection(test_data_dir, tmp_path, caplog, capsys):
     """`hats.is_valid_catalog` should pass for good catalogs, fail for catalogs without ancillary files."""
-    caplog.at_level(logging.INFO)
+    caplog.set_level(logging.INFO)
     args = VerificationArguments(
         input_catalog_path=test_data_dir / "small_sky_collection", output_path=tmp_path, verbose=True
     )
