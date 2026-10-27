@@ -180,13 +180,13 @@ class Verifier:
             target = self.args.input_collection_path
             self.print_if_verbose(f"\nStarting: {description}")
 
-            passed = hats.io.validation.is_valid_collection(target, strict=True, verbose=self.args.verbose)
+            passed = hats.io.validation.is_valid_collection(target, strict=True)
         else:
             test, description = "valid hats", "Test hats.io.validation.is_valid_catalog."
             target = self.args.input_catalog_path
             self.print_if_verbose(f"\nStarting: {description}")
 
-            passed = hats.io.validation.is_valid_catalog(target, strict=True, verbose=self.args.verbose)
+            passed = hats.io.validation.is_valid_catalog(target, strict=True)
 
         self.results.append(Result(test=test, description=description, passed=passed, target=target.name))
         self.print_if_verbose(f"Result: {'PASSED' if passed else 'FAILED'}")
@@ -467,8 +467,7 @@ class Verifier:
                     f"# User-supplied truth total rows: {self.args.truth_total_rows}\n",
                 ]
             )
-        # Write results
-        self.results_df.to_csv(self.args.output_file_path, mode="a", header=True, index=False)
+            self.results_df.to_csv(fout, header=True, index=False, lineterminator="\n")
         self.print_if_verbose(f"\nVerifier results written to {self.args.output_file_path}")
 
     def print_if_verbose(self, message):
