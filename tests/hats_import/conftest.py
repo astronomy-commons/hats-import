@@ -7,9 +7,12 @@ from pathlib import Path
 import numpy as np
 import numpy.testing as npt
 import pandas as pd
+import pyarrow as pa
 import pytest
 from dask.distributed import Client, LocalCluster
 from hats import pixel_math
+
+from hats_import.catalog.file_readers import ParquetPyarrowReader
 
 # pylint: disable=missing-function-docstring, redefined-outer-name
 
@@ -109,6 +112,22 @@ def small_sky_nested_catalog(test_data_dir):
 @pytest.fixture
 def small_sky_object_source_association(test_data_dir):
     return test_data_dir / "small_sky_object_source_association"
+
+
+@pytest.fixture
+def total_error_reader():
+    """File reader that pre-processes each partition of a small sky catalog, adding a
+    `total_error` column with the sum of its `ra_error` and `dec_error` columns."""
+
+    class TotalErrorReader(ParquetPyarrowReader):
+        """Reads each partition with pyarrow, and adds its `total_error` column."""
+
+        def read(self, input_file, read_columns=None):
+            for table in super().read(input_file, read_columns=read_columns):
+                total_error = table["ra_error"].to_numpy() + table["dec_error"].to_numpy()
+                yield table.append_column("total_error", pa.array(total_error))
+
+    return TotalErrorReader()
 
 
 @pytest.fixture

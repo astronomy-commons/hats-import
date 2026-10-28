@@ -3,17 +3,26 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+import nested_pandas as npd
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 from hats import read_hats
 from hats.catalog import Catalog, CatalogCollection, CatalogType, MarginCatalog
+from hats.io import paths
 from hats.io.validation import is_valid_catalog
+from hats.pixel_math.healpix_pixel import HealpixPixel
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN
 from nested_pandas.nestedframe.io import from_pyarrow
 from upath import UPath
 
+from hats_import.catalog.file_readers import InputReader
+from hats_import.catalog.map_reduce import _has_named_index
 from hats_import.extension.split_side import SplitSide
 from hats_import.runtime_arguments import RuntimeArguments
 
@@ -55,6 +64,13 @@ class ExtensionArguments(RuntimeArguments):
     """the loaded input catalog. For a collection, this is its main catalog"""
     input_collection: CatalogCollection | None = None
     """the loaded input collection, if the input path is a collection"""
+    file_reader: InputReader | None = None
+    """instance of input reader used to read each partition of the input tables, e.g. to
+    pre-process them before they are split. It reads the margins too. It may change the
+    columns, and the columns to split are checked against the ones it yields, but it must
+    keep every row of the partition, in order. Each chunk it yields is written as its own
+    row group, unless `row_group_kwargs` is provided. If not provided, each partition is
+    read as it is."""
     extension_columns: list[str] = field(default_factory=list)
     """the set of column names to move from the input catalog into the extension. 
     They are removed from the core. The spatial index, the join key and the coordinate
@@ -80,6 +96,8 @@ class ExtensionArguments(RuntimeArguments):
     """modality of the data that the extension stores (e.g. "spectra", "images")"""
 
     ## Constructed
+    input_schema: pa.Schema = None
+    """schema of the input tables, as they are read by `file_reader`"""
     core: SplitSide = None
     """the core side of the split"""
     extension: SplitSide = None
@@ -127,6 +145,25 @@ class ExtensionArguments(RuntimeArguments):
             self.input_catalog = input_dataset
         if self.input_catalog.catalog_info.catalog_type not in (CatalogType.OBJECT, CatalogType.SOURCE):
             raise ValueError("Extensions can only be created from OBJECT or SOURCE catalogs")
+        self.input_schema = self._read_input_schema()
+
+    def _read_input_schema(self) -> pa.Schema:
+        """Schema of the input tables, as they are read. A file reader may change the columns,
+        so its schema is taken from the first chunk it reads from the first partition."""
+        pixels = self.input_catalog.get_healpix_pixels()
+        if self.file_reader is None or not pixels:
+            return self.input_catalog.schema
+        return next(self.read_partition(self.input_catalog, pixels[0])).schema
+
+    def read_partition(self, input_catalog, pixel: HealpixPixel) -> Iterator[pa.Table]:
+        """Read one partition of an input table, as a pyarrow table per chunk that `file_reader`
+        yields. Without a file reader, the partition is read whole, as a single table."""
+        input_file = paths.pixel_catalog_file(
+            input_catalog.catalog_path, pixel, npix_suffix=input_catalog.catalog_info.npix_suffix
+        )
+        if self.file_reader is None:
+            return iter([pq.read_table(input_file.path, filesystem=input_file.fs).replace_schema_metadata()])
+        return (_chunk_to_table(chunk) for chunk in self.file_reader.read(input_file))
 
     def _check_columns(self):
         """Check that the requested columns can be split out of the input catalog.
@@ -142,9 +179,9 @@ class ExtensionArguments(RuntimeArguments):
         # Remove duplicates and preserve order.
         self.extension_columns = list(dict.fromkeys(self.extension_columns))
 
-        column_names = self.input_catalog.schema.names
+        column_names = self.input_schema.names
         # A whole nested column can move to the extension, but a single field of one cannot.
-        subcolumns = from_pyarrow(self.input_catalog.schema.empty_table()).get_subcolumns()
+        subcolumns = from_pyarrow(self.input_schema.empty_table()).get_subcolumns()
         nested_fields = [col for col in self.extension_columns if col in subcolumns]
         if nested_fields:
             raise ValueError(
@@ -169,6 +206,10 @@ class ExtensionArguments(RuntimeArguments):
                 [self.healpix_column, self.primary_column, catalog_info.ra_column, catalog_info.dec_column]
             )
         )
+        # A file reader could have dropped some of them.
+        missing_copied_columns = [col for col in copied_columns if col not in column_names]
+        if missing_copied_columns:
+            raise ValueError(f"Some required columns are not in the input tables: {missing_copied_columns}")
         invalid_extension_columns = [col for col in self.extension_columns if col in copied_columns]
         if invalid_extension_columns:
             raise ValueError(
@@ -266,3 +307,13 @@ class ExtensionArguments(RuntimeArguments):
     def healpix_column(self) -> str:
         """Name of the spatial index column, kept in both the core and the extension."""
         return self.input_catalog.catalog_info.healpix_column or SPATIAL_INDEX_COLUMN
+
+
+def _chunk_to_table(chunk: pd.DataFrame | pa.Table) -> pa.Table:
+    """A chunk yielded by a file reader, as a pyarrow table with no schema metadata.
+    A named index of a DataFrame, such as the spatial index, is kept as a column."""
+    if isinstance(chunk, pd.DataFrame):
+        if _has_named_index(chunk):
+            chunk = chunk.reset_index()
+        chunk = pa.Table.from_pandas(npd.NestedFrame(chunk).to_pandas(), preserve_index=False)
+    return chunk.replace_schema_metadata()

@@ -173,6 +173,56 @@ def test_split_collection_empty_margin(small_sky_o1_collection, tmp_path, dask_c
 
 
 @pytest.mark.dask
+def test_split_collection_with_file_reader(
+    small_sky_o1_collection, tmp_path, dask_client, total_error_reader
+):
+    """A file reader pre-processes the partitions of the main catalog and of its margins
+    before they are split. The columns it adds can be moved to the extension."""
+    args = split_args(
+        small_sky_o1_collection,
+        tmp_path,
+        file_reader=total_error_reader,
+        extension_columns=["ra_error", "dec_error", "total_error"],
+    )
+    runner.run(args, dask_client)
+    split_collection = tmp_path / "output" / "small_sky_with_extension"
+    extension_path = split_collection / "small_sky_order1_errors"
+    assert is_valid_collection(split_collection, strict=True)
+    assert is_valid_collection(extension_path, strict=True)
+
+    core_columns = ["_healpix_29", "id", "ra", "dec"]
+    extension_columns = ["_healpix_29", "object_id", "ra", "dec", "ra_error", "dec_error", "total_error"]
+    pixel = HealpixPixel(1, 44)
+    for input_name, core_path, extension_table_path in (
+        (
+            "small_sky_order1",
+            split_collection / "small_sky_order1",
+            extension_path / "small_sky_order1_errors",
+        ),
+        (
+            "small_sky_order1_margin",
+            split_collection / "small_sky_order1_margin",
+            extension_path / "small_sky_order1_errors_margin",
+        ),
+    ):
+        assert read_hats(core_path).schema.names == core_columns
+        assert read_hats(extension_table_path).schema.names == extension_columns
+        original_data = npd.read_parquet(
+            paths.pixel_catalog_file(small_sky_o1_collection / input_name, pixel)
+        )
+        extension_data = npd.read_parquet(paths.pixel_catalog_file(extension_table_path, pixel))
+        assert (
+            extension_data["total_error"].tolist()
+            == (original_data["ra_error"] + original_data["dec_error"]).tolist()
+        )
+
+    # The empty margin has no partitions to read, but it is written with the columns that
+    # the file reader yields.
+    empty_margin = read_hats(extension_path / "small_sky_order1_errors_margin_10arcs")
+    assert empty_margin.schema == read_hats(extension_path / "small_sky_order1_errors").schema
+
+
+@pytest.mark.dask
 def test_split_collection_index(small_sky_o1_collection, tmp_path, dask_client):
     """An index over a column that stays in the core is carried over, unchanged."""
     runner.run(split_args(small_sky_o1_collection, tmp_path), dask_client)

@@ -2,6 +2,7 @@
 
 import pytest
 
+from hats_import.catalog.file_readers import ParquetPyarrowReader
 from hats_import.extension.arguments import ExtensionArguments
 
 
@@ -94,6 +95,39 @@ def test_nested_columns(small_sky_nested_catalog, tmp_path):
     args = make_args(small_sky_nested_catalog, tmp_path, extension_columns=["lc"])
     assert args.extension.input_columns == ["_healpix_29", "id", "ra", "dec", "lc"]
     assert "lc" not in args.core.output_columns
+
+
+def test_file_reader_columns(small_sky_order1_catalog, tmp_path, total_error_reader):
+    """The columns to split are checked against the columns that the file reader yields."""
+    args = make_args(small_sky_order1_catalog, tmp_path)
+    assert args.input_schema == args.input_catalog.schema
+
+    # A column that the file reader adds can be moved to the extension.
+    args = make_args(
+        small_sky_order1_catalog,
+        tmp_path,
+        file_reader=total_error_reader,
+        extension_columns=["total_error"],
+    )
+    assert args.input_schema.names == [
+        "_healpix_29",
+        "id",
+        "ra",
+        "dec",
+        "ra_error",
+        "dec_error",
+        "total_error",
+    ]
+    assert args.core.input_columns == ["_healpix_29", "id", "ra", "dec", "ra_error", "dec_error"]
+    assert args.extension.input_columns == ["_healpix_29", "id", "ra", "dec", "total_error"]
+
+    # The columns that the file reader drops cannot be split.
+    without_errors = ParquetPyarrowReader(column_names=["_healpix_29", "id", "ra", "dec"])
+    with pytest.raises(ValueError, match="do not exist"):
+        make_args(small_sky_order1_catalog, tmp_path, file_reader=without_errors)
+    without_coordinates = ParquetPyarrowReader(column_names=["_healpix_29", "id", "ra_error", "dec_error"])
+    with pytest.raises(ValueError, match=r"required columns .*\['ra', 'dec'\]"):
+        make_args(small_sky_order1_catalog, tmp_path, file_reader=without_coordinates)
 
 
 def test_copied_columns_cannot_be_moved(small_sky_order1_catalog, tmp_path):

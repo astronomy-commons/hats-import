@@ -3,6 +3,7 @@
 import shutil
 
 import hats.pixel_math.healpix_shim as hp
+import pyarrow as pa
 import pyarrow.parquet as pq
 from hats.catalog import PartitionInfo, TableProperties
 from hats.io import file_io, paths
@@ -81,13 +82,11 @@ def run(args: ExtensionArguments, client):
 
 def split_pixel(pixel: HealpixPixel, args: ExtensionArguments, input_catalog, resume_path: UPath):
     """Split the data of a single input partition into its core and extension files.
-    The row group structure of the input file is preserved, unless `row_group_kwargs`
-    is provided, in which case each output file is re-split accordingly."""
+    The row group structure of the input file is preserved (or, with a `file_reader`,
+    each chunk it yields becomes a row group), unless `row_group_kwargs` is provided,
+    in which case each output file is re-split accordingly."""
     try:
-        input_file = paths.pixel_catalog_file(
-            input_catalog.catalog_path, pixel, npix_suffix=input_catalog.catalog_info.npix_suffix
-        )
-        table = pq.read_table(input_file.path, filesystem=input_file.fs).replace_schema_metadata()
+        table = pa.concat_tables(args.read_partition(input_catalog, pixel))
         for side in args.sides:
             destination_file = paths.new_pixel_catalog_file(
                 side.table_path(input_catalog),
@@ -157,7 +156,7 @@ def _write_parquet_metadata(
     of rows written, and the order of the skymap, if one was written."""
     catalog_info = input_catalog.catalog_info
     if not input_catalog.get_healpix_pixels():
-        _write_empty_metadata(side, input_catalog, catalog_path)
+        _write_empty_metadata(args, side, catalog_path)
         return 0, None
     total_rows = write_parquet_metadata(
         catalog_path,
@@ -178,13 +177,10 @@ def _write_parquet_metadata(
     return total_rows, hp.npix2order(len(point_map))
 
 
-def _write_empty_metadata(side: SplitSide, input_catalog, catalog_path: UPath):
+def _write_empty_metadata(args: ExtensionArguments, side: SplitSide, catalog_path: UPath):
     """Write the parquet metadata of an output table that has no partitions."""
     schema = (
-        input_catalog.schema.empty_table()
-        .select(side.input_columns)
-        .rename_columns(side.output_columns)
-        .schema
+        args.input_schema.empty_table().select(side.input_columns).rename_columns(side.output_columns).schema
     )
     common_metadata_path = paths.get_common_metadata_pointer(catalog_path)
     file_io.make_directory(common_metadata_path.parent, exist_ok=True)

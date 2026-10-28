@@ -13,6 +13,7 @@ from hats.pixel_math import HealpixPixel
 from nested_pandas.nestedframe.io import from_pyarrow
 
 import hats_import.extension.run_split_import as runner
+from hats_import.catalog.file_readers import ParquetPandasReader, ParquetPyarrowReader
 from hats_import.extension.arguments import ExtensionArguments
 from hats_import.extension.resume_plan import ExtensionSplitPlan
 
@@ -198,6 +199,32 @@ def test_split_pixel(small_sky_order1_catalog, tmp_path):
     assert len(core_data) == len(extension_data) == 42
 
 
+def test_split_pixel_pandas_file_reader(small_sky_order1_catalog, tmp_path):
+    """A file reader may yield DataFrames. Their named index, such as the spatial index,
+    is split like any other column."""
+
+    class SpatialIndexReader(ParquetPandasReader):
+        """Reads each partition as a DataFrame, indexed by its spatial index."""
+
+        def read(self, input_file, read_columns=None):
+            for frame in super().read(input_file, read_columns=read_columns):
+                yield frame.set_index("_healpix_29")
+
+    args = split_args(small_sky_order1_catalog, tmp_path, file_reader=SpatialIndexReader())
+    resume_path = ExtensionSplitPlan(args).tmp_path
+    pixel = HealpixPixel(1, 44)
+
+    runner.split_pixel(pixel, args, args.input_catalog, resume_path)
+
+    original_data = npd.read_parquet(paths.pixel_catalog_file(small_sky_order1_catalog, pixel))
+    core_data = npd.read_parquet(paths.pixel_catalog_file(args.core.catalog_path, pixel))
+    extension_data = npd.read_parquet(paths.pixel_catalog_file(args.extension.catalog_path, pixel))
+    assert core_data.equals(original_data[args.core.input_columns])
+    assert extension_data.rename(columns={"object_id": "id"}).equals(
+        original_data[args.extension.input_columns]
+    )
+
+
 def test_split_row_groups(small_sky_order1_catalog, tmp_path):
     """Each output file keeps the row groups of the input file, unless `row_group_kwargs` is
     given, in which case it is split into row groups of the given size."""
@@ -233,6 +260,16 @@ def test_split_row_groups(small_sky_order1_catalog, tmp_path):
         HealpixPixel(1, 46): [10, 10, 10, 10, 2],
         HealpixPixel(1, 47): [10, 8],
     }
+    assert _row_group_sizes(args.core.catalog_path, pixels) == expected_row_groups
+    assert _row_group_sizes(args.extension.catalog_path, pixels) == expected_row_groups
+
+    # With a `file_reader`, each chunk it yields is written as a row group.
+    args = split_args(
+        small_sky_order1_catalog, tmp_path / "chunked", file_reader=ParquetPyarrowReader(chunksize=10)
+    )
+    resume_path = ExtensionSplitPlan(args).tmp_path
+    for pixel in pixels:
+        runner.split_pixel(pixel, args, args.input_catalog, resume_path)
     assert _row_group_sizes(args.core.catalog_path, pixels) == expected_row_groups
     assert _row_group_sizes(args.extension.catalog_path, pixels) == expected_row_groups
 
