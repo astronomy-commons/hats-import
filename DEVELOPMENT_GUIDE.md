@@ -50,4 +50,3 @@ docs/                             Sphinx documentation sources
 - **File naming:** `tests/hats_import/<SUBDIR>/test_<name>.py`, mirroring the `src/hats_import/` layout.
 - **Fixtures:** defined in `tests/conftest.py`. Use existing fixtures, do not duplicate test data.
 - Default test run: `python -m pytest`
-
