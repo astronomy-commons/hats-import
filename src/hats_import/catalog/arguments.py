@@ -11,7 +11,7 @@ from hats.catalog import TableProperties
 from hats.catalog.catalog_collection import CatalogCollection
 from hats.catalog.catalog_extension import CatalogExtension
 from hats.io.file_io import get_upath
-from hats.io.paths import DATASET_DIR, HIVE_COLUMNS, PARTITION_ORDER
+from hats.io.paths import DATASET_DIR, HIVE_COLUMNS
 from hats.io.validation import is_valid_catalog
 from hats.pixel_math.spatial_index import SPATIAL_INDEX_COLUMN, SPATIAL_INDEX_ORDER
 from typing_extensions import Self
@@ -233,9 +233,10 @@ class ImportArguments(RuntimeArguments):
         if catalog.schema is not None:
             column_names = [name for name in catalog.schema.names if name not in HIVE_COLUMNS]
 
-        in_file_paths = list(
-            (path / DATASET_DIR).rglob(f"{PARTITION_ORDER}*/**/*{catalog.catalog_info.npix_suffix}")
-        )
+        pixel_glob = "Norder*/Dir*/Npix*"
+        if catalog.catalog_info.npix_suffix == "/":
+            pixel_glob += "/*"
+        in_file_paths = list((path / DATASET_DIR).rglob(pixel_glob))
 
         addl_hats_properties = catalog.catalog_info.extra_dict(by_alias=True)
 

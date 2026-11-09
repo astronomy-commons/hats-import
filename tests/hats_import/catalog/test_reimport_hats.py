@@ -1,3 +1,5 @@
+import shutil
+
 import hats
 import pandas as pd
 import pyarrow.parquet as pq
@@ -84,6 +86,20 @@ def test_reimport_arguments_extra_kwargs(tmp_path, small_sky_object_catalog):
     }
     assert args.use_healpix_29
     assert not args.add_healpix_29
+
+
+def test_reimport_arguments_npix_dir(tmp_path, small_sky_source_npix_dir_catalog):
+    """Leaf pixel directories are expanded into all of their files."""
+    catalog_dir = tmp_path / "catalog"
+    shutil.copytree(small_sky_source_npix_dir_catalog, catalog_dir)
+    args = ImportArguments.reimport_from_hats(catalog_dir, tmp_path)
+    assert len(args.input_paths) == 14
+    leaf_dir = catalog_dir / "dataset" / "Norder=0" / "Dir=0" / "Npix=4"
+    shutil.copy(leaf_dir / "Npix=4.parquet", leaf_dir / "part1.parquet")
+    args = ImportArguments.reimport_from_hats(catalog_dir, tmp_path)
+    assert len(args.input_paths) == 15
+    leaf_files = {path.name for path in args.input_paths if path.parent.name == "Npix=4"}
+    assert leaf_files == {"Npix=4.parquet", "part1.parquet"}
 
 
 def test_reimport_arguments_empty_dir(tmp_path):
