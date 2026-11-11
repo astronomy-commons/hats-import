@@ -21,6 +21,7 @@ dependencies = [
     "dask[complete]>=2025.3.0",
     "deprecated",
     "hats>=0.11.1, <0.12.0",
+    "matplotlib", # used when creating skymap.png or partition_info.png
     "nested-pandas>=0.7.0,<0.8.0",
     "numpy>=2.2.0,<3", 
     "packaging>=26.1",
@@ -47,7 +48,6 @@ full = [
     "ipykernel", # Support for Jupyter notebooks
     "ipywidgets", # useful for tqdm in notebooks.
     "healpy", # used only in hipscat conversion
-    "matplotlib", # used when creating skymap.png or partition_info.png
 ]
 
 [build-system]
