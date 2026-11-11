@@ -147,7 +147,7 @@ def _write_table_metadata(args: ExtensionArguments, side: SplitSide, input_catal
     properties = table_properties(args, side, input_catalog, catalog_path, total_rows, skymap_order)
     properties.to_properties_file(catalog_path)
 
-    _write_summary_files(args, catalog_path)
+    _write_summary_files(args, catalog_path, point_map)
 
 
 def _write_parquet_metadata(
@@ -191,16 +191,16 @@ def _write_empty_metadata(side: SplitSide, input_catalog, catalog_path: UPath):
     pq.write_metadata(schema, common_metadata_path.path, filesystem=common_metadata_path.fs)
 
 
-def _write_summary_files(args: ExtensionArguments, catalog_path: UPath):
+def _write_summary_files(args: ExtensionArguments, catalog_path: UPath, point_map):
     """Write the optional visual and summary files of one output table."""
-    if args.create_skymap_png:
+    if args.create_skymap_png and not point_map is None:
         write_skymap_png(catalog_path)
-    if args.create_partition_info_png:
+    if args.create_partition_info_png and not point_map is None:
         write_partition_info_png(catalog_path)
     if args.create_summary_html:
-        write_catalog_summary_file(catalog_path, fmt="html")
+        write_catalog_summary_file(catalog_path, **args.create_summary_html_kwargs)
     if args.create_summary_md:
-        write_catalog_summary_file(catalog_path, fmt="markdown")
+        write_catalog_summary_file(catalog_path, **args.create_summary_md_kwargs)
 
 
 def _copy_index_catalog(args: ExtensionArguments, side: SplitSide, index_dir: UPath):

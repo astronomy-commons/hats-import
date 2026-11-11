@@ -263,8 +263,8 @@ def test_dask_runner(
         highest_healpix_order=1,
         create_thumbnail=True,
         create_per_partition_stats=True,
-        create_summary_html=True,
-        create_summary_md=True,
+        create_skymap_png=False,
+        create_partition_info_png=False,
         progress_bar=False,
     )
 

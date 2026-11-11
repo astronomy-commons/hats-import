@@ -51,18 +51,22 @@ class RuntimeArguments:
     """Create /dataset/data_thumbnail.parquet from one row of each data partition."""
     create_metadata: bool = True
     """Create /dataset/_metadata parquet from all data partitions."""
-    create_per_partition_stats: bool = False
+    create_per_partition_stats: bool = True
     """Create per_partition_statistics.parquet, based on footers from all data partitions."""
-    create_skymap_png: bool = False
+    create_skymap_png: bool = True
     """Create a visual representation of the skymap's contents."""
-    create_partition_info_png: bool = False
+    create_partition_info_png: bool = True
     """Create a visual representation of the partitions on the sky."""
-    create_summary_html: bool = False
+    create_summary_html: bool = True
     """Create a basic summary index.html file. 
     This uses the default options; for more customization see the HATS library method."""
-    create_summary_md: bool = False
+    create_summary_html_kwargs: dict | None = None
+    """Any non-default options to be passed to the `write_catalog_summary_file` method."""
+    create_summary_md: bool = True
     """Create a basic summary README.md file. 
     This uses the default options; for more customization see the HATS library method."""
+    create_summary_md_kwargs: dict | None = None
+    """Any non-default options to be passed to the `write_catalog_summary_file` method."""
 
     ## Execution
     tmp_dir: str | Path | UPath | None = None
@@ -158,6 +162,13 @@ class RuntimeArguments:
 
         if self.write_table_kwargs is None:
             self.write_table_kwargs = {}
+
+        if self.create_summary_html_kwargs is None:
+            self.create_summary_html_kwargs = {}
+        self.create_summary_html_kwargs |= {"fmt": "html"}
+        if self.create_summary_md_kwargs is None:
+            self.create_summary_md_kwargs = {}
+        self.create_summary_md_kwargs |= {"fmt": "markdown"}
 
     def extra_property_dict(self, catalog_path: UPath | None = None):
         """Generate additional HATS properties for this import run as a dictionary.
