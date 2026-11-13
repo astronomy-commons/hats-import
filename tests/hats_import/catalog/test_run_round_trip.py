@@ -487,7 +487,7 @@ def test_import_keep_intermediate_files(
     assert_intermediate_parquet_files_exist(base_intermediate_dir)
 
 
-@pytest.mark.dask
+@pytest.mark.dask(timeout=10)
 def test_import_delete_provided_temp_directory(
     dask_client,
     small_sky_parts_dir,
