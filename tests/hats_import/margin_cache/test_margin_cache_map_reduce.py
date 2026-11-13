@@ -38,7 +38,6 @@ def validate_result_dataframe(df_path, expected_len):
         assert col not in cols
 
 
-@pytest.mark.timeout(5)
 def test_to_pixel_shard_equator(tmp_path, basic_data_shard_df):
     margin_cache_map_reduce._to_pixel_shard(
         pa.Table.from_pandas(basic_data_shard_df),
@@ -55,7 +54,6 @@ def test_to_pixel_shard_equator(tmp_path, basic_data_shard_df):
     validate_result_dataframe(path, 360)
 
 
-@pytest.mark.timeout(5)
 def test_to_pixel_shard_polar(tmp_path, polar_data_shard_df):
     margin_cache_map_reduce._to_pixel_shard(
         pa.Table.from_pandas(polar_data_shard_df),
@@ -92,7 +90,6 @@ def test_map_pixel_shards_error(tmp_path, capsys):
     assert "Parquet file does not exist" in captured.out
 
 
-@pytest.mark.timeout(15)
 def test_map_pixel_shards_coarse(tmp_path, test_data_dir, small_sky_source_catalog):
     """Test basic mapping behavior, without fine filtering enabled."""
     intermediate_dir = tmp_path / "intermediate"

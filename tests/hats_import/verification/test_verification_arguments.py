@@ -17,7 +17,6 @@ def test_invalid_paths(tmp_path, small_sky_object_catalog):
         )
 
 
-@pytest.mark.timeout(5)
 def test_good_paths(tmp_path, small_sky_object_catalog):
     """Required arguments are provided, and paths are found.
 

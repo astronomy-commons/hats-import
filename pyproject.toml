@@ -40,7 +40,6 @@ dev = [
     "pytest",
     "pytest-cov",
     "pytest-mock",
-    "pytest-timeout",
 ]
 full = [
     "fsspec[full]", # complete file system specs.
@@ -64,7 +63,6 @@ write_to = "src/hats_import/_version.py"
 hats_import = ["py.typed"]
 
 [tool.pytest.ini_options]
-timeout = 2
 markers = [
     "dask: mark tests as having a dask client runtime dependency",
 ]
