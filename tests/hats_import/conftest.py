@@ -26,8 +26,8 @@ def dask_client():
 
 def pytest_collection_modifyitems(items):
     """Modify dask unit tests to
-        - ignore event loop deprecation warnings
-        - require use of the `dask_client` fixture, even if it's not requsted
+    - ignore event loop deprecation warnings
+    - require use of the `dask_client` fixture, even if it's not requsted
     """
     for item in items:
         item.add_marker(pytest.mark.usefixtures("dask_client"))
