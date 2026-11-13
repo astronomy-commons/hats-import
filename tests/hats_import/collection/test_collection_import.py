@@ -272,6 +272,7 @@ def test_import_collection_static_files(
             create_partition_info_png=True,
             create_summary_html=True,
             create_summary_md=True,
+            create_summary_md_kwargs={"huggingface_metadata": True},
         )
         .catalog(
             input_path=small_sky_source_dir,
@@ -293,12 +294,14 @@ def test_import_collection_static_files(
     # Collection:
     collection_path = tmp_path / "small_sky"
     assert (collection_path / "README.md").exists()
+    assert (collection_path / "README.md").read_text().strip().startswith("---\n")
     assert (collection_path / "index.html").exists()
     assert (collection_path / "skymap.png").exists()
     assert (collection_path / "partition_info.png").exists()
 
     # Primary catalog:
     assert (args.new_catalog_path / "README.md").exists()
+    assert (args.new_catalog_path / "README.md").read_text().strip().startswith("---\n")
     assert (args.new_catalog_path / "index.html").exists()
     assert (args.new_catalog_path / "skymap.png").exists()
     assert not (args.new_catalog_path / "partition_info.png").exists()
@@ -306,6 +309,7 @@ def test_import_collection_static_files(
     # Margin catalog:
     margin_path = tmp_path / "small_sky" / "small_sky_5arcs"
     assert (margin_path / "README.md").exists()
+    assert (margin_path / "README.md").read_text().strip().startswith("---\n")
     assert (margin_path / "index.html").exists()
     assert not (margin_path / "skymap.png").exists()
     assert (margin_path / "partition_info.png").exists()
@@ -313,6 +317,7 @@ def test_import_collection_static_files(
     # Index catalog:
     index_path = tmp_path / "small_sky" / "small_sky_object_id"
     assert (index_path / "README.md").exists()
+    assert (index_path / "README.md").read_text().strip().startswith("---\n")
     assert (index_path / "index.html").exists()
     assert not (index_path / "skymap.png").exists()
     assert not (index_path / "partition_info.png").exists()

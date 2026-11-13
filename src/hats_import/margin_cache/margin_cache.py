@@ -118,14 +118,14 @@ def generate_margin_cache(args, client):
         file_io.remove_directory(args.tmp_path, ignore_errors=True)
         step_progress.update(1)
 
-        if args.create_partition_info_png:
+        if args.create_partition_info_png and total_rows > 0:
             write_partition_info_png(args.catalog_path)
         step_progress.update(1)
         if args.create_summary_html:
-            write_catalog_summary_file(args.catalog_path, fmt="html")
+            write_catalog_summary_file(args.catalog_path, **args.create_summary_html_kwargs)
         step_progress.update(1)
         if args.create_summary_md:
-            write_catalog_summary_file(args.catalog_path, fmt="markdown")
+            write_catalog_summary_file(args.catalog_path, **args.create_summary_md_kwargs)
         step_progress.update(1)
 
         assert is_valid_catalog(args.catalog_path)

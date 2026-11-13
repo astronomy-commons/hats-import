@@ -487,7 +487,7 @@ def test_import_keep_intermediate_files(
     assert_intermediate_parquet_files_exist(base_intermediate_dir)
 
 
-@pytest.mark.dask
+@pytest.mark.dask(timeout=10)
 def test_import_delete_provided_temp_directory(
     dask_client,
     small_sky_parts_dir,
@@ -853,6 +853,8 @@ def test_import_healpix_29_pyarrow_table_parquet(
         highest_healpix_order=2,
         pixel_threshold=3_000,
         progress_bar=False,
+        create_summary_html=False,
+        create_summary_md=False,
         ## Sneak in a test for custom extension
         npix_suffix=".pq",
     )
@@ -910,6 +912,8 @@ def test_import_healpix_29_pandas_reader(
         use_healpix_29=True,
         highest_healpix_order=2,
         pixel_threshold=3_000,
+        create_summary_html=False,
+        create_summary_md=False,
         progress_bar=False,
     )
 
@@ -952,6 +956,8 @@ def test_import_healpix_29_no_pandas(
         use_healpix_29=True,
         highest_healpix_order=2,
         pixel_threshold=3_000,
+        create_summary_html=False,
+        create_summary_md=False,
         progress_bar=False,
     )
 
@@ -1164,7 +1170,7 @@ def test_gaia_ecsv(
     assert schema.equals(expected_parquet_schema)
     schema = pq.read_metadata(args.catalog_path / "dataset" / "_common_metadata").schema.to_arrow_schema()
     assert schema.equals(expected_parquet_schema)
-    schema = pds.dataset(args.catalog_path, format="parquet").schema
+    schema = pds.dataset(args.catalog_path / "dataset", format="parquet").schema
     assert schema.equals(expected_parquet_schema)
 
 
@@ -1346,7 +1352,7 @@ def test_nested_columns_struct(formats_dir, tmp_path, dask_client):
 
 
 @pytest.mark.dask
-def test_import_create_pngs(
+def test_import_create_summaries(
     dask_client,
     small_sky_parts_dir,
     tmp_path,
@@ -1366,6 +1372,8 @@ def test_import_create_pngs(
         highest_healpix_order=2,
         create_skymap_png=True,
         create_partition_info_png=True,
+        create_summary_md=True,
+        create_summary_md_kwargs={"huggingface_metadata": True},
         progress_bar=False,
     )
 
@@ -1374,3 +1382,11 @@ def test_import_create_pngs(
     # Check that PNGs exist
     assert (args.catalog_path / "skymap.png").exists()
     assert (args.catalog_path / "partition_info.png").exists()
+
+    assert (args.catalog_path / "README.md").exists()
+    content = (args.catalog_path / "README.md").read_text()
+    # Check for YAML frontmatter
+    assert content.strip().startswith("---\n")
+    assert "configs:" in content
+    assert "tags:" in content
+    assert "astronomy" in content
