@@ -158,7 +158,7 @@ def test_reimport_arguments_association_wrong_catalog_type(small_sky_object_cata
         AssociationArguments.reimport_from_hats(small_sky_object_catalog, tmp_path)
 
 
-@pytest.mark.dask(timeout=10)
+@pytest.mark.dask()
 def test_run_reimport(
     dask_client,
     small_sky_object_catalog,

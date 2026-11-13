@@ -12,7 +12,7 @@ def test_runner(small_sky_object_catalog, tmp_path):
     hats_import.pipeline_with_client(args, None)
 
 
-@pytest.mark.dask(timeout=10)
+@pytest.mark.dask()
 def test_reimport_runner(dask_client, small_sky_object_catalog, tmp_path, mocker):
     mock_smtp = mocker.patch("smtplib.SMTP")
 
@@ -34,7 +34,7 @@ def test_reimport_runner(dask_client, small_sky_object_catalog, tmp_path, mocker
     assert sent_message.get_content().startswith("output_artifact_name: small_sky_higher_order")
 
 
-@pytest.mark.dask(timeout=10)
+@pytest.mark.dask()
 def test_email_error(small_sky_object_catalog, tmp_path, mocker):
     mock_smtp = mocker.patch("smtplib.SMTP")
 

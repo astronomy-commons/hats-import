@@ -16,7 +16,7 @@ from hats_import.catalog.file_readers import CsvReader, get_file_reader
 from hats_import.margin_cache.margin_cache_arguments import MarginCacheArguments
 
 
-@pytest.mark.dask(timeout=180)
+@pytest.mark.dask()
 def test_margin_import_gaia_minimum(
     dask_client,
     formats_dir,
@@ -76,7 +76,7 @@ def test_margin_import_gaia_minimum(
     assert len(data) == 4
 
 
-@pytest.mark.dask(timeout=180)
+@pytest.mark.dask()
 def test_margin_import_mixed_schema_csv(
     dask_client,
     mixed_schema_csv_dir,

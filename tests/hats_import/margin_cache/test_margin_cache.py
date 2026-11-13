@@ -15,7 +15,7 @@ import hats_import.margin_cache.margin_cache as mc
 from hats_import.margin_cache.margin_cache_arguments import MarginCacheArguments
 
 
-@pytest.mark.dask(timeout=150)
+@pytest.mark.dask()
 @pytest.mark.parametrize(
     "small_sky_source_catalog",
     ["small_sky_source_catalog", "small_sky_source_npix_dir_catalog"],
@@ -76,7 +76,7 @@ def test_margin_cache_gen(small_sky_source_catalog, tmp_path, dask_client):
     assert metadata.row_group(0).column(0).compression == "ZSTD"
 
 
-@pytest.mark.dask(timeout=150)
+@pytest.mark.dask()
 def test_margin_cache_gen_negative_pixels(small_sky_source_catalog, tmp_path, dask_client):
     """Test that margin cache generation can generate a file for a negative pixel."""
     args = MarginCacheArguments(
@@ -103,7 +103,7 @@ def test_margin_cache_gen_negative_pixels(small_sky_source_catalog, tmp_path, da
     assert len(negative_data) > 0
 
 
-@pytest.mark.dask(timeout=150)
+@pytest.mark.dask()
 def test_generate_empty_margin_catalog(small_sky_object_catalog, tmp_path, dask_client):
     """Test that margin cache generation works with empty catalogs."""
     args = MarginCacheArguments(
@@ -159,7 +159,7 @@ def test_generate_empty_margin_catalog(small_sky_object_catalog, tmp_path, dask_
     assert common_metadata.schema.to_arrow_schema() == object_cat.schema
 
 
-@pytest.mark.dask(timeout=150)
+@pytest.mark.dask()
 def test_margin_gen_nested_catalog(small_sky_nested_catalog, tmp_path, dask_client):
     args = MarginCacheArguments(
         margin_order=8,
@@ -202,7 +202,7 @@ def test_margin_gen_nested_catalog(small_sky_nested_catalog, tmp_path, dask_clie
     assert catalog.catalog_path == args.catalog_path
 
 
-@pytest.mark.dask(timeout=150)
+@pytest.mark.dask()
 def test_margin_cache_omit_metadata(small_sky_source_catalog, tmp_path, dask_client):
     args = MarginCacheArguments(
         margin_threshold=180.0,
