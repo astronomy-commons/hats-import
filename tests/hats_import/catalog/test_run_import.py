@@ -127,7 +127,7 @@ def test_resume_dask_runner(
     assert catalog.catalog_info.healpix_order == 29
 
 
-@pytest.mark.dask
+@pytest.mark.dask(timeout=0)
 def test_resume_dask_runner_diff_pixel_order(
     dask_client,
     small_sky_parts_dir,

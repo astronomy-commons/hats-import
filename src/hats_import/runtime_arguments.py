@@ -60,12 +60,12 @@ class RuntimeArguments:
     create_summary_html: bool = True
     """Create a basic summary index.html file. 
     This uses the default options; for more customization see the HATS library method."""
-    create_summary_html_kwargs: dict | None = None
+    create_summary_html_kwargs: dict = field(default_factory=dict)
     """Any non-default options to be passed to the `write_catalog_summary_file` method."""
     create_summary_md: bool = True
     """Create a basic summary README.md file. 
     This uses the default options; for more customization see the HATS library method."""
-    create_summary_md_kwargs: dict | None = None
+    create_summary_md_kwargs: dict = field(default_factory=dict)
     """Any non-default options to be passed to the `write_catalog_summary_file` method."""
 
     ## Execution
