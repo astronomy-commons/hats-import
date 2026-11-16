@@ -372,7 +372,7 @@ def test_dask_runner_stats_only(dask_client, small_sky_parts_dir, tmp_path):
 
     runner.run(args, dask_client)
 
-    metadata_filename = os.path.join(args.catalog_path, "properties")
+    metadata_filename = os.path.join(args.catalog_path, "hats.properties")
     assert os.path.exists(metadata_filename)
 
     # Check that the catalog parquet file DOES NOT exist
