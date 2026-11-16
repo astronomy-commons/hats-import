@@ -22,7 +22,7 @@ def test_bad_args():
 
 
 @pytest.mark.skipif((3, 11) <= sys.version_info < (3, 12), reason="dask expr regression with python 3.11")
-@pytest.mark.dask(timeout=150)
+@pytest.mark.dask()
 def test_import_collection(
     dask_client,
     small_sky_source_dir,
@@ -110,7 +110,7 @@ def test_import_collection(
 
 
 @pytest.mark.skipif((3, 11) <= sys.version_info < (3, 12), reason="dask expr regression with python 3.11")
-@pytest.mark.dask(timeout=150)
+@pytest.mark.dask()
 def test_import_collection_resume_supplemental(
     dask_client,
     small_sky_source_dir,
@@ -176,7 +176,7 @@ def test_import_collection_resume_supplemental(
 
 
 @pytest.mark.skipif((3, 11) <= sys.version_info < (3, 12), reason="dask expr regression with python 3.11")
-@pytest.mark.dask(timeout=150)
+@pytest.mark.dask()
 def test_import_collection_healpix13(
     dask_client,
     formats_dir,
@@ -256,7 +256,7 @@ def test_import_collection_healpix13(
 
 
 @pytest.mark.skipif((3, 11) <= sys.version_info < (3, 12), reason="dask expr regression with python 3.11")
-@pytest.mark.dask(timeout=150)
+@pytest.mark.dask()
 def test_import_collection_static_files(
     dask_client,
     small_sky_source_dir,
