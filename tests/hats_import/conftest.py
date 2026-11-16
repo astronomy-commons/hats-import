@@ -33,6 +33,16 @@ def pytest_collection_modifyitems(items):
         item.add_marker(pytest.mark.usefixtures("dask_client"))
 
 
+@pytest.fixture(autouse=True)
+def reset_matplotlib():
+    yield
+    mpl = pytest.importorskip("matplotlib")
+    plt = pytest.importorskip("matplotlib.pyplot")
+
+    mpl.use("Agg")
+    plt.close("all")
+
+
 TEST_DIR = os.path.dirname(__file__)
 
 
