@@ -193,9 +193,9 @@ def _write_empty_metadata(side: SplitSide, input_catalog, catalog_path: UPath):
 
 def _write_summary_files(args: ExtensionArguments, catalog_path: UPath, point_map):
     """Write the optional visual and summary files of one output table."""
-    if args.create_skymap_png and not point_map is None:
+    if args.create_skymap_png and point_map is not None:
         write_skymap_png(catalog_path)
-    if args.create_partition_info_png and not point_map is None:
+    if args.create_partition_info_png and point_map is not None:
         write_partition_info_png(catalog_path)
     if args.create_summary_html:
         write_catalog_summary_file(catalog_path, **args.create_summary_html_kwargs)
