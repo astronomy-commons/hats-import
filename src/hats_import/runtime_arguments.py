@@ -58,15 +58,16 @@ class RuntimeArguments:
     create_partition_info_png: bool = True
     """Create a visual representation of the partitions on the sky."""
     create_summary_html: bool = True
-    """Create a basic summary index.html file. 
-    This uses the default options; for more customization see the HATS library method."""
+    """Create a basic summary index.html file, and can be customized with ``create_summary_html_kwargs``."""
     create_summary_html_kwargs: dict = field(default_factory=dict)
-    """Any non-default options to be passed to the `write_catalog_summary_file` method."""
+    """Any non-default options to be passed to the `write_catalog_summary_file` method.
+    For more customization see the HATS library method."""
     create_summary_md: bool = True
-    """Create a basic summary README.md file. 
-    This uses the default options; for more customization see the HATS library method."""
+    """Create a basic summary README.md file, and can be customized with ``create_summary_md_kwargs``"""
     create_summary_md_kwargs: dict = field(default_factory=dict)
-    """Any non-default options to be passed to the `write_catalog_summary_file` method."""
+    """Any non-default options to be passed to the `write_catalog_summary_file` method,
+    e.g. ``create_summary_md_kwargs={"huggingface_metadata": True}``.
+    For more customization see the HATS library method."""
 
     ## Execution
     tmp_dir: str | Path | UPath | None = None
