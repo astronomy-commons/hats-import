@@ -20,6 +20,9 @@ class AssociationArguments(ImportArguments):
     """possible types of catalog to import with `AssociationArguments`"""
     should_write_skymap: bool = False
     """association catalogs do not contain skymap fits files"""
+    create_per_partition_stats: bool = False
+    create_skymap_png: bool = False
+    create_partition_info_png: bool = False
 
     @classmethod
     def reimport_from_hats(cls, path: str | Path | UPath, output_dir: str | Path | UPath, **kwargs) -> Self:

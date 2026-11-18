@@ -40,8 +40,8 @@ def run(args, client):
         step_progress.update(1)
 
         if args.create_summary_html:
-            write_catalog_summary_file(args.catalog_path, fmt="html")
+            write_catalog_summary_file(args.catalog_path, **args.create_summary_html_kwargs)
         step_progress.update(1)
         if args.create_summary_md:
-            write_catalog_summary_file(args.catalog_path, fmt="markdown")
+            write_catalog_summary_file(args.catalog_path, **args.create_summary_md_kwargs)
         step_progress.update(1)

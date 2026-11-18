@@ -383,6 +383,31 @@ argument, and they will appear in the final ``hats.properties`` file:
 
     addl_hats_properties={"hats_cols_default": "id, mjd", "obs_regime": "Optical"},
 
+Additional static files?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+By default, we will create some files for human audiences to better understand the dataset.
+
+- ``README.md``
+- ``index.html``
+- ``skymap.png``
+- ``partition_info.png``
+
+You can turn any of these off via flags:
+
+- ``create_summary_md``
+- ``create_summary_html``
+- ``create_skymap_png``
+- ``create_partition_info_png``
+
+You can customize the content of the summary files. 
+They are created with ``hats.io.summary_file.write_catalog_summary_file`` 
+and you can pass additional configuration via flags:
+
+- ``create_summary_html_kwargs``
+- ``create_summary_md_kwargs`` (e.g. ``create_summary_md_kwargs={"huggingface_metadata": True}``)
+
+.. TODO - add a link to the summary files guide in HATS, once merged.
+
 Incremental catalogs
 -------------------------------------------------------------------------------
 

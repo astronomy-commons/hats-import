@@ -134,12 +134,14 @@ def test_split_summary_files(small_sky_order1_catalog, tmp_path, dask_client):
         create_partition_info_png=True,
         create_summary_html=True,
         create_summary_md=True,
+        create_summary_md_kwargs={"huggingface_metadata": True},
     )
     runner.run(args, dask_client)
 
     for catalog_path in (args.core.catalog_path, args.extension.catalog_path):
         for file_name in ["skymap.png", "partition_info.png", "index.html", "README.md"]:
             assert (catalog_path / file_name).exists()
+        assert (catalog_path / "README.md").read_text().strip().startswith("---\n")
 
 
 @pytest.mark.dask
